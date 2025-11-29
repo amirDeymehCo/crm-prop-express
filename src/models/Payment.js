@@ -11,10 +11,9 @@ const Payment = sequelize.define("Payment", {
     order_id: {
         type: DataTypes.STRING,
         allowNull: false,
-        unique: true,
     },
     user_id: {
-        type: DataTypes.BIGINT.UNSIGNED,
+        type: DataTypes.INTEGER,
         allowNull: false,
     },
     // مبلغ دلاری که می‌خوای به ولت داخلی بزنی

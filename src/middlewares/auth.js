@@ -1,6 +1,7 @@
 // middleware/auth.js
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const Wallet = require("../models/Wallet");
 
 const authUser = (req, res, next) => {
   const token = req.headers["authorization"]?.split(" ")[1];
@@ -14,8 +15,6 @@ const authUser = (req, res, next) => {
     return res.status(401).json({ message: "لطفا وارد سیستم شوید" });
   }
 
-
-
   jwt.verify(
     token,
     process.env.JWT_SECRET || "dawdawfawf_adjaiwdhawihfmafa",
@@ -24,13 +23,14 @@ const authUser = (req, res, next) => {
         return res.status(401).json({ message: "لطفا وارد سیستم شوید" });
       }
 
-
       const userFind = await User.findByPk(user.id, {
         attributes: { exclude: ["password"] },
       }); if (!userFind) {
         return res.status(401).json({ message: "کاربر یافت نشد" });
       }
-      req.user = userFind;
+
+      const walletFind = await Wallet.findOne({ where: { user_id: userFind?.id } })
+      req.user = { ...userFind.dataValues, wallet: walletFind };
       next();
     }
   );

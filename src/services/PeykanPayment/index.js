@@ -1,12 +1,14 @@
 // services/paykanService.js
 const axios = require("axios");
 const Payment = require("../../models/Payment");
+const { getDollarPrice } = require("../UsdPrice")
 
 const PAYKAN_BASE = "https://pgw.paykan.ir";
 
 async function getUsdToIrrRate() {
-    // فعلاً ثابت، بعداً می‌تونی از جدول config یا API بیاری
-    return 60000; // 1 USD = 60000 IRR
+    const { price } = await getDollarPrice()
+
+    return price + 2500
 }
 
 async function createDepositIRR({ userId, amountUsd }) {
@@ -26,8 +28,6 @@ async function createDepositIRR({ userId, amountUsd }) {
         provider: "paykan"
 
     });
-    console.log("AMIR=>>")
-    console.log("https://panel.myprop.trade/login")
 
     const body = {
         merchant_id: process.env.PAYKAN_MERCHANT_ID,

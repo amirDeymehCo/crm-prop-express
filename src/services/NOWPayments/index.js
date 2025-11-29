@@ -5,7 +5,8 @@ const Payment = require("../../models/Payment");
 const Wallet = require("../../models/Wallet");
 const sequelize = require("../../../db");
 
-const NOW_BASE_URL = process.env.NOWPAYMENTS_BASE_URL || "https://api.nowpayments.io";
+// const NOW_BASE_URL = process.env.NOWPAYMENTS_BASE_URL || "https://api.nowpayments.io";
+const NOW_BASE_URL = process.env.NOWPAYMENTS_BASE_URL || "https://api-sandbox.nowpayments.io";
 const NOW_API_KEY = process.env.NOWPAYMENTS_API_KEY;
 const NOW_IPN_SECRET = process.env.NOWPAYMENTS_IPN_SECRET;
 
@@ -37,7 +38,7 @@ async function createDepositUSDInvoice({ user, amountUsd }) {
         price_currency: "usd",
         order_id: orderId,
         order_description: `Wallet deposit for user #${user.id}`,
-        ipn_callback_url: `${process.env.API_BASE_URL}/api/v1/user/wallet/nowpayments/ipn`,
+        ipn_callback_url: `${process.env.API_BASE_URL}/api/v1/user/wallet/deposit/nowpayment/ipn`,
         success_url: `${process.env.FRONT_BASE_URL}/wallet/deposit-success`,
         cancel_url: `${process.env.FRONT_BASE_URL}/wallet/deposit-cancel`,
     };
@@ -59,7 +60,7 @@ async function createDepositUSDInvoice({ user, amountUsd }) {
 function verifyIpnSignature(rawBody, signatureHeader) {
     if (!signatureHeader) return false;
 
-    // rawBody اینجا باید object باشه که از JSON.parse بدست اومده
+
     const params = rawBody;
     const sortedString = JSON.stringify(params, Object.keys(params).sort());
 

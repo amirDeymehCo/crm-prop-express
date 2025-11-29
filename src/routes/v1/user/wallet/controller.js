@@ -1,7 +1,8 @@
 const Controllers = require("../../../controllers");
-const Wallet = require("../../../../models/Wallet");
 const { createDepositIRR } = require("../../../../services/PeykanPayment")
-const { createDepositUSDInvoice } = require("../../../../services/NOWPayments")
+const { createDepositUSDInvoice, handleIpnCallback } = require("../../../../services/NOWPayments")
+const Wallet = require("../../../../models/Wallet")
+const WidthdrawRequest = require("../../../../models/WidthdrawRequest")
 
 const Controller = class extends Controllers {
   async depositIRR(req, res) {
@@ -37,7 +38,7 @@ const Controller = class extends Controllers {
   async depositUSD(req, res, next) {
     try {
       const { amount_usd } = req.body;
-      const user = req.user; // چون قبلاً auth شده
+      const user = req.user;
 
       const { invoiceUrl, payment } = await createDepositUSDInvoice({
         user,
@@ -54,6 +55,27 @@ const Controller = class extends Controllers {
     } catch (err) {
       next(err);
     }
+  }
+  async ipnNowPayment(req, res) {
+    const signature = req.headers["x-nowpayments-sig"];
+    const body = req.body;
+    const payment = await handleIpnCallback(body, signature);
+
+    return res.status(200).json({ success: true });
+
+  }
+  async widthdrawRequest(req, res) {
+    const { wallet_address, amount_usd } = req?.body
+    const widthStatusWiaings = await WidthdrawRequest.findOne({ where: { status: "waiting", user_id: req?.user?.id } });
+    if (widthStatusWiaings) return this.response({ res, status: 400, message: "کاربر گرامی، شما یک درخواست برداشت قبلا ثبت کرده اید" })
+
+
+    const wallet = await Wallet.findOne({ where: { user_id: req?.user?.id } })
+    if (!wallet || (parseFloat(wallet?.balance) < parseFloat(amount_usd))) return this.response({ res, status: 400, message: "موچودی ولت شما کمتر از مقدار درخواستی هست" })
+
+    await WidthdrawRequest.create({ wallet_address, amount: parseFloat(amount_usd), status: "waiting", user_id: req?.user?.id })
+    this.response({ res, status: 200, message: "کاربر مای پراپ درخواست برداشت شما ثبت شد!" })
+
   }
 };
 
