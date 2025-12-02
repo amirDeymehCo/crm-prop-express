@@ -4,6 +4,8 @@ const sequelize = require("../db");
 const router = require("./routes");
 const app = express();
 const PORT = process.env.PORT || 8000;
+require("./crons/UpdateDollarPrice");
+
 
 // app.use(helmet());
 // app.use(bodyParser.json());

@@ -20,7 +20,7 @@ const client = axios.create({
 });
 
 // ۱) ساختن invoice (کاربر رو می‌فرستی روی صفحه پرداخت NOWPayments)
-async function createDepositUSDInvoice({ user, amountUsd }) {
+async function createDepositUSDInvoice({ user, amountUsd, callback_url = null }) {
     // 1. توی دیتابیس یه رکورد Payment بساز
     const orderId = `now-${user.id}-${Date.now()}`;
 
@@ -38,7 +38,7 @@ async function createDepositUSDInvoice({ user, amountUsd }) {
         price_currency: "usd",
         order_id: orderId,
         order_description: `Wallet deposit for user #${user.id}`,
-        ipn_callback_url: `${process.env.API_BASE_URL}/api/v1/user/wallet/deposit/nowpayment/ipn`,
+        ipn_callback_url: callback_url || `${process.env.API_BASE_URL}/api/v1/user/wallet/deposit/nowpayment/ipn`,
         success_url: `${process.env.FRONT_BASE_URL}/wallet/deposit-success`,
         cancel_url: `${process.env.FRONT_BASE_URL}/wallet/deposit-cancel`,
     };
@@ -59,7 +59,6 @@ async function createDepositUSDInvoice({ user, amountUsd }) {
 // ۲) اعتبارسنجی IPN (امضا)
 function verifyIpnSignature(rawBody, signatureHeader) {
     if (!signatureHeader) return false;
-
 
     const params = rawBody;
     const sortedString = JSON.stringify(params, Object.keys(params).sort());

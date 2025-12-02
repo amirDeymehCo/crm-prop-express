@@ -2,6 +2,8 @@
 const { DataTypes } = require("sequelize");
 const sequelize = require("../../db");
 const User = require("./User");
+const ChallengePlan = require("./ChallengePlan");
+const UserChallenge = require("./UserChallenge");
 
 const Payment = sequelize.define("Payment", {
     provider: {
@@ -18,6 +20,10 @@ const Payment = sequelize.define("Payment", {
     },
     // مبلغ دلاری که می‌خوای به ولت داخلی بزنی
     amount_usd: {
+        type: DataTypes.DECIMAL(18, 4),
+        allowNull: false,
+    },
+    amount_irr: {
         type: DataTypes.DECIMAL(18, 4),
         allowNull: false,
     },
@@ -49,6 +55,11 @@ const Payment = sequelize.define("Payment", {
     },
     raw_callback: {
         type: DataTypes.JSON,
+    },
+    UserChallenge: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        references: { model: UserChallenge }
     },
 }, {
     tableName: "payments",

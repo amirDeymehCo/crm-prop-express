@@ -10,6 +10,10 @@ router.post(
   Controller.validationBody,
   asyncHandler(Controller.depositIRR)
 )
+router.post(
+  "/deposit-IR-callback",
+  asyncHandler(Controller.depositIRRCallback)
+)
   .post(
     "/deposit/nowpayment",
     validator.depositUSD(),
@@ -20,9 +24,9 @@ router.post(
     "/deposit/nowpayment/ipn",
     asyncHandler(Controller.ipnNowPayment)
   )
-  .get("/paykan/callback", asyncHandler(Controller.callbackPaykan))
-  .post("/paykan/callback", asyncHandler(Controller.callbackPaykanPost))
   .post("/widthdrawRequest", validator.widthdrawRequest(), Controller.validationBody, asyncHandler(Controller.widthdrawRequest))
+  .get("/transactionsList", asyncHandler(Controller.transactionsList))
+  .get("/states", asyncHandler(Controller.states))
 
 
 module.exports = router;

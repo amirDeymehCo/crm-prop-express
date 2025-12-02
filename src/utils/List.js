@@ -1,4 +1,4 @@
-const founcList = async (model, req, where = {}) => {
+const founcList = async (model, req, where = {}, otherProps = {}) => {
     const query = req?.query
     // paginations 
     const page = query?.page ? parseInt(query.page) : 1;
@@ -9,6 +9,7 @@ const founcList = async (model, req, where = {}) => {
         where,
         limit: limit,
         offset: offset,
+        ...otherProps
     });
 
     const totalCount = result.count;
@@ -20,7 +21,6 @@ const founcList = async (model, req, where = {}) => {
         totalPages: Math.ceil(totalCount / limit),
         items,
     };
-
 
 
 

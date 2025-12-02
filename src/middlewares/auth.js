@@ -2,6 +2,7 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const Wallet = require("../models/Wallet");
+const Setting = require("../models/Setting");
 
 const authUser = (req, res, next) => {
   const token = req.headers["authorization"]?.split(" ")[1];
@@ -30,7 +31,11 @@ const authUser = (req, res, next) => {
       }
 
       const walletFind = await Wallet.findOne({ where: { user_id: userFind?.id } })
-      req.user = { ...userFind.dataValues, wallet: walletFind };
+      const setting = await Setting.findOne({ where: { id: 1 } });
+      const amount_irr = walletFind?.balance * setting?.dollar_price
+
+
+      req.user = { ...userFind.dataValues, wallet: { ...walletFind?.dataValues, amount_irr } };
       next();
     }
   );

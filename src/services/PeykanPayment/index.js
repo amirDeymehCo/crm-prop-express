@@ -11,7 +11,7 @@ async function getUsdToIrrRate() {
     return price + 2500
 }
 
-async function createDepositIRR({ userId, amountUsd }) {
+async function paykanService({ userId, amountUsd, callback_url = "https://api.myprop.trade/api/v1/web/show-data-getway", userChallenge = null }) {
     const rate = await getUsdToIrrRate();
     const amountIrr = Math.round(Number(amountUsd) * Number(rate));
 
@@ -25,15 +25,16 @@ async function createDepositIRR({ userId, amountUsd }) {
         amount_usd: amountUsd,
         rate_irr_per_usd: rate,
         status: "pending",
-        provider: "paykan"
-
+        provider: "paykan",
+        raw_callback: callback_url,
+        UserChallenge: userChallenge
     });
 
     const body = {
         merchant_id: process.env.PAYKAN_MERCHANT_ID,
         order_id: orderId,
         amount: amountIrr,
-        callback_url: "https://panel.myprop.trade/login",
+        callback_url,
         callback_method: "POST",
     };
 
@@ -63,5 +64,5 @@ async function createDepositIRR({ userId, amountUsd }) {
 }
 
 module.exports = {
-    createDepositIRR,
+    paykanService,
 };
