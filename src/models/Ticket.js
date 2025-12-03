@@ -1,6 +1,7 @@
 const { DataTypes } = require("sequelize");
 const sequelize = require("../../db");
 const User = require("./User");
+const UserChallenge = require("./UserChallenge");
 
 const Ticket = sequelize.define("Ticket", {
     user_id: {
@@ -10,6 +11,11 @@ const Ticket = sequelize.define("Ticket", {
             model: User, // مدل User، نه اسم جدول
             key: "id",
         },
+    },
+    type: {
+        type: DataTypes.ENUM("ticket", "widthdraw"),
+        allowNull: false,
+        defaultValue: "ticket"
     },
     title: {
         type: DataTypes.STRING,
@@ -32,10 +38,20 @@ const Ticket = sequelize.define("Ticket", {
             "ticket_open",
             "ticket_closed",
             "ticket_answered",
-            "ticket_in_review"
+            "ticket_in_review",
+            "ticket_waiting_payout",
+            "ticket_waiting_interview"
         ),
         allowNull: false,
         defaultValue: "ticket_open",
+    },
+    userChallenge: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        references: {
+            model: UserChallenge,
+            key: "id",
+        },
     },
 }, {
     tableName: "Tickets",

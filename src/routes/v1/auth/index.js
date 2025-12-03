@@ -4,6 +4,7 @@ const router = express.Router();
 const Controller = require("./controller");
 const asyncHandler = require("../../../utils/asyncHandler");
 const authenticateTokenUser = require("../../../middlewares/auth");
+const { otpLimiter } = require("../../../middlewares/rateLimit");
 
 router.post(
   "/register",
@@ -13,12 +14,14 @@ router.post(
 );
 router.post(
   "/send-otp",
+  otpLimiter,
   validator.forgotPassword(),
   Controller.validationBody,
   asyncHandler(Controller.sendOtp)
 );
 router.post(
   "/forgot-password",
+  otpLimiter,
   validator.forgotPassword(),
   Controller.validationBody,
   asyncHandler(Controller.forgotPassword)
@@ -43,6 +46,7 @@ router.post(
 );
 router.post(
   "/login-width-code",
+  otpLimiter,
   validator.loginCode(),
   Controller.validationBody,
   asyncHandler(Controller.loginCode)

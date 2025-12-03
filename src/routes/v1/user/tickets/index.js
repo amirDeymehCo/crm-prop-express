@@ -11,7 +11,10 @@ router.post(
   validator.create(),
   Controller.validationBody,
   asyncHandler(Controller.create)
-).get('/', asyncHandler(Controller.list)).get('/:id', asyncHandler(Controller.find)).post("/sendMessage/:id", upload.array("filesTicket", 5), validator.sendMessage(),
-  Controller.validationBody, asyncHandler(Controller.sendMessage))
+)
+  .get('/', asyncHandler(Controller.list))
+  .get('/:id', asyncHandler(Controller.find))
+  .post("/sendMessage/:id", upload.array("filesTicket", 5), validator.sendMessage(),
+    Controller.validationBody, asyncHandler(Controller.sendMessage))
 
 module.exports = router;

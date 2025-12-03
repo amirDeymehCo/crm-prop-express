@@ -3,6 +3,7 @@ const router = express.Router();
 const serverError = require("../middlewares/error");
 const v1Routes = require("./v1");
 
+
 router.use("/v1", v1Routes);
 
 router.use((req, res) => {

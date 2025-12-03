@@ -6,7 +6,9 @@ const { Op } = require("sequelize");
 
 const Controller = class extends Controllers {
   async create(req, res) {
-    const newTicket = await Ticket.create({ departeman: req?.body?.departeman, user_id: req?.user?.id, title: req?.body?.title, priority: req?.body?.priority, status: "ticket_open" });
+    const newTicket = await Ticket.create({
+      departeman: req?.body?.departeman, user_id: req?.user?.id, title: req?.body?.title, priority: req?.body?.priority, status: "ticket_open", type: req?.body?.type || "ticket", userChallenge: req?.body?.userChallenge || null
+    });
     await Message.create({ text: req?.body?.message, ticket_id: newTicket?.id, senderType: "user" })
 
 
@@ -26,8 +28,11 @@ const Controller = class extends Controllers {
     if (query.status) {
       where.status = query.status;
     }
-    if (query.challenge_id) {
-      where.challenge_id = query.challenge_id;
+    if (query.type) {
+      where.type = query.type;
+    }
+    if (query.userChallenge) {
+      where.userChallenge = query.userChallenge;
     }
     if (query.from || query.to) {
       where.created_at = {};
@@ -38,7 +43,6 @@ const Controller = class extends Controllers {
         where.created_at[Op.lte] = new Date(query.to);
       }
     }
-
 
     const resData = await founcList(Ticket, req, where)
     this.response({

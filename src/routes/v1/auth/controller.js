@@ -1,57 +1,115 @@
 const Controllers = require("../../controllers");
 const User = require("../../../models/User");
 const Otp = require("../../../models/Otp");
+const { generateCode, sendCode } = require("../../../services/KavenegarService");
 const jwt = require("jsonwebtoken");
+const { Op } = require("sequelize");
 
 const Controller = class extends Controllers {
   async register(req, res) {
-    const findUserByMobile = await User.findOne({
-      where: { mobile: req.body.mobile, verify_mobile: true },
-    });
-    if (findUserByMobile)
-      return this.response({
-        res,
-        status: 400,
-        message: "کاربری با این شماره تلفن قبلا ثبت نام کرده است",
+    try {
+      const { firstname, lastname, mobile, email, password } = req.body;
+
+      // ۱) چک کن آیا کاربری با همین موبایل یا ایمیل داریم یا نه (فارغ از verify_mobile)
+      const existingUser = await User.findOne({
+        where: {
+          [Op.or]: [
+            { mobile },
+            email ? { email } : null, // اگر ایمیل نداشت نادیده بگیر
+          ].filter(Boolean),
+        },
       });
 
-    const findUserByEmail = await User.findOne({
-      where: { email: req.body.email, verify_mobile: true },
-    });
-    if (findUserByEmail)
-      return this.response({
-        res,
-        status: 400,
-        message: "کاربری با این ایمیل قبلا ثبت نام کرده است",
+      // ۲) اگر کاربر قبلی هست و موبایلش verify شده ⇒ اجازه ثبت نام نده
+      if (existingUser && existingUser.verify_mobile === true) {
+        // تشخیص بده مشکل از موبایل بوده یا ایمیل (برای پیام بهتر)
+        let message = "کاربری با این اطلاعات قبلاً ثبت‌نام کرده است";
+
+        if (existingUser.mobile === mobile) {
+          message = "کاربری با این شماره تلفن قبلاً ثبت‌نام کرده است";
+        } else if (email && existingUser.email === email) {
+          message = "کاربری با این ایمیل قبلاً ثبت‌نام کرده است";
+        }
+
+        return this.response({
+          res,
+          status: 400,
+          message,
+        });
+      }
+
+      let user;
+
+      // ۳) اگر کاربر هست ولی verify نشده ⇒ همونو آپدیت کن (به‌جای ساخت کاربر جدید)
+      if (existingUser && existingUser.verify_mobile === false) {
+        user = existingUser;
+
+        user.firstname = firstname;
+        user.lastname = lastname;
+        user.mobile = mobile;
+        user.email = email;
+        user.password = password; // اینجا بهتره هش‌شده ذخیره کنی
+        user.status = "approved"; // یا مثلا "pending_mobile_verify"
+
+        await user.save();
+      } else {
+        // ۴) اگر اصلاً کاربری با این موبایل/ایمیل نبود ⇒ کاربر جدید بساز
+        user = await User.create({
+          firstname,
+          lastname,
+          mobile,
+          email,
+          password, // اینجا هم حتماً در عمل واقعی هش کن
+          status: "approved", // یا "pending_mobile_verify"
+        });
+      }
+
+      if (!user) {
+        return this.response({
+          res,
+          status: 400,
+          message: "متاسفانه در عملیات ثبت نام مشکلی پیش آمده است",
+        });
+      }
+
+      // ۵) OTP تولید و ذخیره کن
+      // const newCode = generateCode(4);
+      const newCode = 1234;
+
+      // هر OTP قبلی که هنوز waiting مونده رو می‌تونی expire کنی (اختیاری)
+      await Otp.update(
+        { status: "expired" },
+        { where: { mobile, status: "waiting" } }
+      );
+
+      // const sent = await sendCode({ receptor: mobile, token: newCode });
+      // if (!sent) {
+      //   return this.response({
+      //     res,
+      //     status: 500,
+      //     message: "در ارسال کد تایید مشکلی پیش آمده است، بعدا امتحان کنید",
+      //   });
+      // }
+
+      await Otp.create({
+        mobile,
+        code: newCode,
+        status: "waiting",
       });
 
-    const newUser = await User.create({
-      firstname: req?.body?.firstname,
-      lastname: req?.body?.lastname,
-      mobile: req?.body?.mobile,
-      email: req?.body?.email,
-      password: req?.body?.password,
-      status: "approved"
-    });
-
-    if (!newUser) {
       return this.response({
-        status: 400,
-        message: "متاسفانه در عملیات ثبت نام مشکلی پیش آمده است",
+        res,
+        status: existingUser ? 200 : 201,
+        message: "کد تایید تلفن شما ارسال شد",
+      });
+    } catch (error) {
+      console.error("Register error:", error);
+      return this.response({
+        res,
+        status: 500,
+        message: "خطای غیرمنتظره‌ای رخ داده است",
       });
     }
-    const newOtp = await Otp.create({
-      mobile: req?.body?.mobile,
-      code: 1234,
-      status: "waiting",
-    });
-
-    console.log("new Create................................................................")
-    this.response({
-      res,
-      status: 201,
-      message: "کد تایید تلفن شما ارسال شد",
-    });
   }
   async profile(req, res) {
 
@@ -72,14 +130,12 @@ const Controller = class extends Controllers {
     }
 
     const passVerify = await user.verifyPassword(password);
-    console.log("password:", password);
-    console.log("passVerify:", passVerify);
 
     if (!passVerify) {
       return res.status(400).json({ message: "کاربری با این مشخصات یافت نشد" });
     }
 
-    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET || "dawdawfawf_adjaiwdhawihfmafa", {
+    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, {
       expiresIn: "24h",
     });
 
@@ -138,7 +194,7 @@ const Controller = class extends Controllers {
         return this.response({
           res,
           status: 400,
-          message: "کاربری با این شماره تلفن یافت نشد",
+          message: "نام کاربری یا رمز عبور اشتباه است",
         });
       }
 
@@ -171,7 +227,7 @@ const Controller = class extends Controllers {
     if (!userFind) {
       return this.response({
         status: 400,
-        message: "کاربری با این شماره تلفن یافت نشد",
+        message: "نام کاربری یا رمز عبور اشتباه است",
       });
     }
 
@@ -195,7 +251,7 @@ const Controller = class extends Controllers {
     if (!userFind) {
       return this.response({
         status: 400,
-        message: "کاربری با این شماره تلفن یافت نشد",
+        message: "نام کاربری یا رمز عبور اشتباه است",
       });
     }
 
@@ -229,6 +285,8 @@ const Controller = class extends Controllers {
     let pastTime = currentDate.getTime() - targetDate.getTime();
 
     if (pastTime >= 2 * 60 * 1000) {
+      otp.status = "expired";
+      await otp.save();
       return this.response({
         res,
         status: 400,
@@ -252,7 +310,7 @@ const Controller = class extends Controllers {
       return this.response({
         res,
         status: 400,
-        message: "کاربری با این شماره تلفن ارسالی یافن نشد",
+        message: "نام کاربری یا رمز عبور اشتباه است",
       });
 
     user.password = req?.body?.password;

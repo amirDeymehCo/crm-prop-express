@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const sequelize = require("../db");
 const router = require("./routes");
+const { globalLimiter } = require("./middlewares/rateLimit");
 const app = express();
 const PORT = process.env.PORT || 8000;
 require("./crons/UpdateDollarPrice");
@@ -9,8 +10,9 @@ require("./crons/UpdateDollarPrice");
 
 // app.use(helmet());
 // app.use(bodyParser.json());
-/////
 // CORS Error
+app.set('trust proxy', 1);
+app.use(globalLimiter);
 app.use(cors());
 app.options("*", cors());
 
@@ -20,7 +22,7 @@ app.use((req, res, next) => {
   res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
   next();
 });
-////
+
 // routes and middlewares
 app.use(express.json({ limit: "30mb" }));
 app.use(express.urlencoded({ extended: true }));
