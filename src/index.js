@@ -3,6 +3,7 @@ const cors = require("cors");
 const sequelize = require("../db");
 const router = require("./routes");
 const { globalLimiter } = require("./middlewares/rateLimit");
+const initRbac = require("./configs/permissionsInit");
 const app = express();
 const PORT = process.env.PORT || 8000;
 require("./crons/UpdateDollarPrice");
@@ -36,15 +37,19 @@ app.use("/public", (req, res, next) => {
 app.use(express.static("public"));
 app.use("/api", router);
 
-sequelize
-  .sync({ alter: true })
-  .then(() => {
-    console.log("Database synced");
-  })
-  .catch((err) => console.error("Database sync failed: ", err));
+(async () => {
+  try {
+    await sequelize.authenticate();
+    await sequelize.sync({ alter: true }); // اگر از migrations استفاده می‌کنی، همون migrate خودت
+    await initRbac(); // 👈 اینجا پرمیشن‌ها و گروه‌ها ایجاد/آپدیت می‌شن
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
-
-
+    console.log("DB Connected...")
+    const PORT = process.env.PORT || 8000;
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  } catch (err) {
+    console.error("Failed to start server:", err);
+    process.exit(1);
+  }
+})();

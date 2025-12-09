@@ -183,10 +183,11 @@ const Controller = class extends Controllers {
           status: 400,
           message: "کد ارسالی اشتباه است",
         });
+      } else {
+        otp.status = "verify";
+        await otp.save();
       }
 
-      otp.status = "verify";
-      await otp.save();
 
       const user = await User.findOne({ where: { mobile } });
 
@@ -318,7 +319,7 @@ const Controller = class extends Controllers {
 
     this.response({
       res,
-      message: "رمز عبور شما تغیر یافت لطفا دوباره وارد سایت شوید",
+      message: "کاربر مای پراپ، رمز عبور شما با موفقیت تغییر یافت",
     });
   }
   async loginCode(req, res) {
@@ -332,6 +333,11 @@ const Controller = class extends Controllers {
         message: "کاربری با این شماره موبایل پیدا نشد"
       });
 
+    await Otp.create({
+      mobile: req?.body?.mobile,
+      code: 1234,
+      status: "waiting",
+    });
 
     this.response({
       res,
