@@ -1,10 +1,9 @@
 // src/models/Call.js
 const { DataTypes } = require("sequelize");
-const sequelize = require("../../db");
+const sequelize = require("../../../db");
 
-// مدل‌های مرتبط
-const User = require("./User");
-const Admin = require("./Admin");
+const User = require("../User");
+const Admin = require("../Admin");
 const CallRejectReason = require("./CallRejectReason");
 const CallResultOption = require("./CallResultOption");
 const CallResult = require("./CallResult");
@@ -17,8 +16,8 @@ const Call = sequelize.define(
             allowNull: false,
         },
         is_answer: {
-            type: DataTypes.ENUM("outbound", "inbound"),
-            defaultValue: "outbound",
+            type: DataTypes.BOOLEAN,
+            allowNull: false
         },
         how_find: {
             type: DataTypes.ENUM(
@@ -47,7 +46,7 @@ const Call = sequelize.define(
             allowNull: true,
         },
         time: {
-            type: DataTypes.NUMBER,
+            type: DataTypes.INTEGER,
             allowNull: true,
         },
         direction: { // نوع تماس (تماس ورودی | تماس خروجی)

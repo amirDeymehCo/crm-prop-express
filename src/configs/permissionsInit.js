@@ -50,7 +50,7 @@ async function initRbac() {
 
     // ۳) (اختیاری) ساخت یک سوپر ادمین پیش‌فرض
     const [admin] = await Admin.findOrCreate({
-        where: { email: "admin@myprop.local" },
+        where: { mobile: "09358468124" },
         defaults: {
             name: "Super Admin",
             mobile: "09358468124",

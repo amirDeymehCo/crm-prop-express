@@ -1,8 +1,6 @@
 const { DataTypes } = require("sequelize");
 const sequelize = require("../../db");
 const bcrypt = require("bcrypt");
-// ❌ این خط رو حذف کن
-// const Wallet = require("./Wallet")
 
 const User = sequelize.define(
   "User",
@@ -70,6 +68,7 @@ const User = sequelize.define(
     },
   }
 );
+
 
 User.prototype.verifyPassword = async function (password) {
   return await bcrypt.compare(password, this.password);

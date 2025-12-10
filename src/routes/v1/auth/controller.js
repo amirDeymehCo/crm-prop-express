@@ -73,8 +73,7 @@ const Controller = class extends Controllers {
       }
 
       // ۵) OTP تولید و ذخیره کن
-      // const newCode = generateCode(4);
-      const newCode = 1234;
+      const newCode = generateCode(4);
 
       // هر OTP قبلی که هنوز waiting مونده رو می‌تونی expire کنی (اختیاری)
       await Otp.update(
@@ -82,14 +81,14 @@ const Controller = class extends Controllers {
         { where: { mobile, status: "waiting" } }
       );
 
-      // const sent = await sendCode({ receptor: mobile, token: newCode });
-      // if (!sent) {
-      //   return this.response({
-      //     res,
-      //     status: 500,
-      //     message: "در ارسال کد تایید مشکلی پیش آمده است، بعدا امتحان کنید",
-      //   });
-      // }
+      const sent = await sendCode({ receptor: mobile, token: newCode });
+      if (!sent) {
+        return this.response({
+          res,
+          status: 500,
+          message: "در ارسال کد تایید مشکلی پیش آمده است، بعدا امتحان کنید",
+        });
+      }
 
       await Otp.create({
         mobile,
@@ -232,9 +231,19 @@ const Controller = class extends Controllers {
       });
     }
 
+    const newCode = generateCode(4);
+    const sent = await sendCode({ receptor: req?.body?.mobile, token: newCode });
+    if (!sent) {
+      return this.response({
+        res,
+        status: 500,
+        message: "در ارسال کد تایید مشکلی پیش آمده است، بعدا امتحان کنید",
+      });
+    }
+
     await Otp.create({
       mobile: req?.body?.mobile,
-      code: 1234,
+      code: newCode,
       status: "waiting",
     });
 
@@ -256,9 +265,19 @@ const Controller = class extends Controllers {
       });
     }
 
+    const newCode = generateCode(4);
+    const sent = await sendCode({ receptor: req?.body?.mobile, token: newCode });
+    if (!sent) {
+      return this.response({
+        res,
+        status: 500,
+        message: "در ارسال کد تایید مشکلی پیش آمده است، بعدا امتحان کنید",
+      });
+    }
+
     await Otp.create({
       mobile: req?.body?.mobile,
-      code: 1234,
+      code: newCode,
       status: "waiting",
     });
 
@@ -333,9 +352,19 @@ const Controller = class extends Controllers {
         message: "کاربری با این شماره موبایل پیدا نشد"
       });
 
+    const newCode = generateCode(4);
+    const sent = await sendCode({ receptor: req?.body?.mobile, token: newCode });
+    if (!sent) {
+      return this.response({
+        res,
+        status: 500,
+        message: "در ارسال کد تایید مشکلی پیش آمده است، بعدا امتحان کنید",
+      });
+    }
+
     await Otp.create({
       mobile: req?.body?.mobile,
-      code: 1234,
+      code: newCode,
       status: "waiting",
     });
 

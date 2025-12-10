@@ -5,7 +5,7 @@ const Wallet = require("./Wallet");
 
 const WalletTransaction = sequelize.define("WalletTransaction", {
     type: {
-        type: DataTypes.ENUM("deposit", "withdraw", "transfer_in", "transfer_out", "adjustment",),
+        type: DataTypes.ENUM("deposit", "withdraw", "buy_ch", "transfer_in", "transfer_out", "adjustment",),
         allowNull: false,
     },
     amount: {

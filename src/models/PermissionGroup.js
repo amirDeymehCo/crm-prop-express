@@ -12,7 +12,6 @@ const PermissionGroup = sequelize.define("PermissionGroup", {
     code: {
         type: DataTypes.STRING(100),
         allowNull: false,
-        unique: true,
     },
     description: {
         type: DataTypes.STRING,

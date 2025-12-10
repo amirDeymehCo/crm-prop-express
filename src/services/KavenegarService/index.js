@@ -8,15 +8,15 @@ function generateCode(len = 6) {
 }
 
 // برای الگوهای کاوه نگار (Lookup)
-async function sendCode({ receptor, token, template = "%OTP%" }) {
+async function sendCode({ receptor, token, template = "myprop" }) {
     try {
         const url = `https://api.kavenegar.com/v1/${KAVENEGAR_API_KEY}/verify/lookup.json`;
 
         const { data } = await axios.get(url, {
             params: {
-                receptor,   // شماره موبایل کاربر
-                token,      // همون کد تایید
-                template,   // نام الگوی تایید در پنل کاوه‌نگار
+                receptor,
+                token,
+                template,
                 sender: SENDER_NUMBER
             },
             timeout: 10000,

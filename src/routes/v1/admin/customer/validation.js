@@ -1,27 +1,42 @@
 const { body } = require("express-validator");
 
 module.exports = new (class {
-  create() {
+  createCall() {
     return [
-      body("title")
+      body("description")
         .isLength({ min: 3 })
-        .withMessage("عنوان باید بیشتر از 3 کاراکتر باشد"),
-      body("departeman")
-        .isIn(["technical", "liveAccount", "challenges"])
-        .withMessage("مقدار دپارتمان نامعتبر هست"),
-      body("priority")
-        .isIn(["low", "medium", "high"])
-        .withMessage("مقدار اولویت نامعتبر هست"),
-      body("message")
-        .isLength({ min: 3 })
-        .withMessage("متن پیام باید بیشتر از 3 رقم باشد"),
-    ];
-  }
-  sendMessage() {
-    return [
-      body("message")
-        .isLength({ min: 3 })
-        .withMessage("پیام شما باید بیشتر از 3 رقم باشد"),
+        .withMessage("توضیحات باید بیشتر از 3 کاراکتر باشد"),
+      body("is_answer")
+        .isBoolean()
+        .withMessage("مقدار کاربر پاسخ داده است باید ارسال شود"),
+      body("how_find")
+        .isIn(["EMAIL",
+          "SMS",
+          "TELEGRAM",
+          "INSTAGRAM",
+          "WHATSAPP",
+          "FREANDS",
+          "GOOGLE"])
+        .withMessage("مقدار چطور با ما اشنا شدید نامعتبر است"),
+      body("category")
+        .isIn(["NEW_USER",
+          "CANCELED",
+          "FREE_CHALLENGE",
+          "NOT_PASSED",
+          "WAIT_PAYEMNT_FREE_CAHLLENGE",
+          "WAIT_PEYAMNT",
+          "BIME_CHALLENGE",
+          "PHONES_BUY",
+          "PHONES_NOT_BUY",])
+        .withMessage("مقدار دسته بندی کاربر نا معتبر است"),
+      body("time")
+        .not().isEmpty()
+        .withMessage("مقدار زمان باید ارسال شود"),
+      body("direction")
+        .isIn(["outbound",
+          "inbound",])
+        .withMessage("مقدار نوع تماس نا معتبر است"),
+      body("user_id").not().isEmpty().withMessage("user_id باید ارسال شود")
     ];
   }
 })();

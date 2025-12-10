@@ -1,9 +1,9 @@
 const Controllers = require("../../../controllers");
 const Admin = require("../../../../models/Admin");
-const Call = require("../../../../models/Call");
-const CallRejectReason = require("../../../../models/CallRejectReason");
-const CallResult = require("../../../../models/CallResult");
-const CallResultOption = require("../../../../models/CallResultOption");
+const Call = require("../../../../models/Call/Call");
+const CallRejectReason = require("../../../../models/Call/CallRejectReason");
+const CallResult = require("../../../../models/Call/CallResult");
+const CallResultOption = require("../../../../models/Call/CallResultOption");
 const Permission = require("../../../../models/Permission");
 const jwt = require("jsonwebtoken");
 

@@ -3,6 +3,7 @@ const { DataTypes } = require("sequelize");
 const sequelize = require("../../db");
 const PermissionGroup = require("./PermissionGroup");
 const bcrypt = require("bcrypt");
+const User = require("./User");
 
 const Admin = sequelize.define("Admin", {
     id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
@@ -41,6 +42,15 @@ PermissionGroup.belongsToMany(Admin, {
     through: "admin_permissiongroups",
     foreignKey: "group_id",
 });
+Admin.hasMany(User, {
+    as: "users",
+    foreignKey: "responsible_admin_id",
+});
+User.belongsTo(Admin, {
+    as: "responsible_admin",
+    foreignKey: "responsible_admin_id",
+});
+
 
 Admin.prototype.verifyPassword = async function (password) {
     return await bcrypt.compare(password, this.password);

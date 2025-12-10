@@ -1,6 +1,6 @@
 // src/models/CallResultOption.js
 const { DataTypes } = require("sequelize");
-const sequelize = require("../../db");
+const sequelize = require("../../../db");
 
 const CallResultOption = sequelize.define(
     "CallResultOption",
