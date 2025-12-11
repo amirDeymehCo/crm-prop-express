@@ -30,7 +30,28 @@ async function sendCode({ receptor, token, template = "myprop" }) {
     }
 }
 
+
+async function sendCustomMessage({ receptor, message }) {
+    try {
+        const url = `https://api.kavenegar.com/v1/${KAVENEGAR_API_KEY}/sms/send.json`;
+
+        const { data } = await axios.get(url, {
+            params: {
+                receptor,
+                message,
+                sender: SENDER_NUMBER
+            },
+            timeout: 10000,
+        });
+
+        return data;
+    } catch (error) {
+        throw new Error("خطا در ارسال پیام دلخواه");
+    }
+}
+
 module.exports = {
     sendCode,
-    generateCode
+    generateCode,
+    sendCustomMessage
 };

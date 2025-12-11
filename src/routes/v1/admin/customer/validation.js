@@ -39,4 +39,12 @@ module.exports = new (class {
       body("user_id").not().isEmpty().withMessage("user_id باید ارسال شود")
     ];
   }
+  createSms() {
+    return [
+      body("text")
+        .isLength({ min: 3 })
+        .withMessage("توضیحات باید بیشتر از 3 کاراکتر باشد"),
+      body("user_id").not().isEmpty().withMessage("user_id باید ارسال شود")
+    ];
+  }
 })();

@@ -1,11 +1,13 @@
 const Controllers = require("../../../controllers");
 const User = require("../../../../models/User");
+const Admin = require("../../../../models/Admin");
 const UserChallenge = require("../../../../models/UserChallenge");
 const Call = require("../../../../models/Call/Call");
 const CallRejectReason = require("../../../../models/Call/CallRejectReason");
 const CallResultOption = require("../../../../models/Call/CallResultOption");
-const Admin = require("../../../../models/Admin");
+const SmsMessage = require("../../../../models/SmsMessage");
 const sequelize = require("../../../../../db")
+const { sendCustomMessage } = require("../../../../services/KavenegarService")
 
 const Controller = class extends Controllers {
   async getData(req, res) {
@@ -78,6 +80,32 @@ const Controller = class extends Controllers {
 
     this.response({ res, status: 200, message: `ادمین ${req?.admin?.name} مدیریت کاربر ${findUser?.firstname + "  " + findUser?.lastname} به شما سپرده شد! ` })
 
+  }
+  async createSms(req, res) {
+    const findUser = await User?.findByPk(req?.body?.user_id)
+    if (!findUser) return this.response({ res, status: 400, message: "کاربری با این شناسه یافت نشد" })
+
+    const sendSms = await sendCustomMessage({ receptor: findUser?.mobile, message: req?.body?.text })
+    if (!sendSms) return this.response({ res, status: 400, message: "متاسفانه پیام برای کاربر ارسال نشد" })
+    const newSms = await SmsMessage.create({ text: req?.body?.text, user_id: req?.body?.user_id, admin_id: req?.admin?.id })
+
+    if (!newSms) this.response({ res, status: 400, message: "متاسفانه پیام ذخیره نشد" })
+
+    this.response({ res, message: "پیام شما با موفقیت ارسال شد" })
+  }
+  async smsList(req, res) {
+    const findUser = await User.findOne({ id: req?.params?.user_id })
+    if (!findUser) this.response({ res, status: 400, message: "کاربری با این شناسه پیدا نشد" })
+
+    const messages = await SmsMessage?.findAll({
+      where: { user_id: req?.params?.user_id }, include: [{
+        model: Admin,
+        as: "admin",
+        attributes: { exclude: ["password"] }
+      }]
+    })
+
+    this.response({ res, message: "لیست پیامک های کاربر", data: messages })
   }
 };
 

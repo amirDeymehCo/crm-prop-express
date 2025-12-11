@@ -3,14 +3,18 @@ const router = express.Router();
 const userRouter = require("./user");
 const adminRouter = require("./admin");
 const authRouter = require("./auth");
+const authAdminRouter = require("./admin/auth");
 const authUser = require("../../middlewares/auth");
 const { authLimiter } = require("../../middlewares/rateLimit");
+const authAdmin = require("../../middlewares/authAdmin");
+const loadAdminPermissions = require("../../middlewares/loadAdminPermissions");
 
 
 
 router.use("/auth", authLimiter, authRouter);
+router.use("/authAdmin", authAdminRouter);
 router.use("/user", authUser, userRouter);
-router.use("/admin", adminRouter);
+router.use("/admin", authAdmin, loadAdminPermissions, adminRouter);
 
 
 module.exports = router;
