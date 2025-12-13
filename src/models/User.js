@@ -35,6 +35,10 @@ const User = sequelize.define(
       allowNull: false,
       defaultValue: "approved",
     },
+    referrer_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
   },
   {
     hooks: {
@@ -73,5 +77,16 @@ const User = sequelize.define(
 User.prototype.verifyPassword = async function (password) {
   return await bcrypt.compare(password, this.password);
 };
+
+User.hasMany(User, {
+  foreignKey: "referrer_id",
+  as: "referrals", // زیرمجموعه‌ها
+});
+
+User.belongsTo(User, {
+  foreignKey: "referrer_id",
+  as: "referrer", // معرف
+});
+
 
 module.exports = User;

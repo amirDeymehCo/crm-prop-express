@@ -13,13 +13,21 @@ const Ticket = sequelize.define("Ticket", {
         },
     },
     type: {
-        type: DataTypes.ENUM("ticket", "widthdraw"),
+        type: DataTypes.ENUM("ticket", "widthdraw", "kyc"),
         allowNull: false,
         defaultValue: "ticket"
     },
     title: {
         type: DataTypes.STRING,
         allowNull: false,
+    },
+    files: {
+        type: DataTypes.JSON,
+        allowNull: true,
+    },
+    steep_kvc: {
+        type: DataTypes.ENUM("steep1", "steep2"),
+        allowNull: true,
     },
     departeman: {
         type: DataTypes.ENUM("technical", "liveAccount", "challenges"),
@@ -40,7 +48,10 @@ const Ticket = sequelize.define("Ticket", {
             "ticket_answered",
             "ticket_in_review",
             "ticket_waiting_payout",
-            "ticket_waiting_interview"
+            "ticket_waiting_interview",
+            "kvc_pending",
+            "kyc_closed",
+            "kvc_approved"
         ),
         allowNull: false,
         defaultValue: "ticket_open",
@@ -58,9 +69,20 @@ const Ticket = sequelize.define("Ticket", {
     timestamps: true,
 });
 
-module.exports = Ticket;
-
 
 // RELATIONS
 User.hasMany(Ticket, { foreignKey: "user_id" });
 Ticket.belongsTo(User, { foreignKey: "user_id" });
+
+
+module.exports = Ticket;
+
+
+
+// "تیکت_باز"،
+// "تیکت_بسته"،
+// "تیکت_پاسخ_داده شده"،
+// "تیکت_در_حال_بررسی"،
+// "تیکت_در_انتظار_پرداخت"،
+// "تیکت_در_انتظار_مصاحبه"
+// 
