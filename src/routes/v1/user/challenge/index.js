@@ -19,7 +19,7 @@ router.get(
   )
   .post(
     "/buy-challenge-callback",
-    asyncHandler(Controller.callbaclBuyCh)
+    asyncHandler(Controller.callbackBuyCh)
   )
 
 module.exports = router;

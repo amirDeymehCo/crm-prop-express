@@ -1,6 +1,7 @@
 // services/paykanService.js
 const axios = require("axios");
 const Payment = require("../../models/Payment");
+const Order = require("../../models/Order");
 const { getDollarPrice } = require("../UsdPrice")
 
 const PAYKAN_BASE = "https://pgw.paykan.ir";
@@ -17,6 +18,17 @@ async function paykanService({ userId, amountUsd, callback_url = "https://api.my
 
     const orderId = `dep-${userId}-${Date.now()}`; // یکتا
 
+    const newOrder = await Order.create({
+        gateway_order_id: orderId,
+        user_id: userId,
+        amount_irr: amountIrr,
+        amount_usd: amountUsd,
+        currency: "IRR",
+        gateway: "paykan",
+        status: "pending",
+    });
+
+
     // ساخت رکورد Payment در حالت pending
     const payment = await Payment.create({
         order_id: orderId,
@@ -29,6 +41,8 @@ async function paykanService({ userId, amountUsd, callback_url = "https://api.my
         raw_callback: callback_url,
         UserChallenge: userChallenge
     });
+
+
 
     const body = {
         merchant_id: process.env.PAYKAN_MERCHANT_ID,
@@ -45,7 +59,7 @@ async function paykanService({ userId, amountUsd, callback_url = "https://api.my
             throw new Error("Paykan create payment failed");
         }
 
-        const { token, ref_num, pgw_amount } = resp.data;
+        const { token, ref_num } = resp.data;
 
         // ref_num برگشتی در create رو هم ذخیره کن
         payment.ref_num = ref_num;

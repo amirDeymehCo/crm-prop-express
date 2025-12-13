@@ -1,6 +1,6 @@
 // models/ChallengePhase.js
 const { DataTypes } = require("sequelize");
-const sequelize = require("../../db");
+const sequelize = require("../../../db");
 const ChallengePlan = require("./ChallengePlan");
 
 const ChallengePhase = sequelize.define("ChallengePhase", {
@@ -37,6 +37,21 @@ const ChallengePhase = sequelize.define("ChallengePhase", {
     },
     notes: {
         type: DataTypes.TEXT,
+    },
+    // فیلد اختیاری
+    account_size_usd_override: {
+        type: DataTypes.DECIMAL(18, 2),
+        allowNull: true, // اگر null بود یعنی همان account_size_usd پلن
+    },
+
+    // اگر فاز۲ هزینه جدا دارد
+    phase_fee_usd: {
+        type: DataTypes.DECIMAL(18, 2),
+        allowNull: true,
+    },
+    phase_fee_irr: {
+        type: DataTypes.BIGINT,
+        allowNull: true,
     },
 });
 

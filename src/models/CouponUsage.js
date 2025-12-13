@@ -2,7 +2,7 @@ const { DataTypes } = require("sequelize");
 const sequelize = require("../../db");
 const Coupon = require("./Coupon")
 const User = require("./User")
-const UserChallenge = require("./UserChallenge")
+const UserChallenge = require("./Challenge/UserChallenge")
 
 // models/CouponUsage.js
 const CouponUsage = sequelize.define("CouponUsage", {

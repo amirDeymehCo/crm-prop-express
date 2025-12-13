@@ -1,9 +1,9 @@
 const sequelize = require("../../../db"); // اگر exportش فرق داره اینو عوض کن
 
 const User = require("../../models/User");
-const ChallengePlan = require("../../models/ChallengePlan");
-const ChallengePhase = require("../../models/ChallengePhase");
-const UserChallenge = require("../../models/UserChallenge");
+const ChallengePlan = require("../../models/Challenge/ChallengePlan");
+const ChallengePhase = require("../../models/Challenge/ChallengePhase");
+const UserChallenge = require("../../models/Challenge/UserChallenge");
 const UserChallengeRisk = require("../../models/UserChallengeRisk");
 const Coupon = require("../../models/Coupon");
 const CouponUsage = require("../../models/CouponUsage");

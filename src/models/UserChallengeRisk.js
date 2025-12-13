@@ -1,6 +1,6 @@
 const { DataTypes } = require("sequelize");
 const sequelize = require("../../db");
-const UserChallenge = require("./UserChallenge");
+const UserChallenge = require("./Challenge/UserChallenge");
 
 const UserChallengeRisk = sequelize.define("UserChallengeRisk", {
     is_enabled: {

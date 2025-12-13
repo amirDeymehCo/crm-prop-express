@@ -1,6 +1,6 @@
 // models/ChallengePlan.js
 const { DataTypes } = require("sequelize");
-const sequelize = require("../../db");
+const sequelize = require("../../../db");
 const ChallengeType = require("./ChallengeType");
 
 const ChallengePlan = sequelize.define("ChallengePlan", {

@@ -1,36 +1,35 @@
 // models/UserChallenge.js
 const { DataTypes } = require("sequelize");
-const sequelize = require("../../db");
-const User = require("./User");
+const sequelize = require("../../../db");
+const User = require("../User");
 const ChallengePlan = require("./ChallengePlan");
 
 const UserChallenge = sequelize.define("UserChallenge", {
     status: {
         type: DataTypes.ENUM(
-            "pending_payment",   // منتظر پرداخت
-            "active",            // در حال انجام مرحله فعلی
-            "failed",            // رد شده در چالش
-            "passed",            // کل چالش پاس شده، وارد حساب اصلی
-            "cancelled"
+            "pending_payment_phase1",
+            "phase1_active",
+            "phase1_waiting_admin",
+            "pending_payment_phase2",
+            "phase2_active",
+            "phase2_waiting_admin",
+            "funded_active",
+            "closed",
+            "failed"
         ),
-        defaultValue: "pending_payment",
         allowNull: false,
+        defaultValue: "pending_payment_phase1",
     },
     current_phase_index: {
         type: DataTypes.INTEGER,
         defaultValue: 1,
     },
-    mt_login: {
-        type: DataTypes.STRING,
-    },
-    in_password: {
-        type: DataTypes.STRING,
-    },
-    mt_password: {
-        type: DataTypes.STRING,
-    },
-    mt_server: {
-        type: DataTypes.STRING,
+
+    // چرخه funded (بعد از هر payout اگر حساب جدید می‌سازی)
+    funded_cycle_count: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
     },
     started_at: {
         type: DataTypes.DATE,
