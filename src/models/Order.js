@@ -32,7 +32,7 @@ const Order = sequelize.define(
 
         // درگاه
         gateway: {
-            type: DataTypes.ENUM("peykan", "nowpayments", "wallet"), // مثلا "peykan", "idpay", ...
+            type: DataTypes.ENUM("peykan", "nowpayments", "wallet", "coupon_free"), // مثلا "peykan", "idpay", ...
             allowNull: false,
         },
 

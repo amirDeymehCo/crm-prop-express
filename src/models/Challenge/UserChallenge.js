@@ -90,6 +90,10 @@ const UserChallenge = sequelize.define("UserChallenge", {
         type: DataTypes.DECIMAL(18, 2),
         allowNull: true,
     },
+    rules_snapshot: {
+        type: DataTypes.JSON,
+        allowNull: true,
+    },
 });
 
 User.hasMany(UserChallenge, { foreignKey: "user_id" });

@@ -7,7 +7,7 @@ const UserChallenge = require("./Challenge/UserChallenge");
 
 const Payment = sequelize.define("Payment", {
     provider: {
-        type: DataTypes.ENUM("paykan", "nowpayments", "wallet"),
+        type: DataTypes.ENUM("paykan", "nowpayments", "wallet", "coupon_free"),
         allowNull: false,
     },
     order_id: {
@@ -48,7 +48,8 @@ const Payment = sequelize.define("Payment", {
             "finished",
             "failed",
             "refunded",
-            "expired"
+            "expired",
+            "confirmed_free"
         ),
         allowNull: false,
         defaultValue: "pending",

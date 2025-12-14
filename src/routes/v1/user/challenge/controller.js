@@ -41,26 +41,57 @@ const Controller = class extends Controllers {
     try {
       // 1) ساخت چالش + ساخت order + payment (همون createChFounc خودت)
       const ch_data = await createChFounc(req, res, next, t);
-      // پیشنهاد: createChFounc رو طوری کن که transaction بگیره و همه چیز داخل همون t ساخته بشه
 
       const orderId = ch_data?.order?.gateway_order_id;
-      // یا هر چیزی که به عنوان order_id به درگاه میدی (تو callback با order_id کار می‌کنی)
-      console.log("ch_data=>", orderId)
-      // 2) مسیر ولت
+      const amountUsd = Number(ch_data?.order?.amount_usd || 0);
+
+
+
+      if (!orderId) {
+        await t.rollback();
+        return this.response({ res, status: 400, message: "شناسه سفارش ساخته نشد" });
+      }
+
+      // ✅ 2) اگر چالش رایگان است (final_price = 0) -> هیچ درگاهی نرو
+      if (amountUsd === 0) {
+        console.log("orderId=", orderId)
+        const result = await finalizeChallengeAfterPaid({
+          orderId,
+          trackingCode: `COUPON-FREE-${Date.now()}`,
+          refNum: null,
+          t,
+        });
+
+        console.log("result=>", result)
+        await t.commit();
+
+        return this.response({
+          res,
+          status: 200,
+          message: "چالش با کد تخفیف رایگان شد و اکانت مرحله اول ساخته شد",
+          data: {
+            user_challenge_id: result.userChallenge.id,
+            account_instance_id: result.acc.id,
+            mt_login: result.acc.mt_login,
+            mt_server: result.acc.mt_server,
+          },
+        });
+      }
+
+      // ✅ 3) مسیر ولت
       if (req?.body?.gateway === "wallet") {
         await payWithWallet({
           userId: req.user.id,
           orderId,
-          amountUsd: ch_data?.order?.amount_usd,
-          t
+          amountUsd,
+          t,
         });
 
-        // 3) چون ولت پول رو همینجا کم کرد، همون لحظه finalize انجام بده
         const result = await finalizeChallengeAfterPaid({
           orderId,
           trackingCode: `WALLET-${Date.now()}`,
           refNum: null,
-          t
+          t,
         });
 
         await t.commit();
@@ -74,48 +105,53 @@ const Controller = class extends Controllers {
             account_instance_id: result.acc.id,
             mt_login: result.acc.mt_login,
             mt_server: result.acc.mt_server,
-          }
+          },
         });
       }
 
-      // 4) مسیر درگاه‌ها مثل قبل (بدون finalize اینجا)
+      // 4) مسیر درگاه‌ها (نیازی به finalize اینجا نیست)
       await t.commit();
 
       if (req?.body?.gateway === "peykan") {
         const { redirectUrl } = await paykanService({
           userId: req?.user?.id,
-          amountUsd: ch_data?.order?.amount_usd,
-          userChallenge: ch_data?.userChallenge?.id
+          amountUsd,
+          userChallenge: ch_data?.userChallenge?.id,
         });
 
         return this.response({
           res,
           message: "سفارش شما ثبت شد در حال انتقال به درگاه...",
-          data: { url: redirectUrl }
+          data: { url: redirectUrl },
         });
       }
 
       if (req?.body?.gateway === "nowpayments") {
         const { invoiceUrl } = await createDepositUSDInvoice({
           callback_url: "https://api.myprop.trade/api/v1/web/show-data-getway",
-          amountUsd: ch_data?.order?.amount_usd,
-          user: req?.user
+          amountUsd,
+          user: req?.user,
         });
 
         return this.response({
           res,
           message: "سفارش شما ثبت شد در حال انتقال به درگاه...",
-          data: { url: invoiceUrl }
+          data: { url: invoiceUrl },
         });
       }
 
       return this.response({ res, message: "درگاه انتخابی اشتباه است", status: 400 });
-
     } catch (err) {
+      console.log(err)
       await t.rollback();
-      return this.response({ res, status: err.status || 500, message: err.message || "خطای سرور" });
+      return this.response({
+        res,
+        status: err.status || 500,
+        message: err.message || "خطای سرور",
+      });
     }
   }
+
 
 
   async callbackBuyCh(req, res) {

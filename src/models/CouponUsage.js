@@ -20,3 +20,6 @@ CouponUsage.belongsTo(User, { foreignKey: "user_id" });
 
 UserChallenge.hasOne(CouponUsage, { foreignKey: "user_challenge_id" });
 CouponUsage.belongsTo(UserChallenge, { foreignKey: "user_challenge_id" });
+
+
+module.exports = CouponUsage

@@ -129,11 +129,13 @@ async function finalizeChallengeAfterPaid({
     // 1) lock payment + idempotency
     const payment = await lockPaymentByOrderId({ orderId, t });
 
+    console.log("payment.status=>", payment.status)
+
     if (String(payment.status).toLowerCase() === "confirmed") {
         // قبلا انجام شده
         return { alreadyDone: true };
     }
-    if (!["pending", "waiting"].includes(String(payment.status))) {
+    if (!["pending", "waiting", "confirmed_free"].includes(String(payment.status))) {
         throw Object.assign(new Error("وضعیت تراکنش منتظر پرداخت نیست"), { status: 400 });
     }
 

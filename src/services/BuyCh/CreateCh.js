@@ -28,6 +28,48 @@ async function getActivePlan(planId, transaction) {
     return plan;
 }
 
+function buildRulesSnapshotWithFreeLogic({ plan, isFree }) {
+    const phases = [...(plan.ChallengePhases || [])]
+        .sort((a, b) => a.phase_index - b.phase_index)
+        .map(p => ({
+            phase_index: p.phase_index,
+            name: p.name,
+            duration_days: p.duration_days,
+            min_trading_days: p.min_trading_days,
+            max_daily_drawdown_percent: p.max_daily_drawdown_percent,
+            max_overall_drawdown_percent: p.max_overall_drawdown_percent,
+            profit_target_percent: Number(p.profit_target_percent),
+        }));
+
+    // فقط اگر چالش با کوپن رایگان شده
+    if (isFree) {
+        const p1 = phases.find(p => p.phase_index === 1);
+        const p2 = phases.find(p => p.phase_index === 2);
+
+        if (p1 && p2) {
+            // swap profit targets
+            [p1.profit_target_percent, p2.profit_target_percent] =
+                [p2.profit_target_percent, p1.profit_target_percent];
+        }
+    }
+
+    return {
+        plan: {
+            id: plan.id,
+            title: plan.title,
+            account_size_usd: plan.account_size_usd,
+            leverage: plan.leverage,
+            profit_share_percent: plan.profit_share_percent,
+        },
+        phases,
+        meta: {
+            is_free_challenge: isFree,
+            profit_target_swapped: isFree,
+        },
+    };
+}
+
+
 // -------- بیمه ---------- //
 
 function calculateInsurance(plan, withInsurance) {
@@ -301,19 +343,19 @@ async function createOrderRecord({ user, provider, userChallenge, gateway, price
             user_id: user.id,
             user_challenge_id: userChallenge.id,
             amount_usd: prices.final_price_usd,
-            gateway,                 // مثلا "peykan", "idpay", ...
-            status: "pending",       // تا وقتی که callback درگاه بیاد
+            gateway: prices?.final_price_usd === 0 ? "coupon_free" : gateway,                 // مثلا "peykan", "idpay", ...
+            status: prices?.final_price_usd === 0 ? "paid" : "pending",       // تا وقتی که callback درگاه بیاد
             gateway_order_id: orderId
         },
         { transaction }
     );
     await Payment.create(
         {
-            provider,
+            provider: prices?.final_price_usd === 0 ? "coupon_free" : provider,
             order_id: orderId,
             user_id: user?.id,
             amount_usd: prices?.final_price_usd,                 // مثلا "peykan", "idpay", ...
-            status: "pending",       // تا وقتی که callback درگاه بیاد
+            status: prices?.final_price_usd === 0 ? "confirmed_free" : "pending",       // تا وقتی که callback درگاه بیاد
             pay_currency: "usd",
             UserChallenge: userChallenge?.id
         },
@@ -365,10 +407,18 @@ async function purchaseChallenge(req, res, next) {
             discount,
         });
 
+
+        // برسی چالش رایگان و جابجایی تارگت سود 
+        const rulesSnapshot = buildRulesSnapshotWithFreeLogic({
+            plan,
+            isFree: prices?.final_price_usd === 0,
+        });
+
         // 6) ساخت رکورد چالش کاربر
         const userChallenge = await createUserChallengeRecord({
             user,
             plan,
+            rulesSnapshot, // new ruls
             insuranceInfo,
             prices,
             transaction: t,

@@ -20,7 +20,7 @@ async function payWithWallet({ userId, orderId, amountUsd, t }) {
 
     // 2) کم کردن موجودی
     await wallet.update(
-        { balance_usd: balance - Number(amountUsd) },
+        { balance: balance - Number(amountUsd) },
         { transaction: t }
     );
 
@@ -37,8 +37,6 @@ async function payWithWallet({ userId, orderId, amountUsd, t }) {
         { transaction: t }
     );
 
-
-    console.log("orderId=>", orderId)
 
     // 4) آپدیت Payment/Order به حالت پرداخت با ولت (اختیاری ولی بهتره)
     await Payment.update(

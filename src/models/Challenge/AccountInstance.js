@@ -40,7 +40,7 @@ const AccountInstance = sequelize.define(
         display_equity_usd: { type: DataTypes.DECIMAL(18, 2), allowNull: true },
 
         // snapshot قوانین همین اکانت (خیلی مهم برای اختلاف قوانین بین فازها)
-        rules_snapshot: { type: DataTypes.JSON, allowNull: true },
+        rules_snapshot: { type: DataTypes.JSON, allowNull: true, },
 
         status: {
             type: DataTypes.ENUM("pending", "active", "failed", "closed"),
