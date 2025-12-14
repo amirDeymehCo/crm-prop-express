@@ -1,7 +1,7 @@
 const { body } = require("express-validator");
 
 
-const ALLOWED_GATEWAYS = ["peykan", "nowpayments"]; // هرچی خودت داری جایگزین کن
+const ALLOWED_GATEWAYS = ["peykan", "nowpayments", "wallet"]; // هرچی خودت داری جایگزین کن
 
 
 module.exports = new (class {

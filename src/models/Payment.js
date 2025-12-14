@@ -7,7 +7,7 @@ const UserChallenge = require("./Challenge/UserChallenge");
 
 const Payment = sequelize.define("Payment", {
     provider: {
-        type: DataTypes.ENUM("paykan", "nowpayments"),
+        type: DataTypes.ENUM("paykan", "nowpayments", "wallet"),
         allowNull: false,
     },
     order_id: {
@@ -25,7 +25,7 @@ const Payment = sequelize.define("Payment", {
     },
     amount_irr: {
         type: DataTypes.DECIMAL(18, 4),
-        allowNull: false,
+        allowNull: true,
     },
     // NOWPayments side
     provider_payment_id: { // payment_id یا invoice_id

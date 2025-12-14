@@ -1,7 +1,16 @@
-const { Order, Payment, UserChallenge, ChallengePlan, AccountInstance } = require("../models");
-// createMTUser, generateMainPassword رو از جای خودت import کن
+const Order = require("../../models/Order");
+const Payment = require("../../models/Payment");
+const UserChallenge = require("../../models/Challenge/UserChallenge");
+const ChallengePlan = require("../../models/Challenge/ChallengePlan");
+const AccountInstance = require("../../models/Challenge/AccountInstance");
+const generateMainPassword = require("../BuyCh/CreatePassword");
+const createMTUser = require("../BuyCh/CreateMTUser");
 
 async function lockPaymentByOrderId({ orderId, t }) {
+
+
+    console.log("find order id payment=>", orderId)
+
     const payment = await Payment.findOne({
         where: { order_id: orderId },
         transaction: t,
@@ -22,6 +31,9 @@ async function lockOrderByGatewayOrderId({ orderId, t }) {
 }
 
 async function lockUserChallengeWithPlan({ userChallengeId, t }) {
+
+    console.log("userChallengeId=->", userChallengeId)
+
     const userChallenge = await UserChallenge.findByPk(userChallengeId, {
         include: [ChallengePlan],
         transaction: t,

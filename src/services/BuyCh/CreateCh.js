@@ -8,6 +8,7 @@ const UserChallengeRisk = require("../../models/UserChallengeRisk");
 const Coupon = require("../../models/Coupon");
 const CouponUsage = require("../../models/CouponUsage");
 const Order = require("../../models/Order");
+const Payment = require("../../models/Payment");
 
 // ===================== helpers اصلی ===================== //
 
@@ -291,7 +292,9 @@ async function registerCouponUsage({ coupon, user, userChallenge, discount, tran
 
 // -------- ساخت سفارش / پرداخت ---------- //
 
-async function createOrderRecord({ user, userChallenge, gateway, prices, transaction }) {
+async function createOrderRecord({ user, provider, userChallenge, gateway, prices, transaction }) {
+    const orderId = `buyCh-${user?.id}-${Date.now()}`; // یکتا
+
     // اینجا بسته به سیستم خودت می‌تونی چیزهای بیشتری ذخیره کنی
     const order = await Order.create(
         {
@@ -300,6 +303,19 @@ async function createOrderRecord({ user, userChallenge, gateway, prices, transac
             amount_usd: prices.final_price_usd,
             gateway,                 // مثلا "peykan", "idpay", ...
             status: "pending",       // تا وقتی که callback درگاه بیاد
+            gateway_order_id: orderId
+        },
+        { transaction }
+    );
+    await Payment.create(
+        {
+            provider,
+            order_id: orderId,
+            user_id: user?.id,
+            amount_usd: prices?.final_price_usd,                 // مثلا "peykan", "idpay", ...
+            status: "pending",       // تا وقتی که callback درگاه بیاد
+            pay_currency: "usd",
+            UserChallenge: userChallenge?.id
         },
         { transaction }
     );
@@ -377,6 +393,7 @@ async function purchaseChallenge(req, res, next) {
         // 9) ساخت سفارش / درخواست پرداخت (اگه سیستم پرداخت داری)
         const order = await createOrderRecord({
             user,
+            provider: req?.body?.gateway,
             userChallenge,
             gateway,
             prices,
