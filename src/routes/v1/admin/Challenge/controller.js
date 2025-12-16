@@ -3,11 +3,20 @@ const UserChallenge = require("../../../../models/Challenge/UserChallenge");
 const ChallengePlan = require("../../../../models/Challenge/ChallengePlan");
 const ChallengePhase = require("../../../../models/Challenge/ChallengePhase");
 const AccountInstance = require("../../../../models/Challenge/AccountInstance");
+const HistoryChallenge = require("../../../../models/Challenge/HistoryChallenge");
 const sequelize = require("../../../../../db");
 const CreateMTUser = require("../../../../services/BuyCh/CreateMTUser");
 
 // اگر پسوردها رو جایی داری
 const generateMainPassword = require("../../../../services/BuyCh/CreatePassword"); // مسیرش رو درست کن
+
+const typesStatus = {
+  payment_phase2: "در انتظار پرداخت چالش رایگان",
+  closed: "بسته شده",
+  phase1: "مرحله اول",
+  phase2: "مرحله دوم",
+  real: "مرحله ریل "
+}
 
 function getPhaseRulesFromSnapshot(userChallenge, phaseIndex) {
   const snap = userChallenge.rules_snapshot;
@@ -134,6 +143,8 @@ const Controller = class extends Controllers {
             { transaction: t }
           );
 
+          await HistoryChallenge.create({ type: "change_status", user_challenge_id: req?.body?.user_challenge_id, admin_id: req?.admin?.id, title: `وضعیت چالش ${typesStatus[status]} تغییر پیدا کرد` }, { transaction: t })
+
           await t.commit();
 
           return this.response({
@@ -166,6 +177,7 @@ const Controller = class extends Controllers {
         { status, current_phase_index: phaseIndex, challenge_phase: findGroup?.id },
         { transaction: t }
       );
+      await HistoryChallenge.create({ type: "change_status", user_challenge_id: req?.body?.user_challenge_id, admin_id: req?.admin?.id, title: `وضعیت چالش ${typesStatus[status]} تغییر پیدا کرد` }, { transaction: t })
 
       // 4) ساخت/پیدا کردن AccountInstance برای این فاز
       // cycle_no: برای real بعد از payout احتمالاً cycle_no زیاد می‌شود.
