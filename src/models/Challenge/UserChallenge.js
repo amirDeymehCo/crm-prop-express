@@ -3,28 +3,22 @@ const { DataTypes } = require("sequelize");
 const sequelize = require("../../../db");
 const User = require("../User");
 const ChallengePlan = require("./ChallengePlan");
+const { STATUS_USER_CHALLENGE } = require("../../utils/statusList");
+const ChallengePhase = require("./ChallengePhase");
+
 
 const UserChallenge = sequelize.define("UserChallenge", {
     status: {
         type: DataTypes.ENUM(
-            "pending_payment_phase1",
-            "phase1_active",
-            "phase1_waiting_admin",
-            "pending_payment_phase2",
-            "phase2_active",
-            "phase2_waiting_admin",
-            "funded_active",
-            "closed",
-            "failed"
+            ...STATUS_USER_CHALLENGE
         ),
         allowNull: false,
-        defaultValue: "pending_payment_phase1",
+        defaultValue: "pending",
     },
     current_phase_index: {
         type: DataTypes.INTEGER,
         defaultValue: 1,
     },
-
     // چرخه funded (بعد از هر payout اگر حساب جدید می‌سازی)
     funded_cycle_count: {
         type: DataTypes.INTEGER,
@@ -102,4 +96,8 @@ UserChallenge.belongsTo(User, { foreignKey: "user_id" });
 ChallengePlan.hasMany(UserChallenge, { foreignKey: "challenge_plan_id" });
 UserChallenge.belongsTo(ChallengePlan, { foreignKey: "challenge_plan_id" });
 
+UserChallenge.belongsTo(ChallengePhase, { foreignKey: "challenge_phase" });
+
 module.exports = UserChallenge;
+
+

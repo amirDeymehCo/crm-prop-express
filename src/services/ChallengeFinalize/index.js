@@ -169,7 +169,7 @@ async function finalizeChallengeAfterPaid({
 
     // 6) update challenge status
     await userChallenge.update(
-        { status: "phase1_active", current_phase_index: 1 },
+        { status: "phase1", current_phase_index: 1 },
         { transaction: t }
     );
 

@@ -18,6 +18,7 @@ const { payWithWallet } = require("../../../../services/BuyCh/WalletPay");
 const { finalizeChallengeAfterPaid } = require("../../../../services/ChallengeFinalize");
 const sequelize = require("../../../../../db");
 const { normalizeGatewayStatus } = require("../../../../helpers/paymentsStatus");
+const RequestChnageStatus = require("../../../../models/RequestChangeStatus");
 
 const Controller = class extends Controllers {
   async getPlansList(req, res) {
@@ -202,6 +203,19 @@ const Controller = class extends Controllers {
       await t.rollback();
       return this.response({ res, status: err.status || 500, message: err?.message || "خطای سرور" });
     }
+  }
+  async requestChangeStatus(req, res) {
+    const findReq = await RequestChnageStatus.findOne({ where: { user_challenge_id: req?.body?.user_challenge_id, status: "pending" } });
+    if (findReq) return this.response({ res, status: 400, message: "کاربر مای پراپ، شما قبلا برای این چالش درخواست ثبت کرده اید" })
+
+
+    await RequestChnageStatus.create({
+      user_id: req?.user?.id,
+      user_challenge_id: req?.body?.user_challenge_id,
+      status: "pending"
+    })
+
+    this.response({ res, status: 201, message: "کاربر مای پراپ، درخواست تغییر مرحله شما با موفقیت ثبت شد" })
   }
 };
 

@@ -286,6 +286,14 @@ async function createUserChallengeRecord({
     const floatingRiskSnapshot = buildFloatingRiskSnapshot(plan, startingBalance);
 
 
+    const phaseFind = await ChallengePhase.findOne({ where: { challenge_plan_id: plan?.id, phase_index: 1 }, attributes: ["id", "phase_index", "group"] });
+    if (!phaseFind) {
+        const err = new Error("با این پلن مرحله ای پیدا نشد");
+        err.status = 400;
+        throw err;
+
+    }
+
     const userChallenge = await UserChallenge.create(
         {
             user_id: user.id,
@@ -306,6 +314,10 @@ async function createUserChallengeRecord({
             final_price_usd: prices.final_price_usd,
 
             rules_snapshot: rulesSnapshot,
+            challenge_phase: phaseFind?.id,
+
+
+
             ...floatingRiskSnapshot
         },
         { transaction }

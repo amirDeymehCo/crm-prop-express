@@ -1,11 +1,16 @@
 // models/ChallengePhase.js
 const { DataTypes } = require("sequelize");
 const sequelize = require("../../../db");
+const ChallengeType = require("./ChallengeType");
 const ChallengePlan = require("./ChallengePlan");
 
 const ChallengePhase = sequelize.define("ChallengePhase", {
     phase_index: {                 // 1 = مرحله اول، 2 = دوم، 3 = حساب اصلی
         type: DataTypes.INTEGER,
+        allowNull: false,
+    },
+    group: {                 // 1 = مرحله اول، 2 = دوم، 3 = حساب اصلی
+        type: DataTypes.STRING,
         allowNull: false,
     },
     name: {                        // "مرحله اول" / "مرحله دوم" / "حساب اصلی"
@@ -57,5 +62,9 @@ const ChallengePhase = sequelize.define("ChallengePhase", {
 
 ChallengePlan.hasMany(ChallengePhase, { foreignKey: "challenge_plan_id" });
 ChallengePhase.belongsTo(ChallengePlan, { foreignKey: "challenge_plan_id" });
+
+ChallengeType.hasMany(ChallengePhase, { foreignKey: "challenge_type_id" });
+ChallengePhase.belongsTo(ChallengeType, { foreignKey: "challenge_type_id" });
+
 
 module.exports = ChallengePhase;

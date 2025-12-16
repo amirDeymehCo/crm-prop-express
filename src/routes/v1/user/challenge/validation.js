@@ -38,4 +38,12 @@ module.exports = new (class {
         .isLength({ min: 3, max: 50 }).withMessage("کد تخفیف باید حداقل ۳ کاراکتر باشد"),
     ];
   }
+  requestChangeStatus() {
+    return [
+      body("user_challenge_id")
+        .notEmpty().withMessage("شناسه چالش الزامی است")
+        .bail()
+        .isInt({ min: 1 }).withMessage("شناسه چالش معتبر نیست"),
+    ];
+  }
 })();

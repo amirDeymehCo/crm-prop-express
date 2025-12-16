@@ -21,5 +21,11 @@ router.get(
     "/buy-challenge-callback",
     asyncHandler(Controller.callbackBuyCh)
   )
+  .post(
+    "/request-change-status",
+    validation.requestChangeStatus(),
+    Controller.validationBody,
+    asyncHandler(Controller.requestChangeStatus)
+  )
 
 module.exports = router;
