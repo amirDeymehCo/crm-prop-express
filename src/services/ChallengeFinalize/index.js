@@ -5,6 +5,7 @@ const ChallengePlan = require("../../models/Challenge/ChallengePlan");
 const AccountInstance = require("../../models/Challenge/AccountInstance");
 const generateMainPassword = require("../BuyCh/CreatePassword");
 const createMTUser = require("../BuyCh/CreateMTUser");
+const ChallengePhase = require("../../models/Challenge/ChallengePhase");
 
 async function lockPaymentByOrderId({ orderId, t }) {
 
@@ -32,10 +33,8 @@ async function lockOrderByGatewayOrderId({ orderId, t }) {
 
 async function lockUserChallengeWithPlan({ userChallengeId, t }) {
 
-    console.log("userChallengeId=->", userChallengeId)
-
     const userChallenge = await UserChallenge.findByPk(userChallengeId, {
-        include: [ChallengePlan],
+        include: [ChallengePlan, { model: ChallengePhase, attributes: ["id", "group"] }],
         transaction: t,
         lock: t.LOCK.UPDATE,
     });
@@ -74,7 +73,7 @@ async function getOrCreatePhase1AccountInstance({ userChallenge, t }) {
     return acc;
 }
 
-async function createAndAttachMTAccount({ acc, plan, orderKey, t }) {
+async function createAndAttachMTAccount({ acc, plan, orderKey, group, t }) {
     // اگر قبلاً mt_login ثبت شده، دوباره نساز (idempotent)
     if (acc.mt_login) return acc;
 
@@ -95,7 +94,7 @@ async function createAndAttachMTAccount({ acc, plan, orderKey, t }) {
         inPassword,
         mPassword,
         leverge: plan.leverage,
-        groupch: "Live\\MYprop\\4-10Challenge",
+        groupch: group,
     });
 
     if (!mt?.Login) throw Object.assign(new Error("ساخت حساب متاتریدر ناموفق بود"), { status: 500 });
@@ -103,8 +102,8 @@ async function createAndAttachMTAccount({ acc, plan, orderKey, t }) {
     await acc.update(
         {
             mt_login: String(mt.Login),
-            mt_server: "Live\\MYprop\\4-10Challenge",
-            mt_group: "Live\\MYprop\\4-10Challenge",
+            mt_server: group,
+            mt_group: group,
             status: "active",
             activated_at: new Date(),
             mt_password: mPassword,
@@ -129,7 +128,6 @@ async function finalizeChallengeAfterPaid({
     // 1) lock payment + idempotency
     const payment = await lockPaymentByOrderId({ orderId, t });
 
-    console.log("payment.status=>", payment.status)
 
     if (String(payment.status).toLowerCase() === "confirmed") {
         // قبلا انجام شده
@@ -180,6 +178,7 @@ async function finalizeChallengeAfterPaid({
         plan: userChallenge.ChallengePlan,
         orderKey,
         t,
+        group: userChallenge?.ChallengePhase?.group
     });
 
     return {

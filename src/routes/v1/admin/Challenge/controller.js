@@ -146,7 +146,6 @@ const Controller = class extends Controllers {
           await HistoryChallenge.create({ type: "change_status", user_challenge_id: req?.body?.user_challenge_id, admin_id: req?.admin?.id, title: `وضعیت چالش ${typesStatus[status]} تغییر پیدا کرد` }, { transaction: t })
 
           await t.commit();
-
           return this.response({
             res,
             status: 200,

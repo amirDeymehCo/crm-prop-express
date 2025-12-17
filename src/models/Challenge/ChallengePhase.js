@@ -9,7 +9,7 @@ const ChallengePhase = sequelize.define("ChallengePhase", {
         type: DataTypes.INTEGER,
         allowNull: false,
     },
-    group: {                 // 1 = مرحله اول، 2 = دوم، 3 = حساب اصلی
+    group: {
         type: DataTypes.STRING,
         allowNull: false,
     },
