@@ -30,17 +30,17 @@ services:
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: my_props_strong@312@312
-      MYSQL_DATABASE: props_db
+      crm_mysql_dataBASE: props_db
       JWT_SECRET: dawdawfawf_adjaiwdhawihfmafa
     ports:
       - "3316:3306"
     volumes:
-      - mysql_data:/var/lib/mysql
+      - crm_mysql_data:/var/lib/mysql
     networks:
       - props-network
 
 volumes:
-  mysql_data:
+  crm_mysql_data:
   public_data:  
 
 networks:
