@@ -3,7 +3,7 @@ version: "3.9"
 services:
   app:
     build: .
-    container_name: props-app
+    container_name: props-app-crm
     ports:
       - "8040:8000"
     environment:
@@ -26,7 +26,7 @@ services:
 
   db:
     image: mysql:8
-    container_name: mysql-db
+    container_name: mysql-db-crm
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: my_props_strong@312@312
