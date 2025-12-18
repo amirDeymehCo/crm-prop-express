@@ -10,7 +10,7 @@ services:
       - NODE_ENV=development
       - PORT=8000
       - DB_HOST=db
-      - DB_PORT=3306
+      - DB_PORT=3316
       - DB_USER=root
       - DB_PASSWORD=my_props_strong@312@312
       - DB_NAME=props_db
