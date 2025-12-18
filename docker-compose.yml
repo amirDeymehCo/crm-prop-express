@@ -22,7 +22,7 @@ services:
       - public_data:/app/public  
     command: npm start
     networks:
-      - props-network
+      - props-network-crm
 
   db:
     image: mysql:8
@@ -37,12 +37,12 @@ services:
     volumes:
       - crm_mysql_data:/var/lib/mysql
     networks:
-      - props-network
+      - props-network-crm
 
 volumes:
   crm_mysql_data:
   public_data:  
 
 networks:
-  props-network:
+  props-network-crm:
     driver: bridge
