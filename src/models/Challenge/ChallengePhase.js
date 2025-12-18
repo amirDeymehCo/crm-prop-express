@@ -28,15 +28,15 @@ const ChallengePhase = sequelize.define("ChallengePhase", {
         type: DataTypes.INTEGER,
         allowNull: true,
     },
-    max_daily_drawdown_percent: {
+    max_daily_drawdown_percent: { // حدد ضرر روزانه
         type: DataTypes.DECIMAL(5, 2),
         allowNull: true,
     },
-    max_overall_drawdown_percent: {
+    max_overall_drawdown_percent: { // حد ضرر کلی
         type: DataTypes.DECIMAL(5, 2),
         allowNull: true,
     },
-    profit_target_percent: {
+    profit_target_percent: { // تارکت سود
         type: DataTypes.DECIMAL(5, 2),
         allowNull: true,
     },
@@ -44,9 +44,9 @@ const ChallengePhase = sequelize.define("ChallengePhase", {
         type: DataTypes.TEXT,
     },
     // فیلد اختیاری
-    account_size_usd_override: {
+    balance_override: {
         type: DataTypes.DECIMAL(18, 2),
-        allowNull: true, // اگر null بود یعنی همان account_size_usd پلن
+        allowNull: true, // اگر null بود یعنی همان balance پلن
     },
 
     // اگر فاز۲ هزینه جدا دارد

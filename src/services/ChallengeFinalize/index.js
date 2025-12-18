@@ -52,7 +52,7 @@ async function getOrCreatePhase1AccountInstance({ userChallenge, t }) {
     if (acc) return acc;
 
     const plan = userChallenge.ChallengePlan;
-    const startingBalance = Number(plan.account_size_usd);
+    const startingBalance = Number(plan.balance);
 
     acc = await AccountInstance.create(
         {

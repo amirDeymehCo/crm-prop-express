@@ -4,15 +4,11 @@ const sequelize = require("../../../db");
 const ChallengeType = require("./ChallengeType");
 
 const ChallengePlan = sequelize.define("ChallengePlan", {
-    logo: {
-        type: DataTypes.STRING,
-        allowNull: false,
-    },
     title: {                       // عنوان روی کارت، مثلا "چالش پیشرفته"
         type: DataTypes.STRING,
         allowNull: false,
     },
-    account_size_usd: {            // سایز حساب: 10000
+    balance: {            // سایز حساب: 10000
         type: DataTypes.DECIMAL(18, 2),
         allowNull: false,
     },

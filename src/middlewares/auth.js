@@ -25,7 +25,7 @@ const authUser = (req, res, next) => {
       }
 
       const userFind = await User.findByPk(user.id, {
-        attributes: { exclude: ["password"] },
+        attributes: { exclude: ["password", "responsible_admin_id"] },
       }); if (!userFind) {
         return res.status(401).json({ message: "کاربر یافت نشد" });
       }

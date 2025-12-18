@@ -19,6 +19,8 @@ const { finalizeChallengeAfterPaid } = require("../../../../services/ChallengeFi
 const sequelize = require("../../../../../db");
 const { normalizeGatewayStatus } = require("../../../../helpers/paymentsStatus");
 const RequestChnageStatus = require("../../../../models/RequestChangeStatus");
+const founcList = require("../../../../utils/List");
+const { Op } = require("sequelize");
 
 const Controller = class extends Controllers {
   async getPlansList(req, res) {
@@ -216,6 +218,56 @@ const Controller = class extends Controllers {
     })
 
     this.response({ res, status: 201, message: "کاربر مای پراپ، درخواست تغییر مرحله شما با موفقیت ثبت شد" })
+  }
+  async userChallenges(req, res) {
+    const { query } = req
+    const where = {
+      user_id: req?.user?.id,
+    };
+
+    if (query.challenge_plan_id) {
+      where.challenge_plan_id = query.challenge_plan_id;
+    }
+    if (query.platform) {
+      where.platform = query.platform;
+    }
+    if (query.current_phase_index) {
+      where.current_phase_index = query.current_phase_index;
+    }
+    if (query.status) {
+      where.status = query.status;
+    }
+
+    const list = await founcList(UserChallenge, req, where, {
+      include: [{
+        model: ChallengePlan, attributes: ["id", "balance", "floating_risk_type", "allow_insurance"],
+        include: [{
+          model: ChallengeType
+        }]
+      }, {
+        model: AccountInstance,
+        attributes: ["id", "platform", "phase_index", "mt_login", "mt_group", "in_password", "mt_password", "starting_balance_usd", "rules_snapshot", "status"]
+      }],
+      attributes: ["id", "status", "current_phase_index", "price_usd", "createdAt", "updatedAt"]
+    })
+
+    this.response({ res, message: "لیست چالش های کاربر", data: list })
+  }
+  async singleChallenge(req, res) {
+    const singleCh = await UserChallenge?.findByPk(req?.params?.id, {
+      include: [{
+        model: ChallengePlan,
+        include: [ChallengeType]
+      },
+        AccountInstance
+      ],
+      attributes: ["id", "status", "current_phase_index", "price_usd", "createdAt", "updatedAt"]
+    })
+
+    if (!singleCh) return this.response({ res, status: 400, message: "کاربر مای پراپ، چالشی با این شناسه یافت نشد لطفا دوباره امتحان کنید" });
+
+    this.response({ res, status: 200, message: "اطلاعات چالش", data: singleCh })
+
   }
 };
 

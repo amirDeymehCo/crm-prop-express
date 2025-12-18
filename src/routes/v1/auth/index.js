@@ -51,6 +51,5 @@ router.post(
   Controller.validationBody,
   asyncHandler(Controller.loginCode)
 );
-router.get("/profile", authenticateTokenUser, asyncHandler(Controller.profile));
 
 module.exports = router;

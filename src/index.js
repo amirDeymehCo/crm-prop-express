@@ -41,7 +41,7 @@ app.use("/api", router);
   try {
     await sequelize.authenticate();
     await sequelize.sync({ alter: true }); // اگر از migrations استفاده می‌کنی، همون migrate خودت
-    await initRbac();
+    // await initRbac();
 
     console.log("DB Connected...")
     const PORT = process.env.PORT || 8000;

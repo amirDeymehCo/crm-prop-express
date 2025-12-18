@@ -4,13 +4,23 @@ const Controller = require("./controller");
 const validation = require("./validation");
 const asyncHandler = require("../../../../utils/asyncHandler");
 
-router.get(
-  "/getPlansList",
-  asyncHandler(Controller.getPlansList)
-).get(
-  "/getPhase/:planId",
-  asyncHandler(Controller.getPhase)
-)
+router
+  .get(
+    "/user-challenges",
+    asyncHandler(Controller.userChallenges)
+  )
+  .get(
+    "/user-challenges/:id",
+    asyncHandler(Controller.singleChallenge)
+  )
+  .get(
+    "/getPlansList",
+    asyncHandler(Controller.getPlansList)
+  )
+  .get(
+    "/getPhase/:planId",
+    asyncHandler(Controller.getPhase)
+  )
   .post(
     "/buy-challenge",
     validation.buyChallenge(),

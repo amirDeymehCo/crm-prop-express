@@ -1,6 +1,7 @@
 
 
-const STATUS_USER_CHALLENGE = ["pending",
+const STATUS_USER_CHALLENGE = [
+    "pending",
     "phase1",
     "phase2",
     "real",

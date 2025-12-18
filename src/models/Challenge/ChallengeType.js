@@ -3,6 +3,10 @@ const { DataTypes } = require("sequelize");
 const sequelize = require("../../../db");
 
 const ChallengeType = sequelize.define("ChallengeType", {
+    logo: {
+        type: DataTypes.STRING,
+        allowNull: false,
+    },
     name: {            // مثلا "چالش پیشرفته"
         type: DataTypes.STRING,
         allowNull: false,

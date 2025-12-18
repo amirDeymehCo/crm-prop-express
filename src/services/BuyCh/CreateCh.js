@@ -57,7 +57,7 @@ function buildRulesSnapshotWithFreeLogic({ plan, isFree }) {
         plan: {
             id: plan.id,
             title: plan.title,
-            account_size_usd: plan.account_size_usd,
+            balance: plan.balance,
             leverage: plan.leverage,
             profit_share_percent: plan.profit_share_percent,
         },
@@ -88,7 +88,7 @@ function calculateInsurance(plan, withInsurance) {
             fee = Number(plan.price_usd) * (Number(plan.insurance_value) / 100);
             break;
         case "percent_of_balance":
-            fee = Number(plan.account_size_usd) * (Number(plan.insurance_value) / 100);
+            fee = Number(plan.balance) * (Number(plan.insurance_value) / 100);
             break;
         case "fixed":
             fee = Number(plan.insurance_value);
@@ -281,7 +281,7 @@ async function createUserChallengeRecord({
     prices,
     transaction,
 }) {
-    const startingBalance = plan.account_size_usd;
+    const startingBalance = plan.balance;
 
     const floatingRiskSnapshot = buildFloatingRiskSnapshot(plan, startingBalance);
 

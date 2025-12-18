@@ -35,8 +35,8 @@ async function getOrCreateAccountInstance({ userChallenge, phaseIndex, cycleNo, 
   if (acc) return acc;
 
   // بالانس شروع را از پلن یا اسنپ‌شات/قانون خودت تعیین کن
-  // (فعلاً از plan account_size_usd استفاده می‌کنیم)
-  const startingBalance = Number(userChallenge.ChallengePlan.account_size_usd);
+  // (فعلاً از plan balance استفاده می‌کنیم)
+  const startingBalance = Number(userChallenge.ChallengePlan.balance);
 
   acc = await AccountInstance.create(
     {
@@ -115,7 +115,7 @@ const Controller = class extends Controllers {
 
       // 1) Lock UserChallenge + Plan
       const userCh = await UserChallenge.findByPk(user_challenge_id, {
-        include: [{ model: ChallengePlan, attributes: ["id", "leverage", "account_size_usd", "has_floating_risk", "max_overall_drawdown_percent", "max_daily_drawdown_percent"] }, { model: ChallengePhase, attributes: ["id", "group", "phase_index"] }],
+        include: [{ model: ChallengePlan, attributes: ["id", "leverage", "balance", "has_floating_risk", "max_overall_drawdown_percent", "max_daily_drawdown_percent"] }, { model: ChallengePhase, attributes: ["id", "group", "phase_index"] }],
         transaction: t,
         lock: t.LOCK.UPDATE,
       });
