@@ -3,14 +3,14 @@ version: "3.9"
 services:
   app:
     build: .
-    container_name: props-app
+    container_name: props-app-crm
     ports:
-      - "8000:8000"
+      - "8040:8000"
     environment:
       - NODE_ENV=development
       - PORT=8000
       - DB_HOST=db
-      - DB_PORT=3306
+      - DB_PORT=3316
       - DB_USER=root
       - DB_PASSWORD=my_props_strong@312@312
       - DB_NAME=props_db
@@ -22,27 +22,27 @@ services:
       - public_data:/app/public  
     command: npm start
     networks:
-      - props-network
+      - props-network-crm
 
   db:
     image: mysql:8
-    container_name: mysql-db
+    container_name: mysql-db-crm
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: my_props_strong@312@312
-      MYSQL_DATABASE: props_db
+      crm_mysql_dataBASE: props_db
       JWT_SECRET: dawdawfawf_adjaiwdhawihfmafa
     ports:
-      - "3306:3306"
+      - "3316:3306"
     volumes:
-      - mysql_data:/var/lib/mysql
+      - crm_mysql_data:/var/lib/mysql
     networks:
-      - props-network
+      - props-network-crm
 
 volumes:
-  mysql_data:
+  crm_mysql_data:
   public_data:  
 
 networks:
-  props-network:
+  props-network-crm:
     driver: bridge

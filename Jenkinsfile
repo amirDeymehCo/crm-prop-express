@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         COMPOSE_FILE = 'docker-compose.yml'
-        REPO_NAME = 'https://github.com/myprop-trade/express-backend.git'
+        REPO_NAME = 'https://github.com/amirDeymehCo/crm-prop-express.git'
     }
 
     stages {
