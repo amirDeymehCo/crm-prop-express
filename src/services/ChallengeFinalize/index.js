@@ -6,6 +6,8 @@ const AccountInstance = require("../../models/Challenge/AccountInstance");
 const generateMainPassword = require("../BuyCh/CreatePassword");
 const createMTUser = require("../BuyCh/CreateMTUser");
 const ChallengePhase = require("../../models/Challenge/ChallengePhase");
+const ReferralCommissionRule = require("../../models/ReferralCommissionRule");
+const ReferralCommission = require("../../models/ReferralCommission");
 
 async function lockPaymentByOrderId({ orderId, t }) {
 
@@ -115,6 +117,52 @@ async function createAndAttachMTAccount({ acc, plan, orderKey, group, t }) {
     return acc;
 }
 
+
+const handelRefralSet = async ({ user, order, t }) => {
+    try {
+        if (!user?.referrer_id) return;
+
+        const referrerId = user.referrer_id;
+
+        let rule = await ReferralCommissionRule.findOne({
+            where: { referrer_id: referrerId, referred_user_id: user.id },
+            transaction: t,
+            lock: t?.LOCK?.SHARE,
+        });
+
+        if (!rule) {
+            rule = await ReferralCommissionRule.findOne({
+                where: { referrer_id: referrerId, referred_user_id: null },
+                transaction: t,
+                lock: t?.LOCK?.SHARE,
+            });
+        }
+
+        const percent = Number(rule?.percent ?? 7);
+        const orderAmount = Number(order.amount_usd); // مطمئن شو ستون همینه
+        const commissionAmount = Math.floor((orderAmount * percent) / 100);
+
+        // ✅ مهم: داخل همون تراکنش
+        const [commission] = await ReferralCommission.findOrCreate({
+            where: { order_id: order.id, referrer_id: referrerId, referred_user_id: user.id },
+            defaults: {
+                order_amount: orderAmount,
+                percent,
+                commission_amount: commissionAmount,
+                status: "approved",
+            },
+            transaction: t,
+            lock: t?.LOCK?.UPDATE,
+        });
+
+        return commission;
+    } catch (err) {
+        console.log("REFERRAL_CREATE_ERROR =>", err?.message);
+        console.log("REFERRAL_CREATE_ERROR_PARENT =>", err?.parent?.sqlMessage || err?.parent?.message);
+        throw err;
+    }
+};
+
 /**
  * این تابع “بعد از پرداخت موفق” رو کامل انجام میده.
  * هم برای callback درگاه و هم برای خرید با ولت استفاده میشه.
@@ -123,6 +171,7 @@ async function finalizeChallengeAfterPaid({
     orderId,
     trackingCode = null,
     refNum = null,
+    user,
     t,
 }) {
     // 1) lock payment + idempotency
@@ -180,6 +229,9 @@ async function finalizeChallengeAfterPaid({
         t,
         group: userChallenge?.ChallengePhase?.group
     });
+
+    // 8) set refral 
+    await handelRefralSet({ user, order, t })
 
     return {
         alreadyDone: false,

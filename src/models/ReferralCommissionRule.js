@@ -30,3 +30,7 @@ ReferralCommissionRule.belongsTo(User, {
     foreignKey: "referred_user_id",
     as: "referredUser",
 });
+
+
+
+module.exports = ReferralCommissionRule

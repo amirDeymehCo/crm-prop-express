@@ -40,6 +40,15 @@ const Controller = class extends Controllers {
 
       let user;
 
+
+      let referrer_id = null;
+      if (req?.body?.referral_code) {
+        const findRefrarrer = await User.findOne({ where: { referral_code: req?.body?.referral_code } });
+        if (!findRefrarrer) return this.response({ res, status: 400, message: "کاربر مای پراپ، رفرالی با این کد پیدا نشد. لطفا کد خود را برسی نمایید" });
+
+        referrer_id = findRefrarrer?.id
+      }
+
       // ۳) اگر کاربر هست ولی verify نشده ⇒ همونو آپدیت کن (به‌جای ساخت کاربر جدید)
       if (existingUser && existingUser.verify_mobile === false) {
         user = existingUser;
@@ -50,7 +59,7 @@ const Controller = class extends Controllers {
         user.email = email;
         user.password = password; // اینجا بهتره هش‌شده ذخیره کنی
         user.status = "approved"; // یا مثلا "pending_mobile_verify"
-
+        if (referrer_id) user.referrer_id = referrer_id
         await user.save();
       } else {
         // ۴) اگر اصلاً کاربری با این موبایل/ایمیل نبود ⇒ کاربر جدید بساز
@@ -61,6 +70,7 @@ const Controller = class extends Controllers {
           email,
           password, // اینجا هم حتماً در عمل واقعی هش کن
           status: "approved", // یا "pending_mobile_verify"
+          referrer_id: referrer_id
         });
       }
 

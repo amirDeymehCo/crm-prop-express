@@ -1,6 +1,26 @@
 const { DataTypes } = require("sequelize");
 const sequelize = require("../../db");
 const bcrypt = require("bcrypt");
+const crypto = require("crypto");
+
+
+
+function genReferralCode() {
+  return "MP-" + crypto.randomBytes(4).toString("hex").toUpperCase(); // MP-9AF31C2D
+}
+
+async function genUniqueReferralCode(sequelize) {
+  for (let i = 0; i < 10; i++) {
+    const code = genReferralCode();
+    const exists = await sequelize.models.User.findOne({
+      where: { referral_code: code },
+      attributes: ["id"],
+    });
+    if (!exists) return code;
+  }
+  // اگر خیلی نادر collision خورد، طول رو بیشتر می‌کنیم
+  return "MP-" + crypto.randomBytes(6).toString("hex").toUpperCase();
+}
 
 const User = sequelize.define(
   "User",
@@ -38,7 +58,16 @@ const User = sequelize.define(
     referrer_id: {
       type: DataTypes.INTEGER,
       allowNull: true,
+      set(value) {
+        if (this.isNewRecord) {
+          this.setDataValue("referrer_id", value);
+        }
+      },
     },
+    referral_code: {
+      type: DataTypes.STRING(32),
+      allowNull: true,
+    }
   },
   {
     hooks: {
@@ -46,6 +75,10 @@ const User = sequelize.define(
         if (user.password) {
           const salt = await bcrypt.genSalt(10);
           user.password = await bcrypt.hash(user.password, salt);
+        }
+
+        if (!user.referral_code) {
+          user.referral_code = await genUniqueReferralCode(sequelize);
         }
       },
       beforeUpdate: async (user, options) => {
@@ -80,12 +113,12 @@ User.prototype.verifyPassword = async function (password) {
 
 User.hasMany(User, {
   foreignKey: "referrer_id",
-  as: "referrals", // زیرمجموعه‌ها
+  as: "referrals",
 });
 
 User.belongsTo(User, {
   foreignKey: "referrer_id",
-  as: "referrer", // معرف
+  as: "referrer",
 });
 
 

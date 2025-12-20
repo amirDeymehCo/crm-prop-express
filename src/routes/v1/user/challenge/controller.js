@@ -59,6 +59,7 @@ const Controller = class extends Controllers {
       if (amountUsd === 0) {
         console.log("orderId=", orderId)
         const result = await finalizeChallengeAfterPaid({
+          user: req?.user,
           orderId,
           trackingCode: `COUPON-FREE-${Date.now()}`,
           refNum: null,
@@ -91,6 +92,7 @@ const Controller = class extends Controllers {
         });
 
         const result = await finalizeChallengeAfterPaid({
+          user: req?.user,
           orderId,
           trackingCode: `WALLET-${Date.now()}`,
           refNum: null,
@@ -172,14 +174,15 @@ const Controller = class extends Controllers {
 
       // اگر پرداخت تایید نشد، فقط payment/order رو آپدیت کن و تمام
       if (status !== "confirmed") {
-        // همون لاجیک آپدیت payment/order که داشتی، سبک‌ترش کن
-        // ...
         await t.commit();
         return this.response({ res, status: 400, message: "پرداخت تایید نشد" });
       }
 
+      console.log("req?.user=>", req?.user)
+
       // پرداخت موفق => finalize مشترک
       const result = await finalizeChallengeAfterPaid({
+        user: req?.user,
         orderId,
         trackingCode,
         refNum,
@@ -267,7 +270,6 @@ const Controller = class extends Controllers {
     if (!singleCh) return this.response({ res, status: 400, message: "کاربر مای پراپ، چالشی با این شناسه یافت نشد لطفا دوباره امتحان کنید" });
 
     this.response({ res, status: 200, message: "اطلاعات چالش", data: singleCh })
-
   }
 };
 
