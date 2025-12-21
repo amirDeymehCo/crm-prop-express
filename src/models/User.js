@@ -25,6 +25,10 @@ async function genUniqueReferralCode(sequelize) {
 const User = sequelize.define(
   "User",
   {
+    avatar: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
     firstname: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -54,6 +58,11 @@ const User = sequelize.define(
       type: DataTypes.ENUM("pending", "approved", "rejected"),
       allowNull: false,
       defaultValue: "approved",
+    },
+    kyc_steep: {
+      type: DataTypes.ENUM("one", "two"),
+      allowNull: true,
+      defaultValue: null,
     },
     referrer_id: {
       type: DataTypes.INTEGER,

@@ -55,7 +55,7 @@ async function initRbac() {
             name: "Super Admin",
             mobile: "09358468124",
             // یادت نره این رو در عمل هش کنی
-            password: "CHANGE_ME",
+            password: "123456",
             email: "amir@gmail.com",
             is_super_admin: true,
         },
