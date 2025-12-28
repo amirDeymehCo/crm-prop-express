@@ -1,6 +1,9 @@
 const Controllers = require("../../../controllers");
 const Ticket = require("../../../../models/Ticket");
 const Message = require("../../../../models/Message");
+const UserChallenge = require("../../../../models/Challenge/UserChallenge");
+const ChallengePlan = require("../../../../models/Challenge/ChallengePlan");
+const ChallengeType = require("../../../../models/Challenge/ChallengeType");
 const founcList = require("../../../../utils/List");
 const { Op } = require("sequelize");
 
@@ -47,7 +50,22 @@ const Controller = class extends Controllers {
       }
     }
 
-    const resData = await founcList(Ticket, req, where)
+    const resData = await founcList(Ticket, req, where, {
+      include: [
+        {
+          model: UserChallenge,
+          as: "challenge",
+          attributes: ["id", "current_phase_index"],
+          include: [
+            {
+              model: ChallengePlan,
+              attributes: ["id", "title", "balance"],
+              include: [ChallengeType],
+            },
+          ],
+        },
+      ]
+    })
     this.response({
       res,
       status: 200,

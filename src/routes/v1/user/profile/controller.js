@@ -68,6 +68,7 @@ const Controller = class extends Controllers {
         "referred_user_id",
         [sequelize.fn("SUM", sequelize.col("order_amount")), "total_paid"],
         [sequelize.fn("SUM", sequelize.col("commission_amount")), "total_commission"],
+        "id", "createdAt"
       ],
       include: [
         {

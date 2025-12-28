@@ -30,7 +30,7 @@ const Ticket = sequelize.define("Ticket", {
         allowNull: true,
     },
     departeman: {
-        type: DataTypes.ENUM("technical", "liveAccount", "challenges"),
+        type: DataTypes.ENUM("technical", "liveAccount", "challenges", "request_widthdraw", "real_account", "kyc"),
         allowNull: false,
     },
     priority: {
@@ -74,15 +74,10 @@ const Ticket = sequelize.define("Ticket", {
 User.hasMany(Ticket, { foreignKey: "user_id" });
 Ticket.belongsTo(User, { foreignKey: "user_id" });
 
+Ticket.belongsTo(UserChallenge, { foreignKey: "userChallenge", as: "challenge" });
+UserChallenge.hasMany(Ticket, { foreignKey: "userChallenge", as: "tickets" });
+
 
 module.exports = Ticket;
 
 
-
-// "تیکت_باز"،
-// "تیکت_بسته"،
-// "تیکت_پاسخ_داده شده"،
-// "تیکت_در_حال_بررسی"،
-// "تیکت_در_انتظار_پرداخت"،
-// "تیکت_در_انتظار_مصاحبه"
-// 

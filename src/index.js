@@ -3,6 +3,7 @@ const cors = require("cors");
 const sequelize = require("../db");
 const router = require("./routes");
 const { globalLimiter } = require("./middlewares/rateLimit");
+const cleanQuery = require("./middlewares/cleanQuery");
 const initRbac = require("./configs/permissionsInit");
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -16,6 +17,7 @@ app.set('trust proxy', 1);
 app.use(globalLimiter);
 app.use(cors());
 app.options("*", cors());
+app.use(cleanQuery)
 
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*"); // یا دامنه خودت رو بزار
