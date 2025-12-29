@@ -85,6 +85,22 @@ const Controller = class extends Controllers {
 
     this.response({ res, status: 200, message: "لیست کاربران رفرال شما", data: usersRefral })
   }
+
+  async updatedProfile(req, res) {
+    const newData = {};
+    if (req?.body?.firstname) newData.firstname = req?.body?.firstname;
+    if (req?.body?.lastname) newData.lastname = req?.body?.lastname;
+
+    await User.update(newData, { where: { id: req?.user?.id } })
+
+    this.response({ res, message: "کاربر مای پراپ، اطلاعات پروفایل شما آپدیت شد.", })
+  }
+  async changeAvatar(req, res) {
+    const file = req?.file?.filename || null
+    await User.update({ avatar: file }, { where: { id: req?.user?.id } })
+
+    this.response({ res, message: "کاربر مای پراپ، آواتار شما با موفقیت تغییر کرد", })
+  }
 };
 
 module.exports = new Controller();

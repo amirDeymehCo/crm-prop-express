@@ -4,6 +4,7 @@ const Message = require("../../../../models/Message");
 const UserChallenge = require("../../../../models/Challenge/UserChallenge");
 const ChallengePlan = require("../../../../models/Challenge/ChallengePlan");
 const ChallengeType = require("../../../../models/Challenge/ChallengeType");
+const User = require("../../../../models/User");
 const founcList = require("../../../../utils/List");
 const { Op } = require("sequelize");
 
@@ -17,6 +18,10 @@ const Controller = class extends Controllers {
     });
     await Message.create({ text: req?.body?.message, ticket_id: newTicket?.id, senderType: "user" })
 
+
+    if (req?.body?.type === "kyc") {
+      await User.update({ kyc_status: "pending", kyc_steep: "one" }, { where: { id: req?.user?.id } })
+    }
 
     this.response({
       res,

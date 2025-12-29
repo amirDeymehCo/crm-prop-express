@@ -64,6 +64,11 @@ const User = sequelize.define(
       allowNull: true,
       defaultValue: null,
     },
+    kyc_status: {
+      type: DataTypes.ENUM("not_sended", "pending", "rejected", "approved"),
+      allowNull: true,
+      defaultValue: "not_sended",
+    },
     referrer_id: {
       type: DataTypes.INTEGER,
       allowNull: true,
