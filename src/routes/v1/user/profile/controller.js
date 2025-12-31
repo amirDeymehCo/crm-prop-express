@@ -4,6 +4,9 @@ const ReferralCommissionRule = require("../../../../models/ReferralCommissionRul
 const User = require("../../../../models/User");
 const sequelize = require("../../../../../db");
 const founcList = require("../../../../utils/List");
+const avatars = require("../../../../configs/avatars");
+const bcrypt = require("bcrypt");
+
 
 const Controller = class extends Controllers {
   async findProfile(req, res) {
@@ -101,6 +104,105 @@ const Controller = class extends Controllers {
 
     this.response({ res, message: "کاربر مای پراپ، آواتار شما با موفقیت تغییر کرد", })
   }
+  async avatarsList(req, res) {
+    this.response({ res, message: "لیست آواتار های آماده ما", data: avatars })
+  }
+  async selectAvatar(req, res) {
+    const avatarSelect = Number(req?.body?.avatarSelect);
+
+    if (!Number.isInteger(avatarSelect)) {
+      return this.response({ res, message: "شناسه ارسالی نامعتبر است", status: 400 });
+    }
+
+    if (avatarSelect < 1 || avatarSelect > avatars.length) {
+      return this.response({ res, message: "شناسه ارسالی اشتباه است", status: 400 });
+    }
+
+    const url = avatars[avatarSelect - 1];
+
+    await User.update(
+      { avatar: url },
+      { where: { id: req?.user?.id } }
+    );
+
+    return this.response({
+      res,
+      status: 200,
+      data: { avatarSelect, avatar: url },
+    });
+  }
+  async changePassword(req, res) {
+    const userId = req?.user?.id;
+    const { currentPassword, newPassword, repeadPassword } = req.body;
+
+    // 1️⃣ validate inputs
+    if (!currentPassword || !newPassword) {
+      return this.response({
+        res,
+        status: 400,
+        message: "رمز عبور فعلی و رمز جدید الزامی است",
+      });
+    }
+
+    if (newPassword !== repeadPassword) {
+      return this.response({
+        res,
+        status: 400,
+        message: "تکرار رمز عبور با رمز عبور جدید یکی نیست",
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return this.response({
+        res,
+        status: 400,
+        message: "رمز جدید باید حداقل ۸ کاراکتر باشد",
+      });
+    }
+
+    // 2️⃣ get user
+    const user = await User.findByPk(userId, {
+      attributes: ["id", "password"],
+    });
+
+    if (!user) {
+      return this.response({
+        res,
+        status: 404,
+        message: "کاربر یافت نشد",
+      });
+    }
+
+    // 3️⃣ compare current password
+    const isValidPassword = await bcrypt.compare(
+      currentPassword,
+      user.password
+    );
+
+    if (!isValidPassword) {
+      return this.response({
+        res,
+        status: 400,
+        message: "رمز عبور فعلی اشتباه است",
+      });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashPassword = await bcrypt.hash(newPassword, salt);
+
+    // 5️⃣ update only password field (important)
+    await User.update(
+      { password: hashPassword },
+      { where: { id: userId } }
+    );
+
+    return this.response({
+      res,
+      status: 200,
+      message: "رمز عبور با موفقیت تغییر یافت",
+    });
+  }
+
 };
 
 module.exports = new Controller();

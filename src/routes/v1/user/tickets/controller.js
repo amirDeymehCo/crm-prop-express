@@ -12,6 +12,10 @@ const Controller = class extends Controllers {
   async create(req, res) {
     const files = req?.files?.map((e, i) => (e?.filename))
 
+    if (req?.body?.type === "widthdraw") {
+      if (!req?.body?.userChallenge || req?.body?.userChallenge == "null") return this.response({ res, status: 400, message: "ارسال شناسه چالش اجباری است" })
+    }
+
     const newTicket = await Ticket.create({
       departeman: req?.body?.departeman, user_id: req?.user?.id, title: req?.body?.title, priority: req?.body?.priority, status: "ticket_open", type: req?.body?.type || "ticket", userChallenge: req?.body?.userChallenge || null,
       files

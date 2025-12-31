@@ -5,8 +5,13 @@ const ChallengeType = require("../../../../models/Challenge/ChallengeType")
 
 const Controller = class extends Controllers {
     async challenges(req, res) {
+
+        const where = { user_id: req?.user?.id }
+        if (req?.query?.current_phase_index) where.current_phase_index = req?.query?.current_phase_index
+
         const list = await UserChallenges.findAll({
-            where: { user_id: req?.user?.id }, attributes: ["id", "status", "current_phase_index"], include: [{
+            where,
+            attributes: ["id", "status", "current_phase_index"], include: [{
                 model: ChallengePlan,
                 attributes: ["id", "title", "balance"],
                 include: [

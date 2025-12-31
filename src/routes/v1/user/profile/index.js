@@ -21,10 +21,22 @@ router
     "/refral-list",
     asyncHandler(Controller.refralList)
   )
+  .get(
+    "/avatars-list",
+    asyncHandler(Controller.avatarsList)
+  )
   .post(
     "/change-avatar",
     upload.single("avatar"),
     asyncHandler(Controller.changeAvatar)
+  )
+  .post(
+    "/select-avatar",
+    asyncHandler(Controller.selectAvatar)
+  )
+  .post(
+    "/change-password",
+    asyncHandler(Controller.changePassword)
   )
 
 module.exports = router;
