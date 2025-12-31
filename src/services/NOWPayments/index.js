@@ -3,6 +3,8 @@ const axios = require("axios");
 const crypto = require("crypto");
 const Payment = require("../../models/Payment");
 const Wallet = require("../../models/Wallet");
+const Order = require("../../models/Order");
+const Setting = require("../../models/Setting");
 const sequelize = require("../../../db");
 
 // const NOW_BASE_URL = process.env.NOWPAYMENTS_BASE_URL || "https://api.nowpayments.io";
@@ -23,7 +25,18 @@ const client = axios.create({
 async function createDepositUSDInvoice({ user, amountUsd, callback_url = null }) {
     // 1. توی دیتابیس یه رکورد Payment بساز
     const orderId = `now-${user.id}-${Date.now()}`;
+    const setting = await Setting.findByPk(1);
 
+    await Order.create({
+        gateway_order_id: orderId,
+        user_id: user?.id,
+        amount_irr: Number(amountUsd) * Number(setting?.dollar_price),
+        amount_usd: amountUsd,
+        currency: "USD",
+        gateway: "nowpayments",
+        status: "pending",
+        type: "wallet_deposit"
+    });
     const payment = await Payment.create({
         provider: "nowpayments",
         order_id: orderId,
@@ -100,9 +113,18 @@ async function handleIpnCallback(rawBody, signatureHeader) {
         throw new Error("Payment record not found for order_id " + order_id);
     }
 
+    const order = await Order.findOne({ where: { order_id } });
+    if (!order) {
+        throw new Error("Order record not found for order_id " + order_id);
+    }
+
     // اگر قبلاً فینیش شده، دیگه کاری نکن
     if (payment.status === "finished") {
         return payment;
+    }
+    // اگر قبلاً فینیش شده، دیگه کاری نکن
+    if (order.status === "finished") {
+        return order;
     }
 
     // در چه وضعیت‌هایی شارژ کنیم؟
@@ -118,6 +140,16 @@ async function handleIpnCallback(rawBody, signatureHeader) {
                     pay_amount,
                     pay_currency,
                     raw_callback: rawBody,
+                },
+                { transaction: t }
+            );
+
+            // آپدیت order
+            await order.update(
+                {
+                    status: payment_status,
+                    meta: rawBody,
+                    paid_at: new Date()
                 },
                 { transaction: t }
             );

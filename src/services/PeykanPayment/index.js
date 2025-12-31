@@ -18,7 +18,7 @@ async function paykanService({ userId, amountUsd, callback_url = "https://api.my
 
     const orderId = `dep-${userId}-${Date.now()}`; // یکتا
 
-    const newOrder = await Order.create({
+    await Order.create({
         gateway_order_id: orderId,
         user_id: userId,
         amount_irr: amountIrr,
@@ -26,6 +26,7 @@ async function paykanService({ userId, amountUsd, callback_url = "https://api.my
         currency: "IRR",
         gateway: "paykan",
         status: "pending",
+        type: "wallet_deposit"
     });
 
 
@@ -54,9 +55,8 @@ async function paykanService({ userId, amountUsd, callback_url = "https://api.my
 
     try {
         const resp = await axios.post("https://pgw.paykan.ir/api/v1/withdraw/", body);
-        console.log("Paykan withdraw resp:", resp.status, resp.data);
         if (resp.status !== 200 || !resp.data?.token) {
-            throw new Error("Paykan create payment failed");
+            throw new Error("ساخت پیکان مشکلی پیش اومده است");
         }
 
         const { token, ref_num } = resp.data;
@@ -69,9 +69,6 @@ async function paykanService({ userId, amountUsd, callback_url = "https://api.my
 
         return { redirectUrl, payment };
     } catch (err) {
-        console.log("Paykan withdraw status:", err.response?.status);
-        console.log("Paykan withdraw headers:", err.response?.headers);
-        console.log("Paykan withdraw data:", err.response?.data); // این همون HTML ساده‌ست
         throw err;
     }
 

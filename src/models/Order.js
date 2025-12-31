@@ -10,11 +10,9 @@ const Order = sequelize.define(
     {
         // نوع سفارش: الان فقط چالش، ولی بعداً اگر خواستی چیزای دیگه اضافه می‌کنی
         type: {
-            type: DataTypes.ENUM("challenge_purchase"),
+            type: DataTypes.ENUM("challenge_purchase", "challenge_purchase_wallet", "wallet_deposit", "wallet_withdraw"),
             allowNull: false,
-            defaultValue: "challenge_purchase",
         },
-
         // مبلغ‌ها
         amount_usd: {
             type: DataTypes.DECIMAL(18, 2),

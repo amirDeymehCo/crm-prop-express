@@ -5,8 +5,11 @@ const Wallet = require("../../../../models/Wallet")
 const Payment = require("../../../../models/Payment")
 const WidthdrawRequest = require("../../../../models/WidthdrawRequest")
 const WalletTransaction = require("../../../../models/WalletTransaction")
+const Order = require("../../../../models/Order")
+const Otp = require("../../../../models/Otp")
 const founcList = require("../../../../utils/List")
 const sequelize = require("../../../../../db")
+const { generateCode, sendCode } = require("../../../../services/KavenegarService")
 
 const Controller = class extends Controllers {
   async depositIRR(req, res) {
@@ -25,7 +28,7 @@ const Controller = class extends Controllers {
       return this.response({
         res,
         status: 200,
-        message: "redirect to gateway",
+        message: "درحال انتقال به درگاه پرداخت...",
         data: { url: redirectUrl },
       });
     } catch (e) {
@@ -36,8 +39,9 @@ const Controller = class extends Controllers {
   async depositIRRCallback(req, res) {
     // #1 update payment 
     const paymentFind = await Payment.findOne({ where: { order_id: req?.body?.order_id, } })
-    if (!paymentFind) return this.response({ status: 400, message: "تراکنشی یافت نشد", res })
-    if (!["pending", "waiting"]?.includes(paymentFind?.status)) return this.response({ res, status: 400, message: "وضعیت تراکنش منتظر پرداخت نیست" })
+    const orderFind = await Order.findOne({ where: { gateway_order_id: req?.body?.order_id, } })
+    if (!paymentFind || !orderFind) return this.response({ status: 400, message: "تراکنشی یافت نشد", res })
+    if (!["pending", "waiting"]?.includes(paymentFind?.status)) return this.response({ res, status: 400 })
 
     await Payment.update(
       {
@@ -48,6 +52,10 @@ const Controller = class extends Controllers {
         where: { order_id: req?.body?.order_id }
       }
     );
+
+
+    // #update order 
+    await orderFind.update({ status: req?.body?.status?.toLowerCase(), paid_at: new Date() })
 
     // #2 create transactions and update wallet user
     const walletUser = await Wallet.findOne({ where: { user_id: req?.user?.id } })
@@ -79,9 +87,9 @@ const Controller = class extends Controllers {
       });
 
       res.status(200).json({
-        message: "Invoice created",
+        message: "درحال انتقال به درگاه پرداخت...",
         data: {
-          invoice_url: invoiceUrl,
+          url: invoiceUrl,
           payment_id: payment.id,
         },
       });
@@ -95,10 +103,70 @@ const Controller = class extends Controllers {
     const payment = await handleIpnCallback(body, signature);
 
     return res.status(200).json({ success: true });
+  }
+  async createOtpWidhdraw(req, res) {
+    const newCode = generateCode(4);
+    const sent = await sendCode({ receptor: req?.user?.mobile, token: newCode });
+    if (!sent) {
+      return this.response({
+        res,
+        status: 500,
+        message: "در ارسال کد تایید مشکلی پیش آمده است، بعدا امتحان کنید",
+      });
+    }
 
+    await Otp.create({
+      mobile: req?.user?.mobile,
+      code: newCode,
+      status: "waiting",
+    });
+
+    this.response({ res, status: 200, message: "کد تایید به تلفن همراه شما ارسال شد" })
   }
   async widthdrawRequest(req, res) {
     const { wallet_address, amount_usd } = req?.body
+
+    const mobile = String(req.user.mobile).trim();
+    const code = String(req.body.code).trim();
+
+    const otp = await Otp.findOne({
+      where: { mobile, status: "waiting" },
+      order: [["createdAt", "DESC"]], // اگه چند تا OTP هست، آخریش
+    });
+
+    if (!otp) {
+      return this.response({
+        res,
+        status: 400,
+        message: "کدی برای این شماره تلفن ارسال نشده است",
+      });
+    }
+
+    const pastTime = Date.now() - new Date(otp.createdAt).getTime();
+
+    if (pastTime >= 2 * 60 * 1000) {
+      otp.status = "expired";
+      await otp.save();
+
+      return this.response({
+        res,
+        status: 400,
+        message: "کد ارسالی منقضی شده است",
+      });
+    }
+
+    if (String(otp.code) !== code) {
+      return this.response({
+        res,
+        status: 400,
+        message: "کد ارسالی اشتباه است",
+      });
+    } else {
+      otp.status = "verify";
+      await otp.save();
+    }
+
+
     const widthStatusWiaings = await WidthdrawRequest.findOne({ where: { status: "waiting", user_id: req?.user?.id } });
     if (widthStatusWiaings) return this.response({ res, status: 400, message: "کاربر گرامی، شما یک درخواست برداشت قبلا ثبت کرده اید" })
 
@@ -108,7 +176,6 @@ const Controller = class extends Controllers {
 
     await WidthdrawRequest.create({ wallet_address, amount: parseFloat(amount_usd), status: "waiting", user_id: req?.user?.id })
     this.response({ res, status: 200, message: "کاربر مای پراپ درخواست برداشت شما ثبت شد!" })
-
   }
   async transactionsList(req, res) {
     const where = {};
@@ -117,10 +184,8 @@ const Controller = class extends Controllers {
     if (type) where.type = type;
     if (status) where.status = status;
 
-    const transactions = await founcList(WalletTransaction, req, where, { attributes: { exclude: ["meta"] } });
-    this.response({ res, message: "تاریختچه کیف پول", data: transactions })
-
-
+    const transactions = await founcList(Order, req, where, { attributes: { exclude: ["meta"] } });
+    this.response({ res, message: "تاریختچه تراکنش ها", data: transactions })
   }
   async states(req, res) {
     const stats = await WalletTransaction.findAll({
@@ -154,8 +219,6 @@ const Controller = class extends Controllers {
 
 
     this.response({ res, message: "اطلاعات ولت", data: totals })
-
-
   }
 };
 
