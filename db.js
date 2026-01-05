@@ -3,6 +3,8 @@ const { Sequelize } = require("sequelize");
 // فقط برای لوکال (خارج از Docker) لود کن
 if (process.env.NODE_ENV !== "production") {
   require("dotenv").config({ path: ".env.development" });
+} else {
+  require("dotenv").config({ path: ".env.production" });
 }
 
 console.log("NODE_ENV:", process.env.NODE_ENV);
