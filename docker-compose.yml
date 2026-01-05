@@ -5,15 +5,23 @@ services:
     build: .
     container_name: props-app-crm
     ports:
-      - "8040:8040"
+      - "8040:${PORT}"
     env_file:
       - .env.production
     environment:
-      NODE_ENV: production
-      PORT: 8040
+      NODE_ENV: development
+      PORT: ${PORT}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      JWT_SECRET: ${JWT_SECRET}
     depends_on:
       - db
     volumes:
+      - .:/app
+      - /app/node_modules
       - public_data:/app/public
     command: npm start
     networks:
@@ -28,6 +36,7 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
       MYSQL_DATABASE: ${DB_NAME}
+      NODE_ENV: production
     ports:
       - "3316:3306"
     volumes:
