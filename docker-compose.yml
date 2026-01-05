@@ -7,7 +7,7 @@ services:
     ports:
       - "8040:${PORT}"
     env_file:
-      - .env
+      - .env.production
     environment:
       NODE_ENV: development
       PORT: ${PORT}
@@ -36,6 +36,7 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
       MYSQL_DATABASE: ${DB_NAME}
+      NODE_ENV: production
     ports:
       - "3316:3306"
     volumes:

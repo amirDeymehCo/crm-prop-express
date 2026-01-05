@@ -1,24 +1,22 @@
 const { Sequelize } = require("sequelize");
 
-require("dotenv").config({
-  path: `.env.${process.env.NODE_ENV || "production"}`
-});
+// فقط برای لوکال (خارج از Docker) لود کن
+if (process.env.NODE_ENV !== "production") {
+  require("dotenv").config({ path: ".env.development" });
+}
 
-console.log(process.env.NODE_ENV)
+console.log("NODE_ENV:", process.env.NODE_ENV);
 
 const sequelize = new Sequelize(
   process.env.DB_NAME,
   process.env.DB_USER,
   process.env.DB_PASSWORD,
   {
-    host: process.env.DB_HOST || "localhost",
+    host: process.env.DB_HOST || "db", // داخل docker بهتره اسم سرویس db باشه
     dialect: "mysql",
-    port: process.env.DB_PORT || 3306,
+    port: Number(process.env.DB_PORT || 3306),
     logging: false,
   }
 );
 
 module.exports = sequelize;
-
-
-////// 
