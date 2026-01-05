@@ -32,7 +32,7 @@ services:
     container_name: mysql-db-crm
     restart: always
     env_file:
-      - .env
+      - .env.production
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
       MYSQL_DATABASE: ${DB_NAME}
