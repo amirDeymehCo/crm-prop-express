@@ -15,6 +15,10 @@ const ChallengeType = sequelize.define("ChallengeType", {
         type: DataTypes.STRING,
         allowNull: false,
     },
+    shand: {
+        type: DataTypes.STRING,
+        allowNull: false,
+    },
 });
 
 module.exports = ChallengeType;
