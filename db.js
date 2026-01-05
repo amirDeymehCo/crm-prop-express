@@ -1,25 +1,20 @@
 const { Sequelize } = require("sequelize");
 
-
 require("dotenv").config();
-
-// if (process.env.NODE_ENV !== "production") {
-//   require("dotenv").config({ path: ".env.development" });
-// } else {
-//   require("dotenv").config({ path: ".env.production" });
-// }
-
 
 const sequelize = new Sequelize(
   process.env.DB_NAME,
   process.env.DB_USER,
   process.env.DB_PASSWORD,
   {
-    host: process.env.DB_HOST || "db", // داخل docker بهتره اسم سرویس db باشه
+    host: process.env.DB_HOST || "localhost",
     dialect: "mysql",
-    port: Number(process.env.DB_PORT || 3306),
+    port: process.env.DB_PORT || 3306,
     logging: false,
   }
 );
 
 module.exports = sequelize;
+
+
+////// 
