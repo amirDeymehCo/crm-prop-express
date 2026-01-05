@@ -1,7 +1,7 @@
 const { Sequelize } = require("sequelize");
 
 require("dotenv").config({
-  path: `.env.${process.env.NODE_ENV || "development"}`
+  path: `.env.${process.env.NODE_ENV || "production"}`
 });
 
 console.log(process.env.NODE_ENV)
