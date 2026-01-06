@@ -7,7 +7,7 @@ const cleanQuery = require("./middlewares/cleanQuery");
 // const initRbac = require("./configs/permissionsInit");
 
 const app = express();
-const PORT = 8040;
+const PORT = 8000;
 
 require("./crons/UpdateDollarPrice");
 
