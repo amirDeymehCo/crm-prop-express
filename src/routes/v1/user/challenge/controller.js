@@ -12,7 +12,7 @@ const { createChFounc } = require("../../../../services/BuyCh");
 const { paykanService } = require("../../../../services/PeykanPayment");
 const createMTUser = require("../../../../services/BuyCh/CreateMTUser");
 const generateMainPassword = require("../../../../services/BuyCh/CreatePassword");
-const Order = require("../../../../models/Order");
+const Setting = require("../../../../models/Setting");
 const { createDepositUSDInvoice } = require("../../../../services/NOWPayments");
 const { payWithWallet } = require("../../../../services/BuyCh/WalletPay");
 const { finalizeChallengeAfterPaid } = require("../../../../services/ChallengeFinalize");
@@ -24,11 +24,13 @@ const { Op } = require("sequelize");
 
 const Controller = class extends Controllers {
   async getPlansList(req, res) {
+    const setting = await Setting.findByPk(1)
     const listTypes = await ChallengeType?.findAll({ include: [ChallengePlan] })
 
     this.response({
       res, status: 200, message: "اطلاعات چالش ها", data: {
-        listTypes
+        listTypes,
+        dollar_price: setting?.dollar_price
       }
     })
   }
@@ -57,7 +59,6 @@ const Controller = class extends Controllers {
 
       // ✅ 2) اگر چالش رایگان است (final_price = 0) -> هیچ درگاهی نرو
       if (amountUsd === 0) {
-        console.log("orderId=", orderId)
         const result = await finalizeChallengeAfterPaid({
           user: req?.user,
           orderId,
@@ -66,7 +67,6 @@ const Controller = class extends Controllers {
           t,
         });
 
-        console.log("result=>", result)
         await t.commit();
 
         return this.response({
@@ -117,7 +117,7 @@ const Controller = class extends Controllers {
       // 4) مسیر درگاه‌ها (نیازی به finalize اینجا نیست)
       await t.commit();
 
-      if (req?.body?.gateway === "peykan") {
+      if (req?.body?.gateway === "paykan") {
         const { redirectUrl } = await paykanService({
           userId: req?.user?.id,
           amountUsd,
@@ -270,6 +270,149 @@ const Controller = class extends Controllers {
     if (!singleCh) return this.response({ res, status: 400, message: "کاربر مای پراپ، چالشی با این شناسه یافت نشد لطفا دوباره امتحان کنید" });
 
     this.response({ res, status: 200, message: "اطلاعات چالش", data: singleCh })
+  }
+  async checkCopun(req, res) {
+    try {
+      const userId = req?.user?.id;
+      const {
+        code,
+        base_amount_usd,
+        challenge_type_id,
+        challenge_plan_id,
+      } = req.body || {};
+
+      const cleanCode = String(code || "").trim().toUpperCase();
+      const baseUSD = Number(base_amount_usd);
+
+      if (!cleanCode) {
+        return res.status(400).json({ ok: false, message: "کد تخفیف وارد نشده است." });
+      }
+      if (baseUSD <= 0) {
+        return res.status(400).json({ ok: false, message: "مبلغ پایه معتبر نیست." });
+      }
+
+      const now = new Date();
+
+      // کوپن را پیدا کن
+      const coupon = await Coupon.findOne({
+        where: {
+          code: cleanCode,
+          is_active: true,
+          [Op.and]: [
+            {
+              [Op.or]: [
+                { valid_from: null },
+                { valid_from: { [Op.lte]: now } },
+              ],
+            },
+            {
+              [Op.or]: [
+                { valid_to: null },
+                { valid_to: { [Op.gte]: now } },
+              ],
+            },
+          ],
+        },
+      });
+
+      if (!coupon) {
+        return res.status(400).json({ ok: false, message: "کد تخفیف معتبر نیست یا منقضی شده است." });
+      }
+
+      // محدودیت روی نوع چالش/پلن
+      if (coupon.challenge_type_id && Number(challenge_type_id) !== Number(coupon.challenge_type_id)) {
+        return res.status(400).json({ ok: false, message: "این کد برای این نوع چالش قابل استفاده نیست." });
+      }
+      if (coupon.challenge_plan_id && Number(challenge_plan_id) !== Number(coupon.challenge_plan_id)) {
+        return res.status(400).json({ ok: false, message: "این کد برای این پلن قابل استفاده نیست." });
+      }
+
+      // حداقل مبلغ سفارش
+      if (coupon.min_order_amount_usd != null) {
+        const minUSD = Number(coupon.min_order_amount_usd);
+        if (baseUSD < minUSD) {
+          return res.status(400).json({
+            ok: false,
+            message: `حداقل مبلغ سفارش برای این کد ${Math.round(minUSD)} دلار است.`,
+          });
+        }
+      }
+
+      // سقف استفاده کلی
+      if (coupon.max_uses != null) {
+        if (Number(coupon.used_count) >= Number(coupon.max_uses)) {
+          return res.status(400).json({ ok: false, message: "سقف استفاده این کد تکمیل شده است." });
+        }
+      }
+
+      // سقف استفاده برای هر کاربر
+      let userUsageCount = 0;
+      if (coupon.max_uses_per_user != null) {
+        if (!userId) {
+          return res.status(400).json({ ok: false, message: "برای استفاده از کد تخفیف باید وارد حساب شوید." });
+        }
+
+        const usage = await CouponUsage.findOne({
+          where: { coupon_id: coupon.id, user_id: userId },
+        });
+
+        userUsageCount = Number(usage?.used_count);
+        if (userUsageCount >= Number(coupon.max_uses_per_user)) {
+          return res.status(400).json({ ok: false, message: "سقف استفاده شما از این کد تکمیل شده است." });
+        }
+      }
+
+      function calcDiscountUSD(coupon, baseUSD) {
+        const base = Math.round(baseUSD);
+        if (base <= 0) return { discountUSD: 0, finalUSD: 0 };
+
+        const type = String(coupon.type).toLowerCase();
+
+        let discount = 0;
+        if (type === "percent") {
+          // value مثل 70 یعنی 70%
+          const pct = Number(coupon.value);
+          discount = base * (pct / 100);
+        } else if (type === "fixed") {
+          discount = Number(coupon.value);
+        }
+
+        // تخفیف نباید از مبلغ پایه بیشتر بشه
+        discount = Math.min(Math.round(discount), base);
+        const finalUSD = Math.round(base - discount);
+
+        return { discountUSD: discount, finalUSD };
+      }
+      // محاسبه تخفیف
+      const { discountUSD, finalUSD } = calcDiscountUSD(coupon, baseUSD);
+
+      if (discountUSD <= 0) {
+        return res.status(400).json({ ok: false, message: "این کد تخفیف برای این مبلغ کاربردی ندارد." });
+      }
+
+      const setting = await Setting.findByPk(1);
+
+      return res.json({
+        ok: true,
+        message: "کد تخفیف معتبر است.",
+        data: {
+          coupon: {
+            id: coupon.id,
+            code: coupon.code,
+            type: coupon.type,
+            value: String(coupon.value),
+          },
+          base_amount_usd: Math.round(baseUSD),
+          discount_amount_usd: discountUSD,
+          final_amount_usd: finalUSD,
+          final_amount_irr: Number(finalUSD) * Number(setting?.dollar_price),
+          user_used_count: userUsageCount,
+        },
+      });
+    } catch (err) {
+      console.error("validateCoupon error:", err);
+      return res.status(500).json({ ok: false, message: "خطای سرور در بررسی کد تخفیف." });
+    }
   }
 };
 

@@ -1,6 +1,31 @@
-const sequelize = require("../../../db"); // اگر exportش فرق داره اینو عوض کن
+/**
+ * purchaseChallenge (FULL, FIXED)
+ * ✅ insurance fee
+ * ✅ coupon discount
+ * ✅ free challenge (final_price_usd === 0) => swap profit targets (phase1 <-> phase2)
+ * ✅ floating risk from plan + NEW: floating_risk_fee
+ *    Policy: اگر کاربر ریسک شناور را OFF کند => floating_risk_fee به قیمت اضافه می‌شود
+ *
+ * BODY (recommended):
+ * {
+ *   challenge_plan_id: number,
+ *   gateway: "wallet" | "peykan" | "nowpayments" | ...,
+ *   with_insurance?: boolean,
+ *   coupon_code?: string,
+ *   floating_risk_enabled?: boolean,     // NEW (preferred)
+ *   floating_risk?: { is_enabled?: boolean } // backward compatible
+ * }
+ *
+ * IMPORTANT:
+ * - باید در مدل UserChallenge این فیلدها وجود داشته باشد:
+ *   - starting_balance_usd
+ *   - display_balance_usd
+ *   - floating_risk_fee_usd  (NEW)
+ *   - challenge_phase
+ */
 
-const User = require("../../models/User");
+const sequelize = require("../../../db");
+
 const ChallengePlan = require("../../models/Challenge/ChallengePlan");
 const ChallengePhase = require("../../models/Challenge/ChallengePhase");
 const UserChallenge = require("../../models/Challenge/UserChallenge");
@@ -31,7 +56,7 @@ async function getActivePlan(planId, transaction) {
 function buildRulesSnapshotWithFreeLogic({ plan, isFree }) {
     const phases = [...(plan.ChallengePhases || [])]
         .sort((a, b) => a.phase_index - b.phase_index)
-        .map(p => ({
+        .map((p) => ({
             phase_index: p.phase_index,
             name: p.name,
             duration_days: p.duration_days,
@@ -39,17 +64,19 @@ function buildRulesSnapshotWithFreeLogic({ plan, isFree }) {
             max_daily_drawdown_percent: p.max_daily_drawdown_percent,
             max_overall_drawdown_percent: p.max_overall_drawdown_percent,
             profit_target_percent: Number(p.profit_target_percent),
+            group: p.group || null,
         }));
 
     // فقط اگر چالش با کوپن رایگان شده
     if (isFree) {
-        const p1 = phases.find(p => p.phase_index === 1);
-        const p2 = phases.find(p => p.phase_index === 2);
+        const p1 = phases.find((p) => Number(p.phase_index) === 1);
+        const p2 = phases.find((p) => Number(p.phase_index) === 2);
 
         if (p1 && p2) {
-            // swap profit targets
-            [p1.profit_target_percent, p2.profit_target_percent] =
-                [p2.profit_target_percent, p1.profit_target_percent];
+            [p1.profit_target_percent, p2.profit_target_percent] = [
+                p2.profit_target_percent,
+                p1.profit_target_percent,
+            ];
         }
     }
 
@@ -60,6 +87,7 @@ function buildRulesSnapshotWithFreeLogic({ plan, isFree }) {
             balance: plan.balance,
             leverage: plan.leverage,
             profit_share_percent: plan.profit_share_percent,
+            price_usd: plan.price_usd,
         },
         phases,
         meta: {
@@ -68,7 +96,6 @@ function buildRulesSnapshotWithFreeLogic({ plan, isFree }) {
         },
     };
 }
-
 
 // -------- بیمه ---------- //
 
@@ -104,9 +131,25 @@ function calculateInsurance(plan, withInsurance) {
     };
 }
 
-// -------- کوپن تخفیف ---------- //
+// -------- هزینه ریسک شناور ---------- //
+// Policy: اگر پلن floating risk دارد و کاربر خاموش کند => fee اضافه می‌شود
+function calculateFloatingRiskFee(plan, floatingRiskEnabled) {
+    if (!plan?.has_floating_risk) {
+        return { enabled: false, fee_usd: 0 };
+    }
 
-async function validateAndApplyCoupon({ couponCode, plan, user, insuranceFee, transaction }) {
+    const fee = Number(plan.floating_risk_fee || 0);
+
+    if (floatingRiskEnabled === false) {
+        return { enabled: false, fee_usd: fee };
+    }
+
+    return { enabled: true, fee_usd: 0 };
+}
+
+// -------- کوپن تخفیف ---------- //
+// تغییر: به جای insuranceFee، basePrice را پاس می‌دهیم چون fee ریسک شناور هم داخل basePrice است
+async function validateAndApplyCoupon({ couponCode, plan, user, basePrice, transaction }) {
     if (!couponCode) {
         return { coupon: null, discount: 0 };
     }
@@ -134,7 +177,7 @@ async function validateAndApplyCoupon({ couponCode, plan, user, insuranceFee, tr
         throw err;
     }
 
-    // محدود به پلن/نوع چالش خاص
+    // محدود به پلن خاص
     if (coupon.challenge_plan_id && coupon.challenge_plan_id !== plan.id) {
         const err = new Error("این کد برای این چالش قابل استفاده نیست");
         err.status = 400;
@@ -153,23 +196,24 @@ async function validateAndApplyCoupon({ couponCode, plan, user, insuranceFee, tr
         where: { coupon_id: coupon.id, user_id: user.id },
         transaction,
     });
+
     if (coupon.max_uses_per_user && userUsageCount >= coupon.max_uses_per_user) {
         const err = new Error("شما قبلا از این کد استفاده کرده‌اید");
         err.status = 400;
         throw err;
     }
 
-    const basePrice = Number(plan.price_usd) + Number(insuranceFee || 0);
-
     let discount = 0;
     if (coupon.type === "percent") {
-        discount = basePrice * (Number(coupon.value) / 100);
+        discount = Number(basePrice) * (Number(coupon.value) / 100);
     } else if (coupon.type === "fixed") {
         discount = Number(coupon.value);
     }
 
+    discount = Math.min(Number(discount), Number(basePrice));
+
     // حداقل مبلغ سفارش
-    if (coupon.min_order_amount_usd && basePrice < coupon.min_order_amount_usd) {
+    if (coupon.min_order_amount_usd && Number(basePrice) < coupon.min_order_amount_usd) {
         const err = new Error("مبلغ سفارش برای استفاده از این کد کافی نیست");
         err.status = 400;
         throw err;
@@ -180,21 +224,27 @@ async function validateAndApplyCoupon({ couponCode, plan, user, insuranceFee, tr
 
 // -------- قیمت نهایی ---------- //
 
-function buildPriceSummary({ plan, insuranceFee, discount }) {
-    const basePrice = Number(plan.price_usd) + Number(insuranceFee || 0);
+function buildPriceSummary({ plan, insuranceFee, floatingRiskFee, discount }) {
+    const basePrice =
+        Number(plan.price_usd) +
+        Number(insuranceFee || 0) +
+        Number(floatingRiskFee || 0);
+
     const finalPrice = Math.max(basePrice - Number(discount || 0), 0);
 
     return {
         base_price_usd: basePrice,
         discount_usd: Number(discount || 0),
         final_price_usd: finalPrice,
+        floating_risk_fee_usd: Number(floatingRiskFee || 0),
     };
 }
+
+// -------- snapshot ریسک شناور (مقدار ریسک از plan) ---------- //
 
 function buildFloatingRiskSnapshot(plan, startingBalance) {
     if (!plan.has_floating_risk) {
         return {
-            floating_risk_enabled: false,
             floating_risk_type: null,
             floating_risk_value: null,
             floating_risk_base_on: null,
@@ -202,23 +252,18 @@ function buildFloatingRiskSnapshot(plan, startingBalance) {
         };
     }
 
-    const type = plan.floating_risk_type;
+    const type = plan.floating_risk_type; // نوع مقدار ریسک
     const value = Number(plan.floating_risk_value || 0);
     const baseOn = plan.floating_risk_base_on || "starting_balance";
 
     const baseBalance =
         baseOn === "starting_balance" ? Number(startingBalance) : Number(startingBalance);
-    // اگه خواستی بعدا بر اساس بالانس فعلی بگیری، اینجا تغییر می‌دی
 
     let maxRisk = 0;
-    if (type === "percent") {
-        maxRisk = baseBalance * (value / 100);
-    } else if (type === "fixed") {
-        maxRisk = value;
-    }
+    if (type === "percent") maxRisk = baseBalance * (value / 100);
+    else if (type === "fixed") maxRisk = value;
 
     return {
-        floating_risk_enabled: true,
         floating_risk_type: type,
         floating_risk_value: value,
         floating_risk_base_on: baseOn,
@@ -226,32 +271,28 @@ function buildFloatingRiskSnapshot(plan, startingBalance) {
     };
 }
 
-
-// -------- ریسک شناور ---------- //
-
+// -------- ریسک شناور (جدول جداگانه) ---------- //
+// ما از front مقدار/type/value را نمی‌گیریم؛ از plan snapshot می‌گیریم.
+// فقط enabled/disabled انتخاب کاربر را ذخیره می‌کنیم.
 function calculateMaxRisk({ type, value, baseBalance }) {
-    if (type === "percent") {
-        return Number(baseBalance) * (Number(value) / 100);
-    }
-    // fixed
+    if (type === "percent") return Number(baseBalance) * (Number(value) / 100);
     return Number(value);
 }
 
 async function createFloatingRiskIfProvided({ userChallenge, floatingRiskPayload, transaction }) {
-    // اگر فرانت چیزی برای ریسک نفرستاده، کاری نکن
     if (!floatingRiskPayload) return null;
 
     const {
-        is_enabled = false,
-        type = "percent",         // "percent" | "fixed"
-        value = 1,                // مثلا 2% یا 10$
-        base_on = "current_balance", // "starting_balance" | "current_balance"
+        is_enabled = true,
+        type = "percent",
+        value = 0,
+        base_on = "starting_balance",
     } = floatingRiskPayload;
 
     const baseBalance =
         base_on === "starting_balance"
-            ? userChallenge.starting_balance_usd
-            : userChallenge.display_balance_usd || userChallenge.starting_balance_usd;
+            ? Number(userChallenge.starting_balance_usd)
+            : Number(userChallenge.display_balance_usd || userChallenge.starting_balance_usd);
 
     const maxRiskAmount = calculateMaxRisk({ type, value, baseBalance });
 
@@ -279,19 +320,23 @@ async function createUserChallengeRecord({
     rulesSnapshot,
     insuranceInfo,
     prices,
+    floatingRiskEnabled,
     transaction,
 }) {
-    const startingBalance = plan.balance;
+    const startingBalance = Number(plan.balance);
 
     const floatingRiskSnapshot = buildFloatingRiskSnapshot(plan, startingBalance);
 
+    const phaseFind = await ChallengePhase.findOne({
+        where: { challenge_plan_id: plan.id, phase_index: 1 },
+        attributes: ["id", "phase_index", "group"],
+        transaction,
+    });
 
-    const phaseFind = await ChallengePhase.findOne({ where: { challenge_plan_id: plan?.id, phase_index: 1 }, attributes: ["id", "phase_index", "group"] });
     if (!phaseFind) {
         const err = new Error("با این پلن مرحله ای پیدا نشد");
         err.status = 400;
         throw err;
-
     }
 
     const userChallenge = await UserChallenge.create(
@@ -313,12 +358,19 @@ async function createUserChallengeRecord({
             discount_usd: prices.discount_usd,
             final_price_usd: prices.final_price_usd,
 
+            // ✅ NEW: fee بابت خاموش کردن floating risk
+            floating_risk_fee_usd: Number(prices.floating_risk_fee_usd || 0),
+
+            // ✅ انتخاب کاربر: روشن/خاموش
+            floating_risk_enabled: plan.has_floating_risk ? Boolean(floatingRiskEnabled) : false,
+
             rules_snapshot: rulesSnapshot,
-            challenge_phase: phaseFind?.id,
 
+            // فاز جاری
+            challenge_phase: phaseFind.id,
 
-
-            ...floatingRiskSnapshot
+            // snapshot مقدار ریسک از plan
+            ...floatingRiskSnapshot,
         },
         { transaction }
     );
@@ -347,29 +399,30 @@ async function registerCouponUsage({ coupon, user, userChallenge, discount, tran
 // -------- ساخت سفارش / پرداخت ---------- //
 
 async function createOrderRecord({ user, provider, userChallenge, gateway, prices, transaction }) {
-    const orderId = `buyCh-${user?.id}-${Date.now()}`; // یکتا
+    const orderId = `buyCh-${user?.id}-${Date.now()}`;
 
-    // اینجا بسته به سیستم خودت می‌تونی چیزهای بیشتری ذخیره کنی
     const order = await Order.create(
         {
             user_id: user.id,
             user_challenge_id: userChallenge.id,
             amount_usd: prices.final_price_usd,
-            gateway: prices?.final_price_usd === 0 ? "coupon_free" : gateway,                 // مثلا "peykan", "idpay", ...
-            status: prices?.final_price_usd === 0 ? "paid" : "pending",       // تا وقتی که callback درگاه بیاد
-            gateway_order_id: orderId
+            gateway: prices.final_price_usd === 0 ? "coupon_free" : gateway,
+            status: prices.final_price_usd === 0 ? "paid" : "pending",
+            gateway_order_id: orderId,
+            type: gateway === "wallet" ? "challenge_purchase_wallet" : "challenge_purchase",
         },
         { transaction }
     );
+
     await Payment.create(
         {
-            provider: prices?.final_price_usd === 0 ? "coupon_free" : provider,
+            provider: prices.final_price_usd === 0 ? "coupon_free" : provider,
             order_id: orderId,
-            user_id: user?.id,
-            amount_usd: prices?.final_price_usd,                 // مثلا "peykan", "idpay", ...
-            status: prices?.final_price_usd === 0 ? "confirmed_free" : "pending",       // تا وقتی که callback درگاه بیاد
+            user_id: user.id,
+            amount_usd: prices.final_price_usd,
+            status: prices.final_price_usd === 0 ? "confirmed_free" : "pending",
             pay_currency: "usd",
-            UserChallenge: userChallenge?.id
+            UserChallenge: userChallenge.id,
         },
         { transaction }
     );
@@ -379,71 +432,98 @@ async function createOrderRecord({ user, provider, userChallenge, gateway, price
 
 // ===================== کنترلر اصلی خرید ===================== //
 
-/**
- * POST /api/challenges/purchase
- * body: { challenge_plan_id, gateway, with_insurance, coupon_code, floating_risk }
- */
 async function purchaseChallenge(req, res, next) {
     const t = await sequelize.transaction();
 
     try {
-        const user = req.user; // فرض: auth middleware اینو ست کرده
+        const user = req.user;
 
         const {
             challenge_plan_id,
             gateway,
             with_insurance = false,
             coupon_code,
-            floating_risk, // { is_enabled, type, value, base_on }
+
+            // ✅ NEW preferred
+            floating_risk_enabled,
+
+            // ✅ backward compatible
+            floating_risk, // { is_enabled?: boolean }
         } = req.body;
 
-        // 1) گرفتن پلن فعال + فازها
+        // 1) plan
         const plan = await getActivePlan(challenge_plan_id, t);
 
-        // 3) محاسبه بیمه
+        // 2) insurance
         const insuranceInfo = calculateInsurance(plan, with_insurance);
 
-        // 4) اعتبارسنجی و اعمال کد تخفیف
+        // 3) resolve floating risk enabled
+        // preference: floating_risk_enabled -> floating_risk.is_enabled -> default true
+        const floatingEnabled =
+            typeof floating_risk_enabled === "boolean"
+                ? floating_risk_enabled
+                : (floating_risk && typeof floating_risk.is_enabled === "boolean")
+                    ? floating_risk.is_enabled
+                    : true;
+
+        // 4) floating risk fee (OFF => fee)
+        const floatingRiskFeeInfo = calculateFloatingRiskFee(plan, floatingEnabled);
+
+        // 5) basePrice for coupon
+        const basePrice =
+            Number(plan.price_usd) +
+            Number(insuranceInfo.fee_usd || 0) +
+            Number(floatingRiskFeeInfo.fee_usd || 0);
+
+        // 6) coupon
         const { coupon, discount } = await validateAndApplyCoupon({
             couponCode: coupon_code,
             plan,
             user,
-            insuranceFee: insuranceInfo.fee_usd,
+            basePrice,
             transaction: t,
         });
 
-        // 5) محاسبه قیمت نهایی
+        // 7) prices
         const prices = buildPriceSummary({
             plan,
             insuranceFee: insuranceInfo.fee_usd,
+            floatingRiskFee: floatingRiskFeeInfo.fee_usd,
             discount,
         });
 
-
-        // برسی چالش رایگان و جابجایی تارگت سود 
+        // 8) rules snapshot (swap if free)
         const rulesSnapshot = buildRulesSnapshotWithFreeLogic({
             plan,
-            isFree: prices?.final_price_usd === 0,
+            isFree: prices.final_price_usd === 0,
         });
 
-        // 6) ساخت رکورد چالش کاربر
+        // 9) create user challenge
         const userChallenge = await createUserChallengeRecord({
             user,
             plan,
-            rulesSnapshot, // new ruls
+            rulesSnapshot,
             insuranceInfo,
             prices,
+            floatingRiskEnabled: floatingEnabled,
             transaction: t,
         });
 
-        // 7) تنظیم ریسک شناور اگر چیزی آمده
-        const floatingRisk = await createFloatingRiskIfProvided({
+        // 10) optional: create UserChallengeRisk row (history) from plan snapshot
+        const floatingRiskRow = await createFloatingRiskIfProvided({
             userChallenge,
-            floatingRiskPayload: floating_risk,
+            floatingRiskPayload: plan.has_floating_risk
+                ? {
+                    is_enabled: Boolean(floatingEnabled),
+                    type: plan.floating_risk_type,
+                    value: plan.floating_risk_value,
+                    base_on: plan.floating_risk_base_on || "starting_balance",
+                }
+                : null,
             transaction: t,
         });
 
-        // 8) ثبت استفاده از کوپن
+        // 11) coupon usage
         await registerCouponUsage({
             coupon,
             user,
@@ -452,10 +532,10 @@ async function purchaseChallenge(req, res, next) {
             transaction: t,
         });
 
-        // 9) ساخت سفارش / درخواست پرداخت (اگه سیستم پرداخت داری)
+        // 12) order/payment
         const order = await createOrderRecord({
             user,
-            provider: req?.body?.gateway,
+            provider: gateway,
             userChallenge,
             gateway,
             prices,
@@ -466,15 +546,13 @@ async function purchaseChallenge(req, res, next) {
 
         return {
             userChallenge,
-            floatingRisk,
+            floatingRisk: floatingRiskRow,
             order,
-        }
+        };
     } catch (err) {
         await t.rollback();
         next(err);
     }
 }
 
-
-
-module.exports = purchaseChallenge
+module.exports = purchaseChallenge;

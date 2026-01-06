@@ -1,7 +1,7 @@
 const { body } = require("express-validator");
 
 
-const ALLOWED_GATEWAYS = ["peykan", "nowpayments", "wallet"]; // هرچی خودت داری جایگزین کن
+const ALLOWED_GATEWAYS = ["paykan", "nowpayments", "wallet"]; // هرچی خودت داری جایگزین کن
 
 
 module.exports = new (class {
@@ -44,6 +44,22 @@ module.exports = new (class {
         .notEmpty().withMessage("شناسه چالش الزامی است")
         .bail()
         .isInt({ min: 1 }).withMessage("شناسه چالش معتبر نیست"),
+    ];
+  }
+  checkCopun() {
+    return [
+      body("code")
+        .notEmpty().withMessage("کد را وارد نمایید"),
+      body("base_amount_usd")
+        .notEmpty().withMessage("قیمت را چالش را وارد نمایید"),
+      body("challenge_plan_id")
+        .notEmpty().withMessage("شناسه پلن ارسال نشده است")
+        .bail()
+        .isInt({ min: 1 }).withMessage("شناسه پلن اشتباه است"),
+      body("challenge_type_id")
+        .notEmpty().withMessage("شناسه نوع چالش ارسال نشده است")
+        .bail()
+        .isInt({ min: 1 }).withMessage("شناسه نوع چالش اشتباه است"),
     ];
   }
 })();

@@ -73,6 +73,10 @@ const ChallengePlan = sequelize.define("ChallengePlan", {
         type: DataTypes.DECIMAL(10, 2),
         allowNull: true,
     },
+    floating_risk_fee: {
+        type: DataTypes.DECIMAL(10, 2),
+        allowNull: true,
+    },
     floating_risk_base_on: {
         type: DataTypes.ENUM("starting_balance", "current_balance"),
         allowNull: true,

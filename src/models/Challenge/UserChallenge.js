@@ -88,6 +88,10 @@ const UserChallenge = sequelize.define("UserChallenge", {
         type: DataTypes.JSON,
         allowNull: true,
     },
+    floating_risk_enabled: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+    },
 });
 
 User.hasMany(UserChallenge, { foreignKey: "user_id" });

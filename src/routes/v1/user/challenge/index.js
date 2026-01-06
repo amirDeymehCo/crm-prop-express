@@ -37,5 +37,11 @@ router
     Controller.validationBody,
     asyncHandler(Controller.requestChangeStatus)
   )
+  .post(
+    "/check-copun",
+    validation.checkCopun(),
+    Controller.validationBody,
+    asyncHandler(Controller.checkCopun)
+  )
 
 module.exports = router;
