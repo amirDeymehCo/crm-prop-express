@@ -11,7 +11,7 @@ const Controller = class extends Controllers {
     const where = {};
 
     if (req?.query?.user_id) where.user_id = req.query.user_id;
-    if (req?.query?.status) where.status = req.query.status;
+    if (req?.query?.is_active) where.is_active = req.query.is_active;
 
     const coupons = await founcList(
       Coupon,
@@ -37,13 +37,13 @@ const Controller = class extends Controllers {
   async single(req, res) {
     const singleCoupon = await Coupon.findByPk(req?.params?.id, {
       include: [
-        { model: CouponUsage },
-        { model: User, attributes: ["id", "firstname", "lastname", "avatar"] },
         {
           model: ChallengeType,
+          as: "challengeType",
         },
         {
           model: ChallengePlan,
+          as: "challengePlan",
           attributes: ["id", "balance"],
         },
       ],
@@ -145,6 +145,110 @@ const Controller = class extends Controllers {
       res,
       status: 201,
       message: "کد تخفیف با موفقیت ایجاد شد",
+      data: coupon,
+    });
+  }
+  async update(req, res) {
+    const { id } = req.params;
+
+    const {
+      title,
+      code,
+      type,
+      value,
+      max_uses,
+      max_uses_per_user,
+      valid_from,
+      valid_to,
+      min_order_amount_usd,
+      challenge_type_id,
+      challenge_plan_id,
+      is_active,
+    } = req.body;
+
+    /* =====================
+     Find coupon
+     ===================== */
+    const coupon = await Coupon.findByPk(id);
+
+    if (!coupon) {
+      return this.response({
+        res,
+        status: 404,
+        message: "کد تخفیف مورد نظر یافت نشد",
+      });
+    }
+
+    /* =====================
+     Validation (only if provided)
+     ===================== */
+    if (type && !["percent", "fixed"].includes(type)) {
+      return this.response({
+        res,
+        status: 400,
+        message: "type باید percent یا fixed باشد",
+      });
+    }
+
+    if (value !== undefined) {
+      if (value <= 0) {
+        return this.response({
+          res,
+          status: 400,
+          message: "مقدار تخفیف باید بزرگتر از صفر باشد",
+        });
+      }
+
+      const finalType = type ?? coupon.type;
+
+      if (finalType === "percent" && value > 100) {
+        return this.response({
+          res,
+          status: 400,
+          message: "مقدار تخفیف درصدی نمی‌تواند بیشتر از 100 باشد",
+        });
+      }
+    }
+
+    /* =====================
+     Check duplicate code
+     ===================== */
+    if (code && code.toLowerCase() !== coupon.code) {
+      const existingCoupon = await Coupon.findOne({
+        where: { code: code.toLowerCase() },
+      });
+
+      if (existingCoupon) {
+        return this.response({
+          res,
+          status: 409,
+          message: "این کد تخفیف قبلاً ثبت شده است",
+        });
+      }
+    }
+
+    /* =====================
+     Update coupon
+     ===================== */
+    await coupon.update({
+      title: title ?? coupon.title,
+      code: code ? code.toLowerCase() : coupon.code,
+      type: type ?? coupon.type,
+      value: value ?? coupon.value,
+      max_uses: max_uses ?? coupon.max_uses,
+      max_uses_per_user: max_uses_per_user ?? coupon.max_uses_per_user,
+      valid_from: valid_from ?? coupon.valid_from,
+      valid_to: valid_to ?? coupon.valid_to,
+      min_order_amount_usd: min_order_amount_usd ?? coupon.min_order_amount_usd,
+      challenge_type_id: challenge_type_id ?? coupon.challenge_type_id,
+      challenge_plan_id: challenge_plan_id ?? coupon.challenge_plan_id,
+      is_active: is_active ?? coupon.is_active,
+    });
+
+    return this.response({
+      res,
+      status: 200,
+      message: "کد تخفیف با موفقیت ویرایش شد",
       data: coupon,
     });
   }

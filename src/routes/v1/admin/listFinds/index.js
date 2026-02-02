@@ -9,6 +9,8 @@ router
   .get("/rejectedOptions", asyncHandler(controller.rejectedOptions))
   .get("/resultOptions", asyncHandler(controller.resultOptions))
   .get("/challenges", asyncHandler(controller.challenges))
-  .get("/refral-list", asyncHandler(controller.refral));
+  .get("/refral-list", asyncHandler(controller.refral))
+  .get("/type-challenges", asyncHandler(controller.typeChallenge))
+  .get("/plans/:type", asyncHandler(controller.plansFind));
 
 module.exports = router;

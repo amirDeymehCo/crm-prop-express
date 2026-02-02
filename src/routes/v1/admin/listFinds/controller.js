@@ -116,6 +116,25 @@ const Controller = class extends Controllers {
 
     this.response({ res, data: usersRefral });
   }
+  async typeChallenge(req, res) {
+    const list = await ChallengeType.findAll();
+
+    const newList = list?.map((e, i) => ({ value: e?.id, label: e?.name }));
+    this.response({ res, data: newList });
+  }
+  async plansFind(req, res) {
+    const list = await ChallengePlan.findAll({
+      where: { challenge_type_id: req?.params?.type },
+      attributes: ["id", "title", "balance"],
+    });
+
+    const newList = list?.map((e, i) => ({
+      value: e?.id,
+      label: e?.title,
+      balance: e?.balance,
+    }));
+    this.response({ res, data: newList });
+  }
 };
 
 module.exports = new Controller();
