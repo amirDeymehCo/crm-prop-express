@@ -15,6 +15,14 @@ router
     Controller.validationBody,
     asyncHandler(Controller.createUser)
   )
+  .post(
+    "/update/:id",
+    asyncHandler(Controller.updateUser)
+  )
+  .post(
+    "/depositWallet",
+    asyncHandler(Controller.depositWallet)
+  )
   .get("/:id", asyncHandler(Controller.findUser))
 
 module.exports = router;

@@ -8,6 +8,8 @@ const createMTUser = require("../BuyCh/CreateMTUser");
 const ChallengePhase = require("../../models/Challenge/ChallengePhase");
 const ReferralCommissionRule = require("../../models/ReferralCommissionRule");
 const ReferralCommission = require("../../models/ReferralCommission");
+const Wallet = require("../../models/Wallet");
+const WalletTransaction = require("../../models/WalletTransaction");
 
 async function lockPaymentByOrderId({ orderId, t }) {
 
@@ -118,12 +120,20 @@ async function createAndAttachMTAccount({ acc, plan, orderKey, group, t }) {
 }
 
 
+const { Op } = require("sequelize");
+
 const handelRefralSet = async ({ user, order, t }) => {
     try {
+        // فقط وقتی سفارش واقعا پرداخت/تایید شده
         if (!user?.referrer_id) return;
+        if (!order?.id) return;
+
+        // اگر وضعیت سفارش داری، این گارد خیلی مهمه:
+        // if (order.status !== "paid") return;
 
         const referrerId = user.referrer_id;
 
+        // 1) پیدا کردن رول درصد
         let rule = await ReferralCommissionRule.findOne({
             where: { referrer_id: referrerId, referred_user_id: user.id },
             transaction: t,
@@ -139,21 +149,79 @@ const handelRefralSet = async ({ user, order, t }) => {
         }
 
         const percent = Number(rule?.percent ?? 7);
-        const orderAmount = Number(order.amount_usd); // مطمئن شو ستون همینه
-        const commissionAmount = Math.floor((orderAmount * percent) / 100);
+        const orderAmount = Number(order.amount_usd);
+        if (!Number.isFinite(orderAmount) || orderAmount <= 0) return;
 
-        // ✅ مهم: داخل همون تراکنش
-        const [commission] = await ReferralCommission.findOrCreate({
+        const commissionAmount = Math.floor((orderAmount * percent) / 100);
+        if (commissionAmount <= 0) return;
+
+        // 2) ساخت/پیدا کردن رکورد کمیسیون (ایدِمپوتنت)
+        const [commission, createdCommission] = await ReferralCommission.findOrCreate({
             where: { order_id: order.id, referrer_id: referrerId, referred_user_id: user.id },
             defaults: {
                 order_amount: orderAmount,
                 percent,
                 commission_amount: commissionAmount,
-                status: "approved",
+                status: "approved", // یا pending اگر میخوای بعدا بررسی بشه
             },
             transaction: t,
             lock: t?.LOCK?.UPDATE,
         });
+
+        // اگر قبلا ساخته شده، یعنی قبلا هم باید ولت شارژ شده باشه؛ پس دوباره شارژ نکن
+        // (این خط خیلی جلوی دوباره‌واریز رو می‌گیره)
+        if (!createdCommission) return commission;
+
+        // 3) ولت رفرر رو با لاک بگیر
+        const refWallet = await Wallet.findOne({
+            where: { user_id: referrerId },
+            transaction: t,
+            lock: t?.LOCK?.UPDATE,
+        });
+
+        if (!refWallet) {
+            // اگر سیستم‌ات اجازه میده، میتونی اینجا ولت بسازی
+            // یا throw کنی که دیتای کاربر ناقصه
+            throw new Error("Referrer wallet not found");
+        }
+
+        // 4) ثبت تراکنش ولت (credit) به صورت ایدمپوتنت
+        // بهتره WalletTransaction یک فیلد unique مثل reference_id داشته باشه
+        const referenceId = `ref-commission-${commission.id}`; // یونیک
+
+        const [wt, createdWT] = await WalletTransaction.findOrCreate({
+            where: {
+                wallet_id: refWallet.id,
+                reference_id: referenceId, // حتما UNIQUE باشه ایده‌آلش
+            },
+            defaults: {
+                user_id: referrerId,
+                wallet_id: refWallet.id,
+                type: "refral_deposit", // هر چی استاندارد خودته
+                amount: commissionAmount,
+                status: "completed",         // یا pending
+                balance_before: refWallet?.balance,
+                balance_after: refWallet?.balance + commissionAmount,
+                meta: {
+                    order_id: order.id,
+                    referred_user_id: user.id,
+                    commission_id: commission.id,
+                    percent,
+                    order_amount: orderAmount,
+                },
+            },
+            transaction: t,
+            lock: t?.LOCK?.UPDATE,
+        });
+
+        // اگر تراکنش ولت قبلا بوده، دوباره بالانس رو افزایش نده
+        if (!createdWT) return commission;
+
+        // 5) آپدیت بالانس ولت (همون لحظه داخل تراکنش)
+        await refWallet.increment(
+            { balance: commissionAmount },
+            { transaction: t }
+        );
 
         return commission;
     } catch (err) {
@@ -162,6 +230,7 @@ const handelRefralSet = async ({ user, order, t }) => {
         throw err;
     }
 };
+
 
 /**
  * این تابع “بعد از پرداخت موفق” رو کامل انجام میده.

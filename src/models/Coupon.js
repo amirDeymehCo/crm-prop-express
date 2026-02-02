@@ -2,6 +2,10 @@ const { DataTypes } = require("sequelize");
 const sequelize = require("../../db");
 
 const Coupon = sequelize.define("Coupon", {
+    title: {
+        type: DataTypes.STRING,
+        allowNull: false,
+    },
     code: {
         type: DataTypes.STRING,
         allowNull: false,

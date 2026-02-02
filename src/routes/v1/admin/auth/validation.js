@@ -10,7 +10,7 @@ module.exports = new (class {
         .isIn(["technical", "liveAccount", "challenges"])
         .withMessage("مقدار دپارتمان نامعتبر هست"),
       body("priority")
-        .isIn(["low", "medium", "high"])
+        .isIn(["low", "medium", "hight"])
         .withMessage("مقدار اولویت نامعتبر هست"),
       body("message")
         .isLength({ min: 3 })

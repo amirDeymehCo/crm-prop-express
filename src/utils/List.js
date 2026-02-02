@@ -2,7 +2,7 @@ const founcList = async (model, req, where = {}, otherProps = {}) => {
     const query = req?.query
     // paginations 
     const page = query?.page ? parseInt(query.page) : 1;
-    const limit = query?.limit ? parseInt(query.limit) : 10;
+    const limit = query?.limit ? parseInt(query.limit) : 5;
     const offset = (page - 1) * limit;
 
     const result = await model.findAndCountAll({

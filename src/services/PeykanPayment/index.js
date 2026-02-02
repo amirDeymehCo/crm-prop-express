@@ -74,6 +74,31 @@ async function paykanService({ userId, amountUsd, callback_url = "https://api.my
 
 }
 
+
+const verifyWithGatewayPeykan = async () => {
+
+    try {
+        const resp = await axios.post("https://pgw.paykan.ir/api/v1/verify/", body);
+        if (resp.status !== 200 || !resp.data?.token) {
+            throw new Error("ساخت پیکان مشکلی پیش اومده است");
+        }
+
+        const { token, ref_num } = resp.data;
+
+        // ref_num برگشتی در create رو هم ذخیره کن
+        payment.ref_num = ref_num;
+        await payment.save();
+
+        const redirectUrl = `${PAYKAN_BASE}/pgw/pay/${token}`;
+
+        return { redirectUrl, payment };
+    } catch (err) {
+        throw err;
+    }
+
+}
+
+
 module.exports = {
     paykanService,
 };

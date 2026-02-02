@@ -1,5 +1,5 @@
 const Controllers = require("../../../controllers");
-const { paykanService } = require("../../../../services/PeykanPayment")
+const { paykanService, verifyWithGatewayPeykan } = require("../../../../services/PeykanPayment")
 const { createDepositUSDInvoice, handleIpnCallback } = require("../../../../services/NOWPayments")
 const Wallet = require("../../../../models/Wallet")
 const Payment = require("../../../../models/Payment")
@@ -23,6 +23,7 @@ const Controller = class extends Controllers {
       const { redirectUrl } = await paykanService({
         userId,
         amountUsd: amount_usd,
+        callback_url: 'https://api-crm.myprop.trade/api/v1/user/wallet/deposit-IR-callback'
       });
 
       return this.response({
@@ -37,45 +38,80 @@ const Controller = class extends Controllers {
     }
   }
   async depositIRRCallback(req, res) {
-    // #1 update payment 
-    const paymentFind = await Payment.findOne({ where: { order_id: req?.body?.order_id, } })
-    const orderFind = await Order.findOne({ where: { gateway_order_id: req?.body?.order_id, } })
-    if (!paymentFind || !orderFind) return this.response({ status: 400, message: "تراکنشی یافت نشد", res })
-    if (!["pending", "waiting"]?.includes(paymentFind?.status)) return this.response({ res, status: 400 })
+    const data = Object.keys(req.body || {}).length ? req.body : req.query;
 
-    await Payment.update(
-      {
-        status: req?.body?.status?.toLowerCase(),
-        provider_payment_id: req?.body?.tracking_code
-      },
-      {
-        where: { order_id: req?.body?.order_id }
-      }
-    );
+    const orderId = data.order_id;
+    if (!orderId) return this.response({ status: 400, res, message: "order_id نامعتبر است" });
 
+    // 1) پیدا کردن سفارش/پرداخت بر اساس gateway_order_id
+    const order = await Order.findOne({ where: { gateway_order_id: orderId } });
+    if (!order) return this.response({ status: 400, res, message: "سفارشی یافت نشد" });
 
-    // #update order 
-    await orderFind.update({ status: req?.body?.status?.toLowerCase(), paid_at: new Date() })
+    const payment = await Payment.findOne({ where: { order_id: order.id } });
+    if (!payment) return this.response({ status: 400, res, message: "پرداختی یافت نشد" });
 
-    // #2 create transactions and update wallet user
-    const walletUser = await Wallet.findOne({ where: { user_id: req?.user?.id } })
+    // 2) اگر قبلاً پردازش شده، دوباره شارژ نکن
+    if (payment.status === "paid" || order.status === "paid") {
+      return res.redirect(process.env.FRONT_BASE_URL + "/account/wallet?successPayment=true");
+    }
 
-    await WalletTransaction.create({
-      type: "deposit",
-      amount: paymentFind?.amount_usd,
-      balance_before: walletUser?.balance,
-      balance_after: Number(walletUser?.balance) + Number(paymentFind?.amount_usd),
-      ref_id: req?.body?.ref_num,
-      status: "completed",
-      meta: JSON.stringify(req?.body),
-      wallet_id: walletUser?.id
-    })
+    // 3) verify واقعی با درگاه (مهم‌ترین بخش)
+    const verify = await verifyWithGatewayPeykan(data); // باید از API درگاه نتیجه قطعی بگیری
+    if (!verify?.success) {
+      await payment.update({ status: "failed", meta: JSON.stringify({ data, verify }) });
+      await order.update({ status: "failed" });
+      return res.redirect("/account/wallet?successPayment=false");
+    }
 
-    walletUser.balance = Number(walletUser?.balance) + Number(paymentFind?.amount_usd)
-    await walletUser.save()
+    // 4) مبلغ verify باید با مبلغ سفارش/پرداخت match شود (خیلی مهم)
+    // اگر واحدها فرق دارن (ریال/تومان/...) اینجا normalize کن
+    // if (verify.amount !== order.amount_irr) ...
 
-    this.response({ res, status: 200, message: "کاربر مای پراپ عملیات شما با موفقیت انجام شد" })
+    // 5) اعمال شارژ: transaction + idempotency روی tracking_code
+    await sequelize.transaction(async (t) => {
+      // دوباره داخل تراکنش چک کن (برای همزمانی)
+      const alreadyTx = await WalletTransaction.findOne({
+        where: { ref_id: verify.ref_num }, // یا tracking_code
+        transaction: t,
+        lock: t.LOCK.UPDATE,
+      });
+      if (alreadyTx) return;
+
+      await payment.update({
+        status: "paid",
+        provider_payment_id: verify.tracking_code,
+        meta: JSON.stringify({ data, verify }),
+        paid_at: new Date(),
+      }, { transaction: t });
+
+      await order.update({ status: "paid", paid_at: new Date() }, { transaction: t });
+
+      const wallet = await Wallet.findOne({
+        where: { user_id: order.user_id },
+        transaction: t,
+        lock: t.LOCK.UPDATE,
+      });
+
+      const amountUSD = Number(payment.amount_usd);
+
+      await WalletTransaction.create({
+        type: "deposit",
+        amount: amountUSD,
+        balance_before: wallet.balance,
+        balance_after: Number(wallet.balance) + amountUSD,
+        ref_id: verify.ref_num,
+        status: "completed",
+        meta: JSON.stringify({ data, verify }),
+        wallet_id: wallet.id,
+      }, { transaction: t });
+
+      wallet.balance = Number(wallet.balance) + amountUSD;
+      await wallet.save({ transaction: t });
+    });
+
+    return res.redirect("/account/wallet?successPayment=true");
   }
+
   async depositUSD(req, res, next) {
     try {
       const { amount_usd } = req.body;
@@ -84,6 +120,7 @@ const Controller = class extends Controllers {
       const { invoiceUrl, payment } = await createDepositUSDInvoice({
         user,
         amountUsd: amount_usd,
+        callback_url: 'https://api-crm.myprop.trade/api/v1/user/wallet/deposit/nowpayment/ipn'
       });
 
       res.status(200).json({

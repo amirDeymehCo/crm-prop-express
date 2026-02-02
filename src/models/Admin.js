@@ -7,6 +7,7 @@ const User = require("./User");
 
 const Admin = sequelize.define("Admin", {
     id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+    avatar: DataTypes.STRING,
     name: DataTypes.STRING,
     mobile: { type: DataTypes.STRING, },
     email: { type: DataTypes.STRING, },

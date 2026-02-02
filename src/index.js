@@ -4,7 +4,7 @@ const sequelize = require("../db");
 const router = require("./routes");
 const { globalLimiter } = require("./middlewares/rateLimit");
 const cleanQuery = require("./middlewares/cleanQuery");
-// const initRbac = require("./configs/permissionsInit");
+const initRbac = require("./configs/permissionsInit");
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -59,7 +59,7 @@ async function waitForDb(sequelizeInstance, opts = {}) {
     } catch (err) {
       const isLast = attempt === retries;
       console.log(
-        `⏳ DB not ready (${attempt}/${retries}) - retry in ${delayMs}ms`
+        `⏳ DB not ready (${attempt}/${retries}) - retry in ${delayMs}ms`,
       );
       if (isLast) throw err;
       await new Promise((r) => setTimeout(r, delayMs));
@@ -80,7 +80,7 @@ async function waitForDb(sequelizeInstance, opts = {}) {
       console.log("✅ DB Sync done");
     }
 
-    // await initRbac();
+    await initRbac();
 
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);

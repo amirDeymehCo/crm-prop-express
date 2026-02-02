@@ -7,10 +7,17 @@ module.exports = new (class {
         .isLength({ min: 3 })
         .withMessage("عنوان باید بیشتر از 3 کاراکتر باشد"),
       body("departeman")
-        .isIn(["technical", "liveAccount", "challenges", "request_widthdraw", "real_account", "kyc"])
+        .isIn([
+          "technical",
+          "liveAccount",
+          "challenges",
+          "request_widthdraw",
+          "real_account",
+          "kyc",
+        ])
         .withMessage("مقدار دپارتمان نامعتبر هست"),
       body("priority")
-        .isIn(["low", "medium", "high"])
+        .isIn(["low", "medium", "hight"])
         .withMessage("مقدار اولویت نامعتبر هست"),
       body("message")
         .isLength({ min: 3 })

@@ -4,30 +4,48 @@ const ChallengePlan = require("../../../../models/Challenge/ChallengePlan");
 const ChallengePhase = require("../../../../models/Challenge/ChallengePhase");
 const AccountInstance = require("../../../../models/Challenge/AccountInstance");
 const HistoryChallenge = require("../../../../models/Challenge/HistoryChallenge");
+const ChallengeType = require("../../../../models/Challenge/ChallengeType");
+const User = require("../../../../models/User");
 const sequelize = require("../../../../../db");
 const CreateMTUser = require("../../../../services/BuyCh/CreateMTUser");
+const founcList = require("../../../../utils/List");
 
 // اگر پسوردها رو جایی داری
 const generateMainPassword = require("../../../../services/BuyCh/CreatePassword"); // مسیرش رو درست کن
+const { Op } = require("sequelize");
 
 const typesStatus = {
   payment_phase2: "در انتظار پرداخت چالش رایگان",
   closed: "بسته شده",
   phase1: "مرحله اول",
   phase2: "مرحله دوم",
-  real: "مرحله ریل "
-}
+  real: "مرحله ریل ",
+};
 
 function getPhaseRulesFromSnapshot(userChallenge, phaseIndex) {
   const snap = userChallenge.rules_snapshot;
   if (!snap || !Array.isArray(snap.phases)) return null;
-  return snap.phases.find(p => Number(p.phase_index) === Number(phaseIndex)) || null;
+  return (
+    snap.phases.find((p) => Number(p.phase_index) === Number(phaseIndex)) ||
+    null
+  );
 }
 
-async function getOrCreateAccountInstance({ userChallenge, phaseIndex, cycleNo, t, platform = "mt5", adminId }) {
+async function getOrCreateAccountInstance({
+  userChallenge,
+  phaseIndex,
+  cycleNo,
+  t,
+  platform = "mt5",
+  adminId,
+}) {
   // idempotent
   let acc = await AccountInstance.findOne({
-    where: { user_challenge_id: userChallenge.id, phase_index: phaseIndex, cycle_no: cycleNo },
+    where: {
+      user_challenge_id: userChallenge.id,
+      phase_index: phaseIndex,
+      cycle_no: cycleNo,
+    },
     transaction: t,
     lock: t.LOCK.UPDATE,
   });
@@ -51,13 +69,19 @@ async function getOrCreateAccountInstance({ userChallenge, phaseIndex, cycleNo, 
       created_by_admin_id: adminId,
       rules_snapshot: userChallenge.rules_snapshot || null,
     },
-    { transaction: t }
+    { transaction: t },
   );
 
   return acc;
 }
 
-async function provisionMTAndAttach({ acc, userChallenge, mtGroup, orderKey, t }) {
+async function provisionMTAndAttach({
+  acc,
+  userChallenge,
+  mtGroup,
+  orderKey,
+  t,
+}) {
   // اگر قبلاً ساخته شده، دوباره نساز
 
   if (acc.mt_login) return acc;
@@ -77,7 +101,9 @@ async function provisionMTAndAttach({ acc, userChallenge, mtGroup, orderKey, t }
     start_balance_role: Number(plan.max_overall_drawdown_percent),
 
     // ریسک شناور از روی پلن
-    eod_relative: plan.has_floating_risk ? Number(plan.floating_risk_value || 0) : 0,
+    eod_relative: plan.has_floating_risk
+      ? Number(plan.floating_risk_value || 0)
+      : 0,
 
     inPassword,
     mPassword,
@@ -101,7 +127,7 @@ async function provisionMTAndAttach({ acc, userChallenge, mtGroup, orderKey, t }
       mt_password: mPassword,
       in_password: inPassword,
     },
-    { transaction: t }
+    { transaction: t },
   );
 
   return acc;
@@ -115,19 +141,40 @@ const Controller = class extends Controllers {
 
       // 1) Lock UserChallenge + Plan
       const userCh = await UserChallenge.findByPk(user_challenge_id, {
-        include: [{ model: ChallengePlan, attributes: ["id", "leverage", "balance", "has_floating_risk", "max_overall_drawdown_percent", "max_daily_drawdown_percent"] }, { model: ChallengePhase, attributes: ["id", "group", "phase_index"] }],
+        include: [
+          {
+            model: ChallengePlan,
+            attributes: [
+              "id",
+              "leverage",
+              "balance",
+              "has_floating_risk",
+              "max_overall_drawdown_percent",
+              "max_daily_drawdown_percent",
+            ],
+          },
+          { model: ChallengePhase, attributes: ["id", "group", "phase_index"] },
+        ],
         transaction: t,
         lock: t.LOCK.UPDATE,
       });
 
       if (!userCh) {
         await t.rollback();
-        return this.response({ res, status: 400, message: "چالشی با این شناسه پیدا نشد" });
+        return this.response({
+          res,
+          status: 400,
+          message: "چالشی با این شناسه پیدا نشد",
+        });
       }
 
       if (String(userCh.status) === String(status)) {
         await t.rollback();
-        return this.response({ res, status: 400, message: "وضعیت ارسالی با وضعیت فعلی چالش یکی هست" });
+        return this.response({
+          res,
+          status: 400,
+          message: "وضعیت ارسالی با وضعیت فعلی چالش یکی هست",
+        });
       }
 
       // 2) انتخاب تنظیمات هر وضعیت
@@ -138,12 +185,17 @@ const Controller = class extends Controllers {
       switch (status) {
         case "payment_phase2":
         case "closed": {
-          await userCh.update(
-            { status },
-            { transaction: t }
-          );
+          await userCh.update({ status }, { transaction: t });
 
-          await HistoryChallenge.create({ type: "change_status", user_challenge_id: req?.body?.user_challenge_id, admin_id: req?.admin?.id, title: `وضعیت چالش ${typesStatus[status]} تغییر پیدا کرد` }, { transaction: t })
+          await HistoryChallenge.create(
+            {
+              type: "change_status",
+              user_challenge_id: req?.body?.user_challenge_id,
+              admin_id: req?.admin?.id,
+              title: `وضعیت چالش ${typesStatus[status]} تغییر پیدا کرد`,
+            },
+            { transaction: t },
+          );
 
           await t.commit();
           return this.response({
@@ -166,17 +218,39 @@ const Controller = class extends Controllers {
 
         default:
           await t.rollback();
-          return this.response({ res, status: 400, message: "وضعیت ارسالی معتبر نیست" });
+          return this.response({
+            res,
+            status: 400,
+            message: "وضعیت ارسالی معتبر نیست",
+          });
       }
 
-      const findGroup = await ChallengePhase.findOne({ where: { challenge_plan_id: userCh?.challenge_plan_id, phase_index: phaseIndex }, attributes: ["id", "group"] })
+      const findGroup = await ChallengePhase.findOne({
+        where: {
+          challenge_plan_id: userCh?.challenge_plan_id,
+          phase_index: phaseIndex,
+        },
+        attributes: ["id", "group"],
+      });
 
       // 3) آپدیت وضعیت کلی چالش
       await userCh.update(
-        { status, current_phase_index: phaseIndex, challenge_phase: findGroup?.id },
-        { transaction: t }
+        {
+          status,
+          current_phase_index: phaseIndex,
+          challenge_phase: findGroup?.id,
+        },
+        { transaction: t },
       );
-      await HistoryChallenge.create({ type: "change_status", user_challenge_id: req?.body?.user_challenge_id, admin_id: req?.admin?.id, title: `وضعیت چالش ${typesStatus[status]} تغییر پیدا کرد` }, { transaction: t })
+      await HistoryChallenge.create(
+        {
+          type: "change_status",
+          user_challenge_id: req?.body?.user_challenge_id,
+          admin_id: req?.admin?.id,
+          title: `وضعیت چالش ${typesStatus[status]} تغییر پیدا کرد`,
+        },
+        { transaction: t },
+      );
 
       // 4) ساخت/پیدا کردن AccountInstance برای این فاز
       // cycle_no: برای real بعد از payout احتمالاً cycle_no زیاد می‌شود.
@@ -187,7 +261,7 @@ const Controller = class extends Controllers {
         cycleNo: 1,
         t,
         platform: "mt5",
-        adminId: req?.admin?.id
+        adminId: req?.admin?.id,
       });
 
       // 5) اگر rules خاص فاز لازم داری از snapshot بخون (مثلاً تارگت سود)
@@ -222,8 +296,106 @@ const Controller = class extends Controllers {
       });
     } catch (err) {
       await t.rollback();
-      return this.response({ res, status: err.status || 500, message: err.message || "خطای سرور" });
+      return this.response({
+        res,
+        status: err.status || 500,
+        message: err.message || "خطای سرور",
+      });
     }
+  }
+  async userChallenges(req, res) {
+    const where = {};
+
+    if (req?.query?.user_id) where.user_id = req?.query?.user_id;
+    if (req?.query?.status) where.status = req?.query?.status;
+    if (req?.query?.id) where.id = { [Op.like]: `%${req?.query?.id}%` };
+
+    const list = await founcList(UserChallenge, req, where, {
+      include: [
+        {
+          model: ChallengePlan,
+          attributes: [
+            "id",
+            "title",
+            "balance",
+            "floating_risk_type",
+            "allow_insurance",
+          ],
+          include: [
+            {
+              model: ChallengeType,
+            },
+          ],
+        },
+        {
+          model: AccountInstance,
+          attributes: [
+            "id",
+            "platform",
+            "phase_index",
+            "mt_login",
+            "mt_group",
+            "in_password",
+            "mt_password",
+            "starting_balance_usd",
+            "status",
+          ],
+        },
+        {
+          model: User,
+          attributes: ["id", "firstname", "lastname", "avatar"],
+        },
+      ],
+      attributes: [
+        "id",
+        "status",
+        "current_phase_index",
+        "price_usd",
+        "floating_risk_enabled",
+        "has_insurance",
+        "createdAt",
+        "updatedAt",
+      ],
+    });
+
+    this.response({ res, data: list });
+  }
+  async singleChallenge(req, res) {
+    const singleCh = await UserChallenge?.findByPk(req?.params?.id, {
+      include: [
+        {
+          model: ChallengePlan,
+          include: [ChallengeType, ChallengePhase],
+        },
+        {
+          model: User,
+          attributes: [
+            "id",
+            "firstname",
+            "lastname",
+            "avatar",
+            "mobile",
+            "createdAt",
+          ],
+        },
+        AccountInstance,
+      ],
+    });
+
+    if (!singleCh)
+      return this.response({
+        res,
+        status: 400,
+        message:
+          "ادمین مای پراپ، چالشی با این شناسه یافت نشد لطفا دوباره امتحان کنید",
+      });
+
+    this.response({
+      res,
+      status: 200,
+      message: "اطلاعات چالش",
+      data: singleCh,
+    });
   }
 };
 

@@ -1,10 +1,5 @@
 const Controllers = require("../../../controllers");
 const Admin = require("../../../../models/Admin");
-const Call = require("../../../../models/Call/Call");
-const CallRejectReason = require("../../../../models/Call/CallRejectReason");
-const CallResult = require("../../../../models/Call/CallResult");
-const CallResultOption = require("../../../../models/Call/CallResultOption");
-const Permission = require("../../../../models/Permission");
 const jwt = require("jsonwebtoken");
 
 
@@ -22,7 +17,6 @@ const Controller = class extends Controllers {
     }
 
     const passVerify = await admin.verifyPassword(password);
-
     if (!passVerify) {
       return res.status(400).json({ message: "ادمینی با این مشخصات یافت نشد" });
     }

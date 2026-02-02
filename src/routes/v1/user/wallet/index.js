@@ -12,7 +12,7 @@ router.post(
   Controller.validationBody,
   asyncHandler(Controller.depositIRR)
 )
-router.post(
+router.all(
   "/deposit-IR-callback",
   userStrictLimiter,
   asyncHandler(Controller.depositIRRCallback)
@@ -36,3 +36,4 @@ router.post(
 
 
 module.exports = router;
+
