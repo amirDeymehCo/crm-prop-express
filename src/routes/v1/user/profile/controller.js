@@ -82,30 +82,6 @@ const Controller = class extends Controllers {
         "mobile",
         "email",
         "createdAt",
-
-        [
-          sequelize.fn(
-            "COALESCE",
-            sequelize.fn(
-              "SUM",
-              sequelize.col("ReferralCommissions.order_amount"),
-            ),
-            0,
-          ),
-          "total_paid",
-        ],
-
-        [
-          sequelize.fn(
-            "COALESCE",
-            sequelize.fn(
-              "SUM",
-              sequelize.col("ReferralCommissions.commission_amount"),
-            ),
-            0,
-          ),
-          "total_commission",
-        ],
       ],
       include: [
         {
