@@ -115,6 +115,7 @@ const verifyWithGateway = async ({
       refNum: data.ref_num,
       amount: data.amount,
       cardNumber: data.card_number,
+      status: status,
     };
   } catch (err) {
     console.error("Paykan Verify Error:", err?.response?.data || err.message);

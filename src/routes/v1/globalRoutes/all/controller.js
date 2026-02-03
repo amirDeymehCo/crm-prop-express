@@ -51,7 +51,10 @@ const Controller = class extends Controllers {
         meta: JSON.stringify({ data, verify }),
       });
       await order.update({ status: "failed" });
-      return res.redirect(baseSite + "/account/wallet?successPayment=false");
+      return res.redirect(
+        baseSite +
+          `/account/wallet?successPayment=false&status=${verify?.status}`,
+      );
     }
 
     // 4) مبلغ verify باید با مبلغ سفارش/پرداخت match شود (خیلی مهم)
