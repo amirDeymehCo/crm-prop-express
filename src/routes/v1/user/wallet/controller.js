@@ -294,7 +294,7 @@ const Controller = class extends Controllers {
         "status",
         [sequelize.fn("SUM", sequelize.col("amount")), "total"],
       ],
-      group: ["type"],
+      group: ["type", "status"],
     });
 
     let totals = {
@@ -306,14 +306,14 @@ const Controller = class extends Controllers {
 
     stats.forEach((row) => {
       const type = row.type;
-      const total = parseFloat(row.dataValues.total);
+      const total = parseFloat(row.dataValues.total) || 0;
 
-      if (row?.status === "harvested" || row?.status === "failed")
-        totals.total_expired = total;
-      else {
-        if (type === "deposit") totals.total_deposit = total;
-        if (type === "transfer_out") totals.total_spent = total;
-        if (type === "withdraw") totals.total_withdraw = total;
+      if (row.status === "harvested" || row.status === "failed") {
+        totals.total_expired += total;
+      } else {
+        if (type === "deposit") totals.total_deposit += total;
+        if (type === "transfer_out") totals.total_spent += total;
+        if (type === "withdraw") totals.total_withdraw += total;
       }
     });
 
