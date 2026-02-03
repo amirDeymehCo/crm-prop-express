@@ -118,8 +118,13 @@ const verifyWithGateway = async ({
       status: status,
     };
   } catch (err) {
-    console.error("Paykan Verify Error:", err?.response?.data || err.message);
-    throw err;
+    return {
+      success: "FALED",
+      refNum: null,
+      amount: null,
+      cardNumber: null,
+      status: 400,
+    };
   }
 };
 

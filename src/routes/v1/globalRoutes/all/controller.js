@@ -52,8 +52,7 @@ const Controller = class extends Controllers {
       });
       await order.update({ status: "failed" });
       return res.redirect(
-        baseSite +
-          `/account/wallet?successPayment=false&status=${verify?.status}`,
+        baseSite + `/account/wallet?status=${verify?.status}`,
       );
     }
 
@@ -112,9 +111,7 @@ const Controller = class extends Controllers {
       await wallet.save({ transaction: t });
     });
 
-    return res.redirect(
-      baseSite + `/account/wallet?successPayment=true?status=${verify?.status}`,
-    );
+    return res.redirect(baseSite + `/account/wallet?status=${verify?.status}`);
   }
 };
 
