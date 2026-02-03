@@ -38,15 +38,10 @@ ReferralCommission.belongsTo(User, {
   foreignKey: "referrer_id",
   as: "referrer",
 });
-
 ReferralCommission.belongsTo(User, {
   foreignKey: "referred_user_id",
   as: "referredUser",
 });
-
-ReferralCommission.belongsTo(Order, {
-  foreignKey: "order_id",
-  as: "order",
-});
+ReferralCommission.belongsTo(Order, { foreignKey: "order_id", as: "order" });
 
 module.exports = ReferralCommission;

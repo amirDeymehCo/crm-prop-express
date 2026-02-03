@@ -127,14 +127,5 @@ User.belongsTo(User, {
   foreignKey: "referrer_id",
   as: "referrer",
 });
-User.hasMany(ReferralCommission, {
-  foreignKey: "referrer_id",
-  as: "referralEarnings", // سودهایی که کاربر از زیرمجموعه‌ها گرفته
-});
-
-User.hasMany(ReferralCommission, {
-  foreignKey: "referred_user_id",
-  as: "generatedCommissions", // کمیسیون‌هایی که با خریدهای خودش ساخته
-});
 
 module.exports = User;
