@@ -3,8 +3,6 @@ const sequelize = require("../../db");
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
 
-
-
 function genReferralCode() {
   return "MP-" + crypto.randomBytes(4).toString("hex").toUpperCase(); // MP-9AF31C2D
 }
@@ -48,7 +46,7 @@ const User = sequelize.define(
     verify_mobile: {
       type: DataTypes.BOOLEAN,
       allowNull: false,
-      defaultValue: false
+      defaultValue: false,
     },
     password: {
       type: DataTypes.STRING,
@@ -72,16 +70,11 @@ const User = sequelize.define(
     referrer_id: {
       type: DataTypes.INTEGER,
       allowNull: true,
-      set(value) {
-        if (this.isNewRecord) {
-          this.setDataValue("referrer_id", value);
-        }
-      },
     },
     referral_code: {
       type: DataTypes.STRING(32),
       allowNull: true,
-    }
+    },
   },
   {
     hooks: {
@@ -113,13 +106,12 @@ const User = sequelize.define(
             balance: 0,
             currency: "USD",
           },
-          t ? { transaction: t } : {}
+          t ? { transaction: t } : {},
         );
-      }
+      },
     },
-  }
+  },
 );
-
 
 User.prototype.verifyPassword = async function (password) {
   return await bcrypt.compare(password, this.password);
@@ -134,6 +126,5 @@ User.belongsTo(User, {
   foreignKey: "referrer_id",
   as: "referrer",
 });
-
 
 module.exports = User;
