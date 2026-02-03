@@ -1,7 +1,10 @@
 const Controllers = require("../../controllers");
 const User = require("../../../models/User");
 const Otp = require("../../../models/Otp");
-const { generateCode, sendCode } = require("../../../services/KavenegarService");
+const {
+  generateCode,
+  sendCode,
+} = require("../../../services/KavenegarService");
 const jwt = require("jsonwebtoken");
 const { Op } = require("sequelize");
 
@@ -40,13 +43,20 @@ const Controller = class extends Controllers {
 
       let user;
 
-
       let referrer_id = null;
       if (req?.body?.referral_code) {
-        const findRefrarrer = await User.findOne({ where: { referral_code: req?.body?.referral_code } });
-        if (!findRefrarrer) return this.response({ res, status: 400, message: "کاربر مای پراپ، رفرالی با این کد پیدا نشد. لطفا کد خود را برسی نمایید" });
+        const findRefrarrer = await User.findOne({
+          where: { referral_code: req?.body?.referral_code },
+        });
+        if (!findRefrarrer)
+          return this.response({
+            res,
+            status: 400,
+            message:
+              "کاربر مای پراپ، رفرالی با این کد پیدا نشد. لطفا کد خود را برسی نمایید",
+          });
 
-        referrer_id = findRefrarrer?.id
+        referrer_id = findRefrarrer?.id;
       }
 
       // ۳) اگر کاربر هست ولی verify نشده ⇒ همونو آپدیت کن (به‌جای ساخت کاربر جدید)
@@ -59,7 +69,7 @@ const Controller = class extends Controllers {
         user.email = email;
         user.password = password; // اینجا بهتره هش‌شده ذخیره کنی
         user.status = "approved"; // یا مثلا "pending_mobile_verify"
-        if (referrer_id) user.referrer_id = referrer_id
+        if (referrer_id) user.referrer_id = referrer_id;
         await user.save();
       } else {
         // ۴) اگر اصلاً کاربری با این موبایل/ایمیل نبود ⇒ کاربر جدید بساز
@@ -70,7 +80,7 @@ const Controller = class extends Controllers {
           email,
           password, // اینجا هم حتماً در عمل واقعی هش کن
           status: "approved", // یا "pending_mobile_verify"
-          referrer_id: referrer_id
+          referrer_id: referrer_id,
         });
       }
 
@@ -88,7 +98,7 @@ const Controller = class extends Controllers {
       // هر OTP قبلی که هنوز waiting مونده رو می‌تونی expire کنی (اختیاری)
       await Otp.update(
         { status: "expired" },
-        { where: { mobile, status: "waiting" } }
+        { where: { mobile, status: "waiting" } },
       );
 
       const sent = await sendCode({ receptor: mobile, token: newCode });
@@ -117,12 +127,17 @@ const Controller = class extends Controllers {
         res,
         status: 500,
         message: "خطای غیرمنتظره‌ای رخ داده است",
+        data: error,
       });
     }
   }
   async profile(req, res) {
-
-    if (!req?.user) return this.response({ res, status: 400, message: "ابتدا وارد سایت شوید!" })
+    if (!req?.user)
+      return this.response({
+        res,
+        status: 400,
+        message: "ابتدا وارد سایت شوید!",
+      });
 
     this.response({ res, data: req?.user, message: "اطلاعات کاربری" });
   }
@@ -153,7 +168,6 @@ const Controller = class extends Controllers {
       data: { token },
       message: "به مای پراپ خوش آمدید",
     });
-
   }
   async verifyOtp(req, res) {
     try {
@@ -197,7 +211,6 @@ const Controller = class extends Controllers {
         await otp.save();
       }
 
-
       const user = await User.findOne({ where: { mobile } });
 
       if (!user) {
@@ -211,9 +224,13 @@ const Controller = class extends Controllers {
       user.verify_mobile = true;
       await user.save();
 
-      const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET || "dawdawfawf_adjaiwdhawihfmafa", {
-        expiresIn: "24h",
-      });
+      const token = jwt.sign(
+        { id: user.id },
+        process.env.JWT_SECRET || "dawdawfawf_adjaiwdhawihfmafa",
+        {
+          expiresIn: "24h",
+        },
+      );
 
       return this.response({
         res,
@@ -242,7 +259,10 @@ const Controller = class extends Controllers {
     }
 
     const newCode = generateCode(4);
-    const sent = await sendCode({ receptor: req?.body?.mobile, token: newCode });
+    const sent = await sendCode({
+      receptor: req?.body?.mobile,
+      token: newCode,
+    });
     if (!sent) {
       return this.response({
         res,
@@ -276,7 +296,10 @@ const Controller = class extends Controllers {
     }
 
     const newCode = generateCode(4);
-    const sent = await sendCode({ receptor: req?.body?.mobile, token: newCode });
+    const sent = await sendCode({
+      receptor: req?.body?.mobile,
+      token: newCode,
+    });
     if (!sent) {
       return this.response({
         res,
@@ -359,11 +382,14 @@ const Controller = class extends Controllers {
       return this.response({
         res,
         status: 400,
-        message: "کاربری با این شماره موبایل پیدا نشد"
+        message: "کاربری با این شماره موبایل پیدا نشد",
       });
 
     const newCode = generateCode(4);
-    const sent = await sendCode({ receptor: req?.body?.mobile, token: newCode });
+    const sent = await sendCode({
+      receptor: req?.body?.mobile,
+      token: newCode,
+    });
     if (!sent) {
       return this.response({
         res,
