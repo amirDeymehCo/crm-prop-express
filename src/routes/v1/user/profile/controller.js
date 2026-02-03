@@ -69,42 +69,60 @@ const Controller = class extends Controllers {
     });
   }
   async refralList(req, res) {
-    const usersRefral = await founcList(
-      ReferralCommission,
-      req,
-      {
-        referred_user_id: req?.user?.id, // ✅ فقط رفرال‌های این کاربر
+    const referrerId = req.user.id;
+
+    const rows = await ReferralCommission.findAll({
+      where: {
+        referrer_id: referrerId,
+        status: ["approved", "paid"],
       },
-      {
-        attributes: [
-          "referred_user_id",
+      attributes: [
+        "referred_user_id",
 
-          // مجموع مبلغ سفارش‌ها
-          [sequelize.fn("SUM", sequelize.col("order_amount")), "total_paid"],
+        // جمع مبلغ پرداختی این زیرمجموعه
+        [sequelize.fn("SUM", sequelize.col("order_amount")), "total_paid"],
 
-          // مجموع کمیسیون
-          [
-            sequelize.fn("SUM", sequelize.col("commission_amount")),
-            "total_commission",
+        // جمع سود شما از این زیرمجموعه
+        [
+          sequelize.fn("SUM", sequelize.col("commission_amount")),
+          "total_commission",
+        ],
+      ],
+      include: [
+        {
+          model: User,
+          as: "referredUser",
+          attributes: [
+            "id",
+            "firstname",
+            "lastname",
+            "mobile",
+            "email",
+            "createdAt",
           ],
-        ],
-        include: [
-          {
-            model: User,
-            as: "referredUser",
-            attributes: ["id", "firstname", "lastname", "avatar", "createdAt"],
-          },
-        ],
-        group: ["referred_user_id", "referredUser.id"],
-        order: [[sequelize.literal("total_paid"), "DESC"]],
+        },
+      ],
+      group: ["referred_user_id", "referredUser.id"],
+      order: [[sequelize.literal("total_paid"), "DESC"]],
+    });
+
+    const data = rows.map((row) => ({
+      user: {
+        id: row.referredUser.id,
+        firstname: row.referredUser.firstname,
+        lastname: row.referredUser.lastname,
+        mobile: row.referredUser.mobile,
+        email: row.referredUser.email,
+        joinedAt: row.referredUser.createdAt,
       },
-    );
+      totalPaid: Number(row.get("total_paid") || 0),
+      yourProfit: Number(row.get("total_commission") || 0),
+    }));
 
     this.response({
       res,
-      status: 200,
-      message: "لیست کاربران رفرال شما",
-      data: usersRefral,
+      message: "لیست زیرمجموعه‌ها",
+      data,
     });
   }
 
