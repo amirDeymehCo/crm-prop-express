@@ -6,7 +6,7 @@ const sequelize = require("../../../../../db");
 const founcList = require("../../../../utils/List");
 const avatars = require("../../../../configs/avatars");
 const bcrypt = require("bcrypt");
-const { fn } = require("sequelize");
+const { fn, col } = require("sequelize");
 
 const Controller = class extends Controllers {
   async findProfile(req, res) {
