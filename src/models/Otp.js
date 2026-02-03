@@ -11,7 +11,7 @@ const Otp = sequelize.define("Otp", {
     allowNull: false,
   },
   status: {
-    type: DataTypes.ENUM("waiting", "verify"),
+    type: DataTypes.ENUM("waiting", "verify", "expired"),
     allowNull: false,
     defaultValue: "waiting",
   },
