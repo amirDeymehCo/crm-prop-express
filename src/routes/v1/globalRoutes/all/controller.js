@@ -107,11 +107,14 @@ const Controller = class extends Controllers {
         { transaction: t },
       );
 
-      wallet.balance = Number(wallet.balance) + amountUSD;
+      wallet.balance = Number(wallet.balance) + Number(amountUSD);
       await wallet.save({ transaction: t });
     });
 
-    return res.redirect(baseSite + `/account/wallet?status=${verify?.status}`);
+    return res.redirect(
+      baseSite +
+        `/account/wallet?status=${verify?.status}&amountUSD=${amountUSD}`,
+    );
   }
 };
 
