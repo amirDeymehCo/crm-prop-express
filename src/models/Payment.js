@@ -53,6 +53,7 @@ const Payment = sequelize.define(
         "refunded",
         "expired",
         "confirmed_free",
+        "paid",
       ),
       allowNull: false,
       defaultValue: "pending",
