@@ -1,15 +1,24 @@
 const Controllers = require("../../../controllers");
-const { paykanService, verifyWithGatewayPeykan } = require("../../../../services/PeykanPayment")
-const { createDepositUSDInvoice, handleIpnCallback } = require("../../../../services/NOWPayments")
-const Wallet = require("../../../../models/Wallet")
-const Payment = require("../../../../models/Payment")
-const WidthdrawRequest = require("../../../../models/WidthdrawRequest")
-const WalletTransaction = require("../../../../models/WalletTransaction")
-const Order = require("../../../../models/Order")
-const Otp = require("../../../../models/Otp")
-const founcList = require("../../../../utils/List")
-const sequelize = require("../../../../../db")
-const { generateCode, sendCode } = require("../../../../services/KavenegarService")
+const {
+  paykanService,
+  verifyWithGatewayPeykan,
+} = require("../../../../services/PeykanPayment");
+const {
+  createDepositUSDInvoice,
+  handleIpnCallback,
+} = require("../../../../services/NOWPayments");
+const Wallet = require("../../../../models/Wallet");
+const Payment = require("../../../../models/Payment");
+const WidthdrawRequest = require("../../../../models/WidthdrawRequest");
+const WalletTransaction = require("../../../../models/WalletTransaction");
+const Order = require("../../../../models/Order");
+const Otp = require("../../../../models/Otp");
+const founcList = require("../../../../utils/List");
+const sequelize = require("../../../../../db");
+const {
+  generateCode,
+  sendCode,
+} = require("../../../../services/KavenegarService");
 
 const Controller = class extends Controllers {
   async depositIRR(req, res) {
@@ -23,7 +32,8 @@ const Controller = class extends Controllers {
       const { redirectUrl } = await paykanService({
         userId,
         amountUsd: amount_usd,
-        callback_url: 'https://api-crm.myprop.trade/api/v1/user/wallet/deposit-IR-callback'
+        callback_url:
+          "https://api-crm.myprop.trade/api/v1/global/callback-peykan",
       });
 
       return this.response({
@@ -41,24 +51,36 @@ const Controller = class extends Controllers {
     const data = Object.keys(req.body || {}).length ? req.body : req.query;
 
     const orderId = data.order_id;
-    if (!orderId) return this.response({ status: 400, res, message: "order_id نامعتبر است" });
+    if (!orderId)
+      return this.response({
+        status: 400,
+        res,
+        message: "order_id نامعتبر است",
+      });
 
     // 1) پیدا کردن سفارش/پرداخت بر اساس gateway_order_id
     const order = await Order.findOne({ where: { gateway_order_id: orderId } });
-    if (!order) return this.response({ status: 400, res, message: "سفارشی یافت نشد" });
+    if (!order)
+      return this.response({ status: 400, res, message: "سفارشی یافت نشد" });
 
     const payment = await Payment.findOne({ where: { order_id: order.id } });
-    if (!payment) return this.response({ status: 400, res, message: "پرداختی یافت نشد" });
+    if (!payment)
+      return this.response({ status: 400, res, message: "پرداختی یافت نشد" });
 
     // 2) اگر قبلاً پردازش شده، دوباره شارژ نکن
     if (payment.status === "paid" || order.status === "paid") {
-      return res.redirect(process.env.FRONT_BASE_URL + "/account/wallet?successPayment=true");
+      return res.redirect(
+        process.env.FRONT_BASE_URL + "/account/wallet?successPayment=true",
+      );
     }
 
     // 3) verify واقعی با درگاه (مهم‌ترین بخش)
     const verify = await verifyWithGatewayPeykan(data); // باید از API درگاه نتیجه قطعی بگیری
     if (!verify?.success) {
-      await payment.update({ status: "failed", meta: JSON.stringify({ data, verify }) });
+      await payment.update({
+        status: "failed",
+        meta: JSON.stringify({ data, verify }),
+      });
       await order.update({ status: "failed" });
       return res.redirect("/account/wallet?successPayment=false");
     }
@@ -77,14 +99,20 @@ const Controller = class extends Controllers {
       });
       if (alreadyTx) return;
 
-      await payment.update({
-        status: "paid",
-        provider_payment_id: verify.tracking_code,
-        meta: JSON.stringify({ data, verify }),
-        paid_at: new Date(),
-      }, { transaction: t });
+      await payment.update(
+        {
+          status: "paid",
+          provider_payment_id: verify.tracking_code,
+          meta: JSON.stringify({ data, verify }),
+          paid_at: new Date(),
+        },
+        { transaction: t },
+      );
 
-      await order.update({ status: "paid", paid_at: new Date() }, { transaction: t });
+      await order.update(
+        { status: "paid", paid_at: new Date() },
+        { transaction: t },
+      );
 
       const wallet = await Wallet.findOne({
         where: { user_id: order.user_id },
@@ -94,16 +122,19 @@ const Controller = class extends Controllers {
 
       const amountUSD = Number(payment.amount_usd);
 
-      await WalletTransaction.create({
-        type: "deposit",
-        amount: amountUSD,
-        balance_before: wallet.balance,
-        balance_after: Number(wallet.balance) + amountUSD,
-        ref_id: verify.ref_num,
-        status: "completed",
-        meta: JSON.stringify({ data, verify }),
-        wallet_id: wallet.id,
-      }, { transaction: t });
+      await WalletTransaction.create(
+        {
+          type: "deposit",
+          amount: amountUSD,
+          balance_before: wallet.balance,
+          balance_after: Number(wallet.balance) + amountUSD,
+          ref_id: verify.ref_num,
+          status: "completed",
+          meta: JSON.stringify({ data, verify }),
+          wallet_id: wallet.id,
+        },
+        { transaction: t },
+      );
 
       wallet.balance = Number(wallet.balance) + amountUSD;
       await wallet.save({ transaction: t });
@@ -120,7 +151,8 @@ const Controller = class extends Controllers {
       const { invoiceUrl, payment } = await createDepositUSDInvoice({
         user,
         amountUsd: amount_usd,
-        callback_url: 'https://api-crm.myprop.trade/api/v1/user/wallet/deposit/nowpayment/ipn'
+        callback_url:
+          "https://api-crm.myprop.trade/api/v1/user/wallet/deposit/nowpayment/ipn",
       });
 
       res.status(200).json({
@@ -143,7 +175,10 @@ const Controller = class extends Controllers {
   }
   async createOtpWidhdraw(req, res) {
     const newCode = generateCode(4);
-    const sent = await sendCode({ receptor: req?.user?.mobile, token: newCode });
+    const sent = await sendCode({
+      receptor: req?.user?.mobile,
+      token: newCode,
+    });
     if (!sent) {
       return this.response({
         res,
@@ -158,10 +193,14 @@ const Controller = class extends Controllers {
       status: "waiting",
     });
 
-    this.response({ res, status: 200, message: "کد تایید به تلفن همراه شما ارسال شد" })
+    this.response({
+      res,
+      status: 200,
+      message: "کد تایید به تلفن همراه شما ارسال شد",
+    });
   }
   async widthdrawRequest(req, res) {
-    const { wallet_address, amount_usd } = req?.body
+    const { wallet_address, amount_usd } = req?.body;
 
     const mobile = String(req.user.mobile).trim();
     const code = String(req.body.code).trim();
@@ -203,26 +242,49 @@ const Controller = class extends Controllers {
       await otp.save();
     }
 
+    const widthStatusWiaings = await WidthdrawRequest.findOne({
+      where: { status: "waiting", user_id: req?.user?.id },
+    });
+    if (widthStatusWiaings)
+      return this.response({
+        res,
+        status: 400,
+        message: "کاربر گرامی، شما یک درخواست برداشت قبلا ثبت کرده اید",
+      });
 
-    const widthStatusWiaings = await WidthdrawRequest.findOne({ where: { status: "waiting", user_id: req?.user?.id } });
-    if (widthStatusWiaings) return this.response({ res, status: 400, message: "کاربر گرامی، شما یک درخواست برداشت قبلا ثبت کرده اید" })
+    const wallet = await Wallet.findOne({ where: { user_id: req?.user?.id } });
+    if (!wallet || parseFloat(wallet?.balance) < parseFloat(amount_usd))
+      return this.response({
+        res,
+        status: 400,
+        message: "موچودی ولت شما کمتر از مقدار درخواستی هست",
+      });
 
-
-    const wallet = await Wallet.findOne({ where: { user_id: req?.user?.id } })
-    if (!wallet || (parseFloat(wallet?.balance) < parseFloat(amount_usd))) return this.response({ res, status: 400, message: "موچودی ولت شما کمتر از مقدار درخواستی هست" })
-
-    await WidthdrawRequest.create({ wallet_address, amount: parseFloat(amount_usd), status: "waiting", user_id: req?.user?.id })
-    this.response({ res, status: 200, message: "کاربر مای پراپ درخواست برداشت شما ثبت شد!" })
+    await WidthdrawRequest.create({
+      wallet_address,
+      amount: parseFloat(amount_usd),
+      status: "waiting",
+      user_id: req?.user?.id,
+    });
+    this.response({
+      res,
+      status: 200,
+      message: "کاربر مای پراپ درخواست برداشت شما ثبت شد!",
+    });
   }
   async transactionsList(req, res) {
     const where = {};
-    const { query: { type, status } } = req
+    const {
+      query: { type, status },
+    } = req;
 
     if (type) where.type = type;
     if (status) where.status = status;
 
-    const transactions = await founcList(Order, req, where, { attributes: { exclude: ["meta"] } });
-    this.response({ res, message: "تاریختچه تراکنش ها", data: transactions })
+    const transactions = await founcList(Order, req, where, {
+      attributes: { exclude: ["meta"] },
+    });
+    this.response({ res, message: "تاریختچه تراکنش ها", data: transactions });
   }
   async states(req, res) {
     const stats = await WalletTransaction.findAll({
@@ -230,9 +292,9 @@ const Controller = class extends Controllers {
       attributes: [
         "type",
         "status",
-        [sequelize.fn("SUM", sequelize.col("amount")), "total"]
+        [sequelize.fn("SUM", sequelize.col("amount")), "total"],
       ],
-      group: ["type"]
+      group: ["type"],
     });
 
     let totals = {
@@ -242,11 +304,12 @@ const Controller = class extends Controllers {
       total_withdraw: 0,
     };
 
-    stats.forEach(row => {
+    stats.forEach((row) => {
       const type = row.type;
       const total = parseFloat(row.dataValues.total);
 
-      if (row?.status === "harvested" || row?.status === "failed") totals.total_expired = total;
+      if (row?.status === "harvested" || row?.status === "failed")
+        totals.total_expired = total;
       else {
         if (type === "deposit") totals.total_deposit = total;
         if (type === "transfer_out") totals.total_spent = total;
@@ -254,8 +317,7 @@ const Controller = class extends Controllers {
       }
     });
 
-
-    this.response({ res, message: "اطلاعات ولت", data: totals })
+    this.response({ res, message: "اطلاعات ولت", data: totals });
   }
 };
 

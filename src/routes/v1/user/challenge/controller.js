@@ -135,7 +135,8 @@ const Controller = class extends Controllers {
           userId: req?.user?.id,
           amountUsd,
           userChallenge: ch_data?.userChallenge?.id,
-          // callback_url: "https://api-crm.myprop.trade/api/v1/user/challenge/buy-challenge-callback"
+          callback_url:
+            "https://api-crm.myprop.trade/api/v1/global/callback-peykan",
         });
 
         return this.response({
@@ -147,7 +148,8 @@ const Controller = class extends Controllers {
 
       if (req?.body?.gateway === "nowpayments") {
         const { invoiceUrl } = await createDepositUSDInvoice({
-          // callback_url: "https://api-crm.myprop.trade/api/v1/user/challenge/buy-challenge-callback",
+          // callback_url:
+          //   "https://api-crm.myprop.trade/api/v1/user/challenge/buy-challenge-callback",
           amountUsd,
           user: req?.user,
         });

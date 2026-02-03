@@ -3,10 +3,6 @@ const router = express.Router();
 const Controller = require("./controller");
 const asyncHandler = require("../../../../utils/asyncHandler");
 
-router.all(
-  "/callback-peykan",
-  asyncHandler(Controller.depositIRR)
-)
-
+router.all("/callback-peykan", asyncHandler(Controller.callbackPeykan));
 
 module.exports = router;
