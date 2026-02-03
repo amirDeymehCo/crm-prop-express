@@ -29,7 +29,7 @@ async function paykanService({
     amount_irr: amountIrr,
     amount_usd: amountUsd,
     currency: "IRR",
-    gateway: "paykan",
+    gateway: "peykan",
     status: "pending",
     type: "wallet_deposit",
   });
