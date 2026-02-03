@@ -103,11 +103,11 @@ const Controller = class extends Controllers {
 
       // const sent = await sendCode({ receptor: mobile, token: newCode });
       // if (!sent) {
-      // return this.response({
-      //   res,
-      //   status: 500,
-      //   message: "در ارسال کد تایید مشکلی پیش آمده است، بعدا امتحان کنید",
-      // });
+      //   return this.response({
+      //     res,
+      //     status: 500,
+      //     message: "در ارسال کد تایید مشکلی پیش آمده است، بعدا امتحان کنید",
+      //   });
       // }
 
       await Otp.create({
@@ -119,7 +119,7 @@ const Controller = class extends Controllers {
       return this.response({
         res,
         status: existingUser ? 200 : 201,
-        message: "کد تایید تلفن شما ارسال شد",
+        message: newCode,
       });
     } catch (error) {
       console.error("Register error:", error);
