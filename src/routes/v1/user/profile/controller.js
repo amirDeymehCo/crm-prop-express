@@ -73,7 +73,7 @@ const Controller = class extends Controllers {
       ReferralCommission,
       req,
       {
-        user_id: req?.user?.id, // ✅ فقط رفرال‌های این کاربر
+        referred_user_id: req?.user?.id, // ✅ فقط رفرال‌های این کاربر
       },
       {
         attributes: [
