@@ -121,14 +121,14 @@ const Controller = class extends Controllers {
       );
 
       // ارسال OTP (در صورت نیاز)
-      // const sent = await sendCode({ receptor: mobile, token: newCode });
-      // if (!sent) {
-      //   return this.response({
-      //     res,
-      //     status: 500,
-      //     message: "خطا در ارسال کد تایید",
-      //   });
-      // }
+      const sent = await sendCode({ receptor: mobile, token: newCode });
+      if (!sent) {
+        return this.response({
+          res,
+          status: 500,
+          message: "خطا در ارسال کد تایید",
+        });
+      }
 
       await Otp.create({
         mobile,
@@ -157,7 +157,6 @@ const Controller = class extends Controllers {
       });
     }
   }
-
   async profile(req, res) {
     if (!req?.user)
       return this.response({
