@@ -71,57 +71,73 @@ const Controller = class extends Controllers {
   async refralList(req, res) {
     const referrerId = req.user.id;
 
-    const rows = await ReferralCommission.findAll({
+    const rows = await User.findAll({
       where: {
         referrer_id: referrerId,
-        status: ["approved", "paid"],
       },
       attributes: [
-        "referred_user_id",
+        "id",
+        "firstname",
+        "lastname",
+        "mobile",
+        "email",
+        "createdAt",
 
-        // جمع مبلغ پرداختی این زیرمجموعه
-        [sequelize.fn("SUM", sequelize.col("order_amount")), "total_paid"],
-
-        // جمع سود شما از این زیرمجموعه
         [
-          sequelize.fn("SUM", sequelize.col("commission_amount")),
+          sequelize.fn(
+            "COALESCE",
+            sequelize.fn(
+              "SUM",
+              sequelize.col("ReferralCommissions.order_amount"),
+            ),
+            0,
+          ),
+          "total_paid",
+        ],
+
+        [
+          sequelize.fn(
+            "COALESCE",
+            sequelize.fn(
+              "SUM",
+              sequelize.col("ReferralCommissions.commission_amount"),
+            ),
+            0,
+          ),
           "total_commission",
         ],
       ],
       include: [
         {
-          model: User,
-          as: "referredUser",
-          attributes: [
-            "id",
-            "firstname",
-            "lastname",
-            "mobile",
-            "email",
-            "createdAt",
-          ],
+          model: ReferralCommission,
+          required: false, // 🔴 LEFT JOIN
+          where: {
+            status: ["approved", "paid"],
+          },
+          attributes: [],
         },
       ],
-      group: ["referred_user_id", "referredUser.id"],
+      group: ["User.id"],
       order: [[sequelize.literal("total_paid"), "DESC"]],
     });
 
     const data = rows.map((row) => ({
       user: {
-        id: row.referredUser.id,
-        firstname: row.referredUser.firstname,
-        lastname: row.referredUser.lastname,
-        mobile: row.referredUser.mobile,
-        email: row.referredUser.email,
-        joinedAt: row.referredUser.createdAt,
+        id: row.id,
+        firstname: row.firstname,
+        lastname: row.lastname,
+        mobile: row.mobile,
+        email: row.email,
+        joinedAt: row.createdAt,
       },
       totalPaid: Number(row.get("total_paid") || 0),
       yourProfit: Number(row.get("total_commission") || 0),
+      hasPurchased: Number(row.get("total_paid")) > 0,
     }));
 
     this.response({
       res,
-      message: "لیست زیرمجموعه‌ها",
+      message: "لیست کامل زیرمجموعه‌ها",
       data,
     });
   }
