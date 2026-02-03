@@ -71,6 +71,16 @@ const Controller = class extends Controllers {
   async refralList(req, res) {
     const referrerId = req.user.id;
 
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const limit = Math.min(Number(req.query.limit) || 10, 50);
+    const offset = (page - 1) * limit;
+
+    // 1️⃣ تعداد کل زیرمجموعه‌ها (حتی بدون خرید)
+    const total = await User.count({
+      where: { referrer_id: referrerId },
+    });
+
+    // 2️⃣ لیست صفحه‌بندی‌شده
     const rows = await User.findAll({
       where: {
         referrer_id: referrerId,
@@ -84,52 +94,59 @@ const Controller = class extends Controllers {
         "createdAt",
 
         [
-          sequelize.fn(
-            "COALESCE",
-            sequelize.fn(
-              "SUM",
-              sequelize.col("ReferralCommissions.order_amount"),
-            ),
-            0,
-          ),
+          fn("COALESCE", fn("SUM", col("referralEarnings.order_amount")), 0),
           "total_paid",
         ],
-
         [
-          sequelize.fn(
+          fn(
             "COALESCE",
-            sequelize.fn(
-              "SUM",
-              sequelize.col("ReferralCommissions.commission_amount"),
-            ),
+            fn("SUM", col("referralEarnings.commission_amount")),
             0,
           ),
           "total_commission",
         ],
       ],
-
+      include: [
+        {
+          model: ReferralCommission,
+          as: "referralEarnings",
+          attributes: [],
+          required: false,
+          where: {
+            status: { [Op.in]: ["approved", "paid"] },
+          },
+        },
+      ],
       group: ["User.id"],
-      order: [[sequelize.literal("total_paid"), "DESC"]],
+      order: [[literal("total_paid"), "DESC"]],
+      limit,
+      offset,
+      subQuery: false, // 🔥 خیلی مهم
     });
 
-    const data = rows.map((row) => ({
+    const data = rows.map((u) => ({
       user: {
-        id: row.id,
-        firstname: row.firstname,
-        lastname: row.lastname,
-        mobile: row.mobile,
-        email: row.email,
-        joinedAt: row.createdAt,
+        id: u.id,
+        firstname: u.firstname,
+        lastname: u.lastname,
+        mobile: u.mobile,
+        email: u.email,
+        joinedAt: u.createdAt,
       },
-      totalPaid: Number(row.get("total_paid") || 0),
-      yourProfit: Number(row.get("total_commission") || 0),
-      hasPurchased: Number(row.get("total_paid")) > 0,
+      totalPaid: Number(u.get("total_paid") || 0),
+      yourProfit: Number(u.get("total_commission") || 0),
     }));
 
-    this.response({
+    return this.response({
       res,
-      message: "لیست کامل زیرمجموعه‌ها",
+      message: "لیست زیرمجموعه‌ها",
       data,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
     });
   }
 
