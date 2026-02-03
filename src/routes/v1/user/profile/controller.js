@@ -141,12 +141,11 @@ const Controller = class extends Controllers {
     return this.response({
       res,
       message: "لیست زیرمجموعه‌ها",
-      data,
-      meta: {
-        page,
-        limit,
-        total,
+      data: {
+        totalCount: total,
+        currentPage: page,
         totalPages: Math.ceil(total / limit),
+        items: data,
       },
     });
   }
