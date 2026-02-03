@@ -52,7 +52,7 @@ async function paykanService({
     order_id: orderId,
     amount: amountIrr,
     callback_url,
-    callback_method: "POST",
+    callback_method: "GET",
   };
 
   try {
