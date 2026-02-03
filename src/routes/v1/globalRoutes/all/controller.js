@@ -25,7 +25,9 @@ const Controller = class extends Controllers {
     if (!order)
       return this.response({ status: 400, res, message: "سفارشی یافت نشد" });
 
-    const payment = await Payment.findOne({ where: { order_id: order.id } });
+    const payment = await Payment.findOne({
+      where: { order_id: data.order_id },
+    });
     if (!payment)
       return this.response({ status: 400, res, message: "پرداختی یافت نشد" });
 
