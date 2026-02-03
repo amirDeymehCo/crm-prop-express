@@ -127,7 +127,7 @@ const Controller = class extends Controllers {
         res,
         status: 500,
         message: "خطای غیرمنتظره‌ای رخ داده است",
-        data: error,
+        data: JSON.stringify(error),
       });
     }
   }
