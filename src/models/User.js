@@ -2,6 +2,7 @@ const { DataTypes } = require("sequelize");
 const sequelize = require("../../db");
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
+const ReferralCommission = require("./ReferralCommission");
 
 function genReferralCode() {
   return "MP-" + crypto.randomBytes(4).toString("hex").toUpperCase(); // MP-9AF31C2D
@@ -125,6 +126,15 @@ User.hasMany(User, {
 User.belongsTo(User, {
   foreignKey: "referrer_id",
   as: "referrer",
+});
+User.hasMany(ReferralCommission, {
+  foreignKey: "referrer_id",
+  as: "referralEarnings", // سودهایی که کاربر از زیرمجموعه‌ها گرفته
+});
+
+User.hasMany(ReferralCommission, {
+  foreignKey: "referred_user_id",
+  as: "generatedCommissions", // کمیسیون‌هایی که با خریدهای خودش ساخته
 });
 
 module.exports = User;
