@@ -1,7 +1,5 @@
 const { DataTypes } = require("sequelize");
 const sequelize = require("../../db");
-const User = require("./User");
-const Order = require("./Order");
 
 const ReferralCommission = sequelize.define("ReferralCommission", {
   referrer_id: {
@@ -34,14 +32,24 @@ const ReferralCommission = sequelize.define("ReferralCommission", {
   },
 });
 
-ReferralCommission.belongsTo(User, {
-  foreignKey: "referrer_id",
-  as: "referrer",
-});
-ReferralCommission.belongsTo(User, {
-  foreignKey: "referred_user_id",
-  as: "referredUser",
-});
-ReferralCommission.belongsTo(Order, { foreignKey: "order_id", as: "order" });
+// ⛑️ ریلیشن امن (بعد از load همه مدل‌ها)
+ReferralCommission.associate = () => {
+  const { User, Order } = sequelize.models;
+
+  ReferralCommission.belongsTo(User, {
+    foreignKey: "referrer_id",
+    as: "referrer",
+  });
+
+  ReferralCommission.belongsTo(User, {
+    foreignKey: "referred_user_id",
+    as: "referredUser",
+  });
+
+  ReferralCommission.belongsTo(Order, {
+    foreignKey: "order_id",
+    as: "order",
+  });
+};
 
 module.exports = ReferralCommission;
