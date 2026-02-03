@@ -111,7 +111,7 @@ const verifyWithGateway = async ({
     const { status, message, data } = resp.data;
 
     return {
-      success: status === 200,
+      success: status === "CONFIRMED",
       refNum: data.ref_num,
       amount: data.amount,
       cardNumber: data.card_number,

@@ -45,7 +45,7 @@ const Controller = class extends Controllers {
       trackingCode: data?.tracking_code,
     });
     // باید از API درگاه نتیجه قطعی بگیری
-    if (!verify?.success) {
+    if (verify?.success !== "CONFIRMED") {
       await payment.update({
         status: "failed",
         meta: JSON.stringify({ data, verify }),
@@ -112,7 +112,9 @@ const Controller = class extends Controllers {
       await wallet.save({ transaction: t });
     });
 
-    return res.redirect(baseSite + "/account/wallet?successPayment=true");
+    return res.redirect(
+      baseSite + `/account/wallet?successPayment=true?status=${verify?.status}`,
+    );
   }
 };
 
