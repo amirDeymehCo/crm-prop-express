@@ -45,7 +45,7 @@ const Controller = class extends Controllers {
       trackingCode: data?.tracking_code,
     });
     // باید از API درگاه نتیجه قطعی بگیری
-    if (verify?.success !== "CONFIRMED") {
+    if (verify?.status !== "CONFIRMED") {
       await payment.update({
         status: "failed",
         meta: JSON.stringify({ data, verify }),
