@@ -44,7 +44,7 @@ const Controller = class extends Controllers {
       });
     } catch (e) {
       console.error(e);
-      return res.status(500).json({ message: "gateway error" });
+      return res.status(500).json({ message: "gateway error", data: e });
     }
   }
   async depositIRRCallback(req, res) {
