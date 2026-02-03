@@ -119,11 +119,11 @@ const verifyWithGateway = async ({
     };
   } catch (err) {
     return {
-      success: "FALED",
+      success: false,
       refNum: null,
       amount: null,
       cardNumber: null,
-      status: 400,
+      status: "FALED",
     };
   }
 };
