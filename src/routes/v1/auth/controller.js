@@ -101,14 +101,14 @@ const Controller = class extends Controllers {
         { where: { mobile, status: "waiting" } },
       );
 
-      const sent = await sendCode({ receptor: mobile, token: newCode });
-      if (!sent) {
-        return this.response({
-          res,
-          status: 500,
-          message: "در ارسال کد تایید مشکلی پیش آمده است، بعدا امتحان کنید",
-        });
-      }
+      // const sent = await sendCode({ receptor: mobile, token: newCode });
+      // if (!sent) {
+      // return this.response({
+      //   res,
+      //   status: 500,
+      //   message: "در ارسال کد تایید مشکلی پیش آمده است، بعدا امتحان کنید",
+      // });
+      // }
 
       await Otp.create({
         mobile,
@@ -126,7 +126,7 @@ const Controller = class extends Controllers {
       return this.response({
         res,
         status: 500,
-        message: "خطای غیرمنتظره‌ای رخ داده است",
+        message: error?.message,
         data: JSON.stringify(error),
       });
     }

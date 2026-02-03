@@ -15,53 +15,31 @@ require("./crons/UpdateDollarPrice");
 app.set("trust proxy", 1);
 
 // بهتره cors قبل از limiter باشه (اختیاری)
-// app.use(cors());
-// app.options("*", cors());
+app.use(cors());
+app.options("*", cors());
 
 app.use(globalLimiter);
 app.use(cleanQuery);
 
 // اگر cors رو بالا گذاشتی، این هدرهای دستی معمولاً اضافه‌ان.
 // ولی اگر می‌خوای نگه داری، مشکلی نیست:
-// app.use((req, res, next) => {
-//   res.header("Access-Control-Allow-Origin", "*");
-//   res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-//   res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-//   next();
-// });
-
-// app.use("/public", (req, res, next) => {
-//   res.header("Access-Control-Allow-Origin", "*");
-//   res.header("Access-Control-Allow-Methods", "GET,OPTIONS");
-//   res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-//   next();
-// });
-
-const allowedOrigins = [
-  "https://myprop.trade",
-  "https://www.myprop.trade",
-  "http://localhost:3000",
-];
-
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true); // Postman / curl
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-      return callback(new Error("Not allowed by CORS"));
-    },
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true, // اگر کوکی یا توکن داری
-  }),
-);
-app.options("*", cors());
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  next();
+});
 
 // routes and middlewares
 app.use(express.json({ limit: "30mb" }));
 app.use(express.urlencoded({ extended: true }));
+
+app.use("/public", (req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET,OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  next();
+});
 
 app.use(express.static("public"));
 app.use("/api", router);
