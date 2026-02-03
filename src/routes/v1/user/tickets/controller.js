@@ -10,32 +10,67 @@ const { Op } = require("sequelize");
 
 const Controller = class extends Controllers {
   async create(req, res) {
-    const files = req?.files?.map((e, i) => (e?.filename))
+    const files = req?.files?.map((e, i) => e?.filename);
 
     if (req?.body?.type === "widthdraw") {
-      if (!req?.body?.userChallenge || req?.body?.userChallenge == "null") return this.response({ res, status: 400, message: "ارسال شناسه چالش اجباری است" })
+      if (!req?.body?.userChallenge || req?.body?.userChallenge == "null")
+        return this.response({
+          res,
+          status: 400,
+          message: "کاربر مای پراپ، شما باید چالش خود را انتخاب نمایید",
+        });
+
+      const chFind = await UserChallenge.findByPk(req?.body?.userChallenge);
+      if (!chFind) {
+        return this.response({
+          res,
+          status: 400,
+          message: "چالشی با این شناسه ارسالی یافت نشد",
+        });
+      }
+
+      if (chFind?.current_phase_index !== 3) {
+        return this.response({
+          res,
+          status: 400,
+          message: "چالش شما هنوز به مرحله ی ریل نرسیده است",
+        });
+      }
     }
 
     const newTicket = await Ticket.create({
-      departeman: req?.body?.departeman, user_id: req?.user?.id, title: req?.body?.title, priority: req?.body?.priority, status: "ticket_open", type: req?.body?.type || "ticket", userChallenge: req?.body?.userChallenge || null,
-      files
+      departeman: req?.body?.departeman,
+      user_id: req?.user?.id,
+      title: req?.body?.title,
+      priority: req?.body?.priority,
+      status: "ticket_open",
+      type: req?.body?.type || "ticket",
+      userChallenge: req?.body?.userChallenge || null,
+      files,
     });
-    await Message.create({ text: req?.body?.message, ticket_id: newTicket?.id, senderType: "user" })
-
+    await Message.create({
+      text: req?.body?.message,
+      ticket_id: newTicket?.id,
+      senderType: "user",
+    });
 
     if (req?.body?.type === "kyc") {
-      await User.update({ kyc_status: "pending", kyc_steep: "one" }, { where: { id: req?.user?.id } })
+      await User.update(
+        { kyc_status: "pending", kyc_steep: "one" },
+        { where: { id: req?.user?.id } },
+      );
     }
 
     this.response({
       res,
       status: 201,
-      message: "کاربر مای پراپ، درخواست تیکت شما با موفقیت ثبت شد، منتظر پاسخ پشتیبان باشید",
-      data: newTicket
+      message:
+        "کاربر مای پراپ، درخواست تیکت شما با موفقیت ثبت شد، منتظر پاسخ پشتیبان باشید",
+      data: newTicket,
     });
   }
   async list(req, res) {
-    const { query } = req
+    const { query } = req;
     const where = {
       user_id: req?.user?.id,
     };
@@ -73,19 +108,26 @@ const Controller = class extends Controllers {
             },
           ],
         },
-      ]
-    })
+      ],
+    });
     this.response({
       res,
       status: 200,
       message: "لیست تیکت ها",
-      data: resData
+      data: resData,
     });
   }
   async find(req, res) {
     const findTicket = await Ticket.findByPk(req?.params?.id);
-    if (!findTicket) return this.response({ res, status: 400, message: "شناسه تیکت اشتباه است" });
-    const listChats = await Message.findAll({ where: { ticket_id: findTicket?.id, } })
+    if (!findTicket)
+      return this.response({
+        res,
+        status: 400,
+        message: "شناسه تیکت اشتباه است",
+      });
+    const listChats = await Message.findAll({
+      where: { ticket_id: findTicket?.id },
+    });
 
     this.response({
       res,
@@ -93,22 +135,29 @@ const Controller = class extends Controllers {
       message: "اطلاعات تیکت + پیام ها",
       data: {
         ticket: findTicket,
-        chats: listChats
-      }
-    })
+        chats: listChats,
+      },
+    });
   }
   async sendMessage(req, res) {
     const findTicket = await Ticket.findByPk(req?.params?.id);
-    if (!findTicket) return this.response({ res, status: 400, message: "شناسه تیکت اشتباه است" });
+    if (!findTicket)
+      return this.response({
+        res,
+        status: 400,
+        message: "شناسه تیکت اشتباه است",
+      });
 
+    const filesList = req?.files?.map((e) => e?.filename);
+    console.log("filesList=>", filesList);
+    const newMessage = await Message.create({
+      ticket_id: req?.params?.id,
+      text: req?.body?.message,
+      senderType: "user",
+      files: filesList,
+    });
 
-    const filesList = req?.files?.map(e => e?.filename)
-    console.log("filesList=>", filesList)
-    const newMessage = await Message.create({ ticket_id: req?.params?.id, text: req?.body?.message, senderType: "user", files: filesList })
-
-    this.response({ res, status: 200, message: "پیام شما با موفقیت ارسال شد", })
-
-
+    this.response({ res, status: 200, message: "پیام شما با موفقیت ارسال شد" });
   }
 };
 

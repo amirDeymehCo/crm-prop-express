@@ -11,21 +11,20 @@ const { Op } = require("sequelize");
 const Controller = class extends Controllers {
   async register(req, res) {
     try {
-      const { firstname, lastname, mobile, email, password } = req.body;
+      const { firstname, lastname, mobile, email, password, referral_code } =
+        req.body;
 
-      // ۱) چک کن آیا کاربری با همین موبایل یا ایمیل داریم یا نه (فارغ از verify_mobile)
+      /* --------------------------------------------------
+       * 1) بررسی وجود کاربر با موبایل یا ایمیل
+       * -------------------------------------------------- */
       const existingUser = await User.findOne({
         where: {
-          [Op.or]: [
-            { mobile },
-            email ? { email } : null, // اگر ایمیل نداشت نادیده بگیر
-          ].filter(Boolean),
+          [Op.or]: [{ mobile }, email ? { email } : null].filter(Boolean),
         },
       });
 
-      // ۲) اگر کاربر قبلی هست و موبایلش verify شده ⇒ اجازه ثبت نام نده
+      // اگر کاربر قبلاً verify شده → اجازه ثبت نام نده
       if (existingUser && existingUser.verify_mobile === true) {
-        // تشخیص بده مشکل از موبایل بوده یا ایمیل (برای پیام بهتر)
         let message = "کاربری با این اطلاعات قبلاً ثبت‌نام کرده است";
 
         if (existingUser.mobile === mobile) {
@@ -41,25 +40,37 @@ const Controller = class extends Controllers {
         });
       }
 
-      let user;
-
+      /* --------------------------------------------------
+       * 2) بررسی referral_code (در صورت ارسال)
+       * -------------------------------------------------- */
       let referrer_id = null;
-      if (req?.body?.referral_code) {
-        const findRefrarrer = await User.findOne({
-          where: { referral_code: req?.body?.referral_code },
+
+      if (referral_code) {
+        const referrer = await User.findOne({
+          where: {
+            referral_code,
+            status: "approved",
+          },
         });
-        if (!findRefrarrer)
+
+        if (!referrer) {
           return this.response({
             res,
             status: 400,
             message:
-              "کاربر مای پراپ، رفرالی با این کد پیدا نشد. لطفا کد خود را برسی نمایید",
+              "کد معرف معتبر نیست. لطفاً کد را بررسی و مجدداً تلاش کنید.",
           });
+        }
 
-        referrer_id = findRefrarrer?.id;
+        referrer_id = referrer.id;
       }
 
-      // ۳) اگر کاربر هست ولی verify نشده ⇒ همونو آپدیت کن (به‌جای ساخت کاربر جدید)
+      /* --------------------------------------------------
+       * 3) ساخت یا آپدیت کاربر
+       * -------------------------------------------------- */
+      let user;
+
+      // اگر کاربر هست ولی موبایلش verify نشده → آپدیت
       if (existingUser && existingUser.verify_mobile === false) {
         user = existingUser;
 
@@ -67,20 +78,26 @@ const Controller = class extends Controllers {
         user.lastname = lastname;
         user.mobile = mobile;
         user.email = email;
-        user.password = password; // اینجا بهتره هش‌شده ذخیره کنی
-        user.status = "approved"; // یا مثلا "pending_mobile_verify"
-        if (referrer_id) user.referrer_id = referrer_id;
+        user.password = password; // حتماً در عمل واقعی هش شود
+        user.status = "approved";
+
+        // رفرال فقط یک‌بار ست می‌شود
+        if (referrer_id && !user.referrer_id) {
+          user.referrer_id = referrer_id;
+        }
+
         await user.save();
-      } else {
-        // ۴) اگر اصلاً کاربری با این موبایل/ایمیل نبود ⇒ کاربر جدید بساز
+      }
+      // اگر کاربر جدید است → ایجاد
+      else {
         user = await User.create({
           firstname,
           lastname,
           mobile,
           email,
-          password, // اینجا هم حتماً در عمل واقعی هش کن
-          status: "approved", // یا "pending_mobile_verify"
-          referrer_id: referrer_id,
+          password, // حتماً هش شود
+          status: "approved",
+          referrer_id,
         });
       }
 
@@ -88,25 +105,28 @@ const Controller = class extends Controllers {
         return this.response({
           res,
           status: 400,
-          message: "متاسفانه در عملیات ثبت نام مشکلی پیش آمده است",
+          message: "خطا در ایجاد حساب کاربری",
         });
       }
 
-      // ۵) OTP تولید و ذخیره کن
+      /* --------------------------------------------------
+       * 4) تولید و ذخیره OTP
+       * -------------------------------------------------- */
       const newCode = generateCode(4);
 
-      // هر OTP قبلی که هنوز waiting مونده رو می‌تونی expire کنی (اختیاری)
+      // منقضی کردن OTPهای قبلی
       await Otp.update(
         { status: "expired" },
         { where: { mobile, status: "waiting" } },
       );
 
+      // ارسال OTP (در صورت نیاز)
       // const sent = await sendCode({ receptor: mobile, token: newCode });
       // if (!sent) {
       //   return this.response({
       //     res,
       //     status: 500,
-      //     message: "در ارسال کد تایید مشکلی پیش آمده است، بعدا امتحان کنید",
+      //     message: "خطا در ارسال کد تایید",
       //   });
       // }
 
@@ -116,21 +136,28 @@ const Controller = class extends Controllers {
         status: "waiting",
       });
 
+      /* --------------------------------------------------
+       * 5) پاسخ نهایی
+       * -------------------------------------------------- */
       return this.response({
         res,
         status: existingUser ? 200 : 201,
-        message: newCode,
+        message: "کد تایید ارسال شد",
+        // فقط برای تست:
+        // data: { otp: newCode },
       });
     } catch (error) {
       console.error("Register error:", error);
+
       return this.response({
         res,
         status: 500,
-        message: error?.message,
-        data: JSON.stringify(error),
+        message: "خطای داخلی سرور",
+        data: error?.message,
       });
     }
   }
+
   async profile(req, res) {
     if (!req?.user)
       return this.response({

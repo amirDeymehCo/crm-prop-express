@@ -111,10 +111,7 @@ const Controller = class extends Controllers {
       await wallet.save({ transaction: t });
     });
 
-    return res.redirect(
-      baseSite +
-        `/account/wallet?status=${verify?.status}&amountUSD=${amountUSD}`,
-    );
+    return res.redirect(baseSite + `/account/wallet?status=${verify?.status}`);
   }
 };
 
