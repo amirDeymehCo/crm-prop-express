@@ -72,11 +72,17 @@ const Controller = class extends Controllers {
     const usersRefral = await founcList(
       ReferralCommission,
       req,
-      {},
+      {
+        user_id: req?.user?.id, // ✅ فقط رفرال‌های این کاربر
+      },
       {
         attributes: [
           "referred_user_id",
+
+          // مجموع مبلغ سفارش‌ها
           [sequelize.fn("SUM", sequelize.col("order_amount")), "total_paid"],
+
+          // مجموع کمیسیون
           [
             sequelize.fn("SUM", sequelize.col("commission_amount")),
             "total_commission",
@@ -86,9 +92,7 @@ const Controller = class extends Controllers {
           {
             model: User,
             as: "referredUser",
-            attributes: {
-              exclude: ["password", "responsible_admin_id", "mobile", "email"],
-            },
+            attributes: ["id", "firstname", "lastname", "avatar", "createdAt"],
           },
         ],
         group: ["referred_user_id", "referredUser.id"],
