@@ -9,7 +9,13 @@ const Payment = sequelize.define(
   "Payment",
   {
     provider: {
-      type: DataTypes.ENUM("paykan", "nowpayments", "wallet", "coupon_free"),
+      type: DataTypes.ENUM(
+        "paykan",
+        "nowpayments",
+        "wallet",
+        "coupon_free",
+        "peykan",
+      ),
       allowNull: false,
     },
     order_id: {

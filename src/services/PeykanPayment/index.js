@@ -42,7 +42,7 @@ async function paykanService({
     amount_usd: amountUsd,
     rate_irr_per_usd: rate,
     status: "pending",
-    provider: "paykan",
+    provider: "peykan",
     raw_callback: callback_url,
     UserChallenge: userChallenge,
   });
