@@ -130,7 +130,7 @@ const Controller = class extends Controllers {
       // 4) مسیر درگاه‌ها (نیازی به finalize اینجا نیست)
       await t.commit();
 
-      if (req?.body?.gateway === "paykan") {
+      if (req?.body?.gateway === "peykan") {
         const { redirectUrl } = await paykanService({
           userId: req?.user?.id,
           amountUsd,
