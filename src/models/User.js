@@ -48,7 +48,7 @@ const User = sequelize.define(
     },
     referral_code: {
       type: DataTypes.STRING(32),
-      allowNull: false,
+      allowNull: true,
     },
   },
   {
