@@ -62,8 +62,6 @@ const Controller = class extends Controllers {
           });
         }
 
-        return this.response({ res, data: referrer });
-
         referrer_id = referrer.id;
       }
 
