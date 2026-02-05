@@ -26,7 +26,7 @@ const Controller = class extends Controllers {
   async getPlansList(req, res) {
     const setting = await Setting.findByPk(1);
     const listTypes = await ChallengeType?.findAll({
-      include: [{ model: ChallengePlan, order: [["balance", "DESC"]] }],
+      include: [{ model: ChallengePlan, order: [["balance", "ASC"]] }],
     });
 
     this.response({
