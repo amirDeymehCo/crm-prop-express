@@ -5,7 +5,12 @@ const WalletTransaction = require("../.././../../models/WalletTransaction");
 const Wallet = require("../.././../../models/Wallet");
 const { verifyWithGateway } = require("../../../../services/PeykanPayment");
 const sequelize = require("../../../../../db");
-
+const {
+  normalizeGatewayStatus,
+} = require("../../../../helpers/paymentsStatus");
+const {
+  finalizeChallengeAfterPaid,
+} = require("../../../../services/ChallengeFinalize");
 const baseSite = process.env.FRONT_BASE_URL;
 
 const Controller = class extends Controllers {
@@ -112,6 +117,146 @@ const Controller = class extends Controllers {
     });
 
     return res.redirect(baseSite + `/account/wallet?status=${verify?.status}`);
+  }
+  async callbackBuyCh(req, res) {
+    const t = await sequelize.transaction();
+    try {
+      const data = Object.keys(req.body || {}).length ? req.body : req.query;
+      const orderId = data?.order_id;
+      const statusRaw = data?.status;
+      const trackingCode = data?.tracking_code || null;
+      const refNum = data?.ref_num || null;
+
+      if (!orderId) {
+        await t.rollback();
+        return this.response({
+          res,
+          status: 400,
+          message: "order_id ارسال نشده است",
+        });
+      }
+
+      /** 🧩 پیدا کردن order و payment بر اساس درگاه */
+      const order = await Order.findOne({
+        where: { gateway_order_id: orderId },
+        transaction: t,
+      });
+      if (!order) {
+        await t.rollback();
+        return this.response({ res, status: 400, message: "سفارشی یافت نشد" });
+      }
+
+      const payment = await Payment.findOne({
+        where: { order_id: order.id },
+        transaction: t,
+      });
+      if (!payment) {
+        await t.rollback();
+        return this.response({ res, status: 400, message: "پرداختی یافت نشد" });
+      }
+
+      /** 🧠 اگر قبلاً تأیید شده بود */
+      if (order?.status === "paid" || payment?.status === "paid") {
+        await t.commit();
+        return this.response({
+          res,
+          status: 200,
+          message: "پرداخت قبلاً تایید شده است",
+        });
+      }
+
+      /** ✅ تایید واقعی از سمت درگاه */
+      const verify = await verifyWithGateway({
+        amount: order?.amount_irr,
+        cardNo: data?.card_no,
+        orderId: data?.order_id,
+        refNum: refNum,
+        trackingCode: trackingCode,
+      });
+
+      const normalizedStatus = normalizeGatewayStatus(
+        verify?.status || statusRaw,
+      );
+
+      // اگر پرداخت تایید نشده
+      if (normalizedStatus !== "confirmed") {
+        await payment.update(
+          {
+            status: "failed",
+            meta: JSON.stringify({ data, verify }),
+          },
+          { transaction: t },
+        );
+        await order.update(
+          {
+            status: "failed",
+            meta: JSON.stringify({ data, verify }),
+          },
+          { transaction: t },
+        );
+
+        await t.commit();
+        return this.response({
+          res,
+          status: 400,
+          message: "پرداخت تایید نشد",
+        });
+      }
+
+      /** ✅ تایید موفق => finalize چالش */
+      const finalizeResult = await finalizeChallengeAfterPaid({
+        user: req?.user,
+        orderId,
+        trackingCode,
+        refNum,
+        t,
+      });
+
+      /** بروزرسانی وضعیت پرداخت/سفارش */
+      await payment.update(
+        {
+          status: "paid",
+          provider_payment_id: trackingCode,
+          paid_at: new Date(),
+          meta: JSON.stringify({ data, verify }),
+        },
+        { transaction: t },
+      );
+
+      await order.update(
+        {
+          status: "paid",
+          paid_at: new Date(),
+        },
+        { transaction: t },
+      );
+
+      await t.commit();
+
+      return this.response({
+        res,
+        status: 200,
+        message: finalizeResult.alreadyDone
+          ? "پرداخت قبلاً تایید شده بود"
+          : "اکانت مرحله اول با موفقیت ساخته شد!",
+        data: finalizeResult.alreadyDone
+          ? null
+          : {
+              user_challenge_id: finalizeResult.userChallenge.id,
+              account_instance_id: finalizeResult.acc.id,
+              phase_index: finalizeResult.acc.phase_index,
+              mt_login: finalizeResult.acc.mt_login,
+              mt_server: finalizeResult.acc.mt_server,
+            },
+      });
+    } catch (err) {
+      await t.rollback();
+      return this.response({
+        res,
+        status: err.status || 500,
+        message: err?.message || "خطای سرور در پردازش پرداخت",
+      });
+    }
   }
 };
 

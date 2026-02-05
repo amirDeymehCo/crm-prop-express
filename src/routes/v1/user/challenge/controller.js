@@ -136,7 +136,7 @@ const Controller = class extends Controllers {
           amountUsd,
           userChallenge: ch_data?.userChallenge?.id,
           callback_url:
-            "https://api-crm.myprop.trade/api/v1/global/callback-peykan",
+            "https://api-crm.myprop.trade/api/v1/global/callback-peykan-challenge",
         });
 
         return this.response({
