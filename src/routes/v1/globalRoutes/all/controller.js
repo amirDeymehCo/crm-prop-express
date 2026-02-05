@@ -233,22 +233,26 @@ const Controller = class extends Controllers {
 
       await t.commit();
 
-      return this.response({
-        res,
-        status: 200,
-        message: finalizeResult.alreadyDone
-          ? "پرداخت قبلاً تایید شده بود"
-          : "اکانت مرحله اول با موفقیت ساخته شد!",
-        data: finalizeResult.alreadyDone
-          ? null
-          : {
-              user_challenge_id: finalizeResult.userChallenge.id,
-              account_instance_id: finalizeResult.acc.id,
-              phase_index: finalizeResult.acc.phase_index,
-              mt_login: finalizeResult.acc.mt_login,
-              mt_server: finalizeResult.acc.mt_server,
-            },
-      });
+      return res.redirect(
+        baseSite + `/account/wallet?status=${verify?.status}`,
+      );
+
+      // return this.response({
+      //   res,
+      //   status: 200,
+      //   message: finalizeResult.alreadyDone
+      //     ? "پرداخت قبلاً تایید شده بود"
+      //     : "اکانت مرحله اول با موفقیت ساخته شد!",
+      //   data: finalizeResult.alreadyDone
+      //     ? null
+      //     : {
+      //         user_challenge_id: finalizeResult.userChallenge.id,
+      //         account_instance_id: finalizeResult.acc.id,
+      //         phase_index: finalizeResult.acc.phase_index,
+      //         mt_login: finalizeResult.acc.mt_login,
+      //         mt_server: finalizeResult.acc.mt_server,
+      //       },
+      // });
     } catch (err) {
       // await t.rollback();
       return this.response({
