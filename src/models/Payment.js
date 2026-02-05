@@ -2,7 +2,6 @@
 const { DataTypes } = require("sequelize");
 const sequelize = require("../../db");
 const User = require("./User");
-const ChallengePlan = require("./Challenge/ChallengePlan");
 const UserChallenge = require("./Challenge/UserChallenge");
 
 const Payment = sequelize.define(

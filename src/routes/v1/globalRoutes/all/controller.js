@@ -147,7 +147,7 @@ const Controller = class extends Controllers {
       }
 
       const payment = await Payment.findOne({
-        where: { order_id: orderId },
+        where: { order_id: data?.order_id },
         transaction: t,
       });
       if (!payment) {
@@ -250,7 +250,7 @@ const Controller = class extends Controllers {
             },
       });
     } catch (err) {
-      await t.rollback();
+      // await t.rollback();
       return this.response({
         res,
         status: err.status || 500,
