@@ -234,7 +234,7 @@ const Controller = class extends Controllers {
       await t.commit();
 
       return res.redirect(
-        baseSite + `/account/wallet?status=${verify?.status}`,
+        baseSite + `/account/challenges?status=${verify?.status}`,
       );
 
       // return this.response({
