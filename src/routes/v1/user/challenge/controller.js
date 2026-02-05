@@ -42,6 +42,7 @@ const Controller = class extends Controllers {
   async getPhase(req, res) {
     const details = await ChallengePhase?.findAll({
       where: { challenge_plan_id: req?.params?.planId },
+      order: [["balance", "DESC"]],
     });
 
     this.response({
