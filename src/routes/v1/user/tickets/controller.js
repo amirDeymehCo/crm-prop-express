@@ -46,12 +46,13 @@ const Controller = class extends Controllers {
       status: "ticket_open",
       type: req?.body?.type || "ticket",
       userChallenge: req?.body?.userChallenge || null,
-      files,
+      files: [],
     });
     await Message.create({
       text: req?.body?.message,
       ticket_id: newTicket?.id,
       senderType: "user",
+      files,
     });
 
     if (req?.body?.type === "kyc") {
