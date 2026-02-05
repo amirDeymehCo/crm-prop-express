@@ -147,7 +147,7 @@ const Controller = class extends Controllers {
       }
 
       const payment = await Payment.findOne({
-        where: { order_id: order.id },
+        where: { order_id: orderId },
         transaction: t,
       });
       if (!payment) {
