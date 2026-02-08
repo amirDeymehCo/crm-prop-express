@@ -14,6 +14,7 @@ const Payment = sequelize.define(
         "wallet",
         "coupon_free",
         "peykan",
+        "admin",
       ),
       allowNull: false,
     },

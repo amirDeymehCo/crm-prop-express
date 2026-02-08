@@ -8,6 +8,7 @@ const CallResultOption = require("../../../../models/Call/CallResultOption");
 const ReferralCommission = require("../../../../models/ReferralCommission");
 const founcList = require("../../../../utils/List");
 const sequelize = require("../../../../../db");
+const { fn, col, Op, literal } = require("sequelize");
 
 const Controller = class extends Controllers {
   async users(req, res) {
@@ -82,40 +83,88 @@ const Controller = class extends Controllers {
     });
   }
   async refral(req, res) {
-    const whare = {};
-    if (req?.query?.referrer_id) whare.referrer_id = req?.query?.referrer_id;
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const limit = Math.min(Number(req.query.limit) || 10, 50);
+    const offset = (page - 1) * limit;
 
-    const usersRefral = await founcList(ReferralCommission, req, whare, {
+    const where = {
+      referrer_id: {
+        [Op.ne]: null,
+      },
+    };
+
+    if (req?.query?.referrer_id) {
+      where.referrer_id = req.query.referrer_id;
+    }
+
+    const usersRefral = await User.findAll({
+      where,
       attributes: [
-        "referred_user_id",
-        [sequelize.fn("SUM", sequelize.col("order_amount")), "total_paid"],
+        "id",
+        "firstname",
+        "lastname",
+        "avatar",
+        "mobile",
+        "email",
+        "createdAt",
         [
-          sequelize.fn("SUM", sequelize.col("commission_amount")),
+          fn("COALESCE", fn("SUM", col("referralEarnings.order_amount")), 0),
+          "total_paid",
+        ],
+        [
+          fn(
+            "COALESCE",
+            fn("SUM", col("referralEarnings.commission_amount")),
+            0,
+          ),
           "total_commission",
         ],
-        "id",
-        "createdAt",
       ],
       include: [
+        // ✅ اطلاعات کسی که معرفش بوده
         {
           model: User,
-          as: "referredUser",
-          attributes: {
-            exclude: ["password", "responsible_admin_id", "mobile", "email"],
+          as: "referrer",
+          attributes: ["id", "firstname", "lastname", "avatar"],
+        },
+        {
+          model: ReferralCommission,
+          as: "referralEarnings",
+          attributes: [],
+          required: false,
+          where: {
+            status: {
+              [Op.in]: ["approved", "paid"],
+            },
           },
         },
-        {
-          model: User,
-          as: "referrer", // 👈 اضافه شده
-          attributes: ["id", "firstname", "lastname", "avatar"], // یا هر چیزی که نیاز داری
-        },
       ],
-      group: ["referred_user_id", "referredUser.id", "referrer.id"],
-      order: [[sequelize.literal("total_paid"), "DESC"]],
+      group: ["User.id", "referrer.id"], // ✅ مهم
+      order: [[literal("total_paid"), "DESC"]],
+      limit,
+      offset,
+      subQuery: false,
     });
 
-    this.response({ res, data: usersRefral });
+    const total = await User.count({
+      where: {
+        referrer_id: {
+          [Op.ne]: null, // 👈 null نباشه
+        },
+      },
+    });
+
+    this.response({
+      res,
+      data: {
+        totalCount: total,
+        currentPage: page,
+        totalPages: Math.ceil(total / limit),
+        items: usersRefral,
+      },
+    });
   }
+
   async typeChallenge(req, res) {
     const list = await ChallengeType.findAll();
 

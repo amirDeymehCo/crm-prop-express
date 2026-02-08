@@ -19,6 +19,7 @@ const {
   normalizeGatewayStatus,
 } = require("../../../../helpers/paymentsStatus");
 const RequestChnageStatus = require("../../../../models/RequestChangeStatus");
+const Order = require("../../../../models/Order");
 const founcList = require("../../../../utils/List");
 const { Op } = require("sequelize");
 
@@ -535,6 +536,159 @@ const Controller = class extends Controllers {
       return res
         .status(500)
         .json({ ok: false, message: "خطای سرور در بررسی کد تخفیف." });
+    }
+  }
+  async payPendingChallenge(req, res, next) {
+    const t = await sequelize.transaction();
+    try {
+      const { user_challenge_id, gateway } = req.body;
+
+      // 1) گرفتن چالش
+      const userChallenge = await UserChallenge.findOne({
+        where: {
+          id: user_challenge_id,
+          user_id: req.user.id,
+          status: {
+            [Op.in]: ["pending_payment", "pending"],
+          },
+        },
+        include: [{ model: Order }],
+        transaction: t,
+        lock: t.LOCK.UPDATE,
+      });
+
+      if (!userChallenge) {
+        await t.rollback();
+        return this.response({
+          res,
+          status: 400,
+          message: "چالش قابل پرداختی پیدا نشد",
+        });
+      }
+
+      const orders = userChallenge.Orders || [];
+
+      if (!orders.length) {
+        await t.rollback();
+        return this.response({
+          res,
+          status: 400,
+          message: "هیچ سفارشی برای این چالش یافت نشد",
+        });
+      }
+
+      // آخرین سفارش هنوز پرداخت‌نشده (pending)
+      const order = orders
+        .filter((o) => o.status === "pending")
+        .sort((a, b) => b.id - a.id)[0]; // آخرین سفارش
+
+      if (!order) {
+        await t.rollback();
+        return this.response({
+          res,
+          status: 400,
+          message: "سفارشی برای پرداخت فعال وجود ندارد",
+        });
+      }
+
+      const orderId = order.gateway_order_id;
+      const amountUsd = Number(order.amount_usd || 0);
+      // 2) اگر رایگان
+      if (amountUsd === 0) {
+        const result = await finalizeChallengeAfterPaid({
+          user: req.user,
+          orderId,
+          trackingCode: `FREE-${Date.now()}`,
+          refNum: null,
+          t,
+        });
+
+        await t.commit();
+
+        return this.response({
+          res,
+          message: "چالش با موفقیت فعال شد",
+          data: {
+            user_challenge_id: result.userChallenge.id,
+            account_instance_id: result.acc.id,
+          },
+        });
+      }
+
+      // 3) پرداخت با ولت
+      if (gateway === "wallet") {
+        await payWithWallet({
+          userId: req.user.id,
+          orderId,
+          amountUsd,
+          t,
+        });
+
+        const result = await finalizeChallengeAfterPaid({
+          user: req.user,
+          orderId,
+          trackingCode: `WALLET-${Date.now()}`,
+          refNum: null,
+          t,
+        });
+
+        await t.commit();
+
+        return this.response({
+          res,
+          message: "پرداخت با ولت موفق بود",
+          data: {
+            user_challenge_id: result.userChallenge.id,
+            account_instance_id: result.acc.id,
+          },
+        });
+      }
+
+      // 4) درگاه‌ها (commit قبل از redirect)
+      await t.commit();
+
+      if (gateway === "peykan") {
+        const { redirectUrl } = await paykanService({
+          userId: req.user.id,
+          amountUsd,
+          userChallenge: userChallenge.id,
+          callback_url:
+            "https://api-crm.myprop.trade/api/v1/global/callback-peykan-challenge",
+        });
+
+        return this.response({
+          res,
+          message: "در حال انتقال به درگاه...",
+          data: { url: redirectUrl },
+        });
+      }
+
+      if (gateway === "nowpayments") {
+        const { invoiceUrl } = await createDepositUSDInvoice({
+          amountUsd,
+          user: req.user,
+        });
+
+        return this.response({
+          res,
+          message: "در حال انتقال به درگاه...",
+          data: { url: invoiceUrl },
+        });
+      }
+
+      return this.response({
+        res,
+        status: 400,
+        message: "درگاه نامعتبر است",
+      });
+    } catch (err) {
+      console.log(err);
+      await t.rollback();
+      return this.response({
+        res,
+        status: err.status || 500,
+        message: err.message || "خطای سرور",
+      });
     }
   }
 };

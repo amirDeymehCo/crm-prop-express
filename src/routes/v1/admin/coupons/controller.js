@@ -71,6 +71,7 @@ const Controller = class extends Controllers {
       challenge_type_id,
       challenge_plan_id,
       is_active,
+      user_id,
     } = req.body;
 
     /* =====================
@@ -139,6 +140,7 @@ const Controller = class extends Controllers {
       challenge_type_id: challenge_type_id ?? null,
       challenge_plan_id: challenge_plan_id ?? null,
       is_active: is_active ?? true,
+      user_id: user_id ?? null,
     });
 
     return this.response({
@@ -164,6 +166,7 @@ const Controller = class extends Controllers {
       challenge_type_id,
       challenge_plan_id,
       is_active,
+      user_id,
     } = req.body;
 
     /* =====================
@@ -243,6 +246,7 @@ const Controller = class extends Controllers {
       challenge_type_id: challenge_type_id ?? coupon.challenge_type_id,
       challenge_plan_id: challenge_plan_id ?? coupon.challenge_plan_id,
       is_active: is_active ?? coupon.is_active,
+      user_id: user_id ?? coupon?.user_id,
     });
 
     return this.response({

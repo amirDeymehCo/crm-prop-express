@@ -341,6 +341,7 @@ async function createUserChallengeRecord({
   prices,
   floatingRiskEnabled,
   transaction,
+  admin_id = null,
 }) {
   const startingBalance = Number(plan.balance);
 
@@ -361,6 +362,7 @@ async function createUserChallengeRecord({
   const userChallenge = await UserChallenge.create(
     {
       user_id: user.id,
+      admin_id: admin_id ?? null,
       challenge_plan_id: plan.id,
       challenge_type_id: plan?.challenge_type_id,
       status: "pending_payment",
@@ -432,6 +434,7 @@ async function createOrderRecord({
   gateway,
   prices,
   transaction,
+  admin_id = null,
 }) {
   const orderId = `buyCh-${user?.id}-${Date.now()}`;
 
@@ -447,6 +450,7 @@ async function createOrderRecord({
         gateway === "wallet"
           ? "challenge_purchase_wallet"
           : "challenge_purchase",
+      admin_id: admin_id ?? null,
     },
     { transaction },
   );
@@ -544,6 +548,7 @@ async function purchaseChallenge(req, res, next) {
       prices,
       floatingRiskEnabled: floatingEnabled,
       transaction: t,
+      admin_id: req?.admin?.id,
     });
 
     // 10) optional: create UserChallengeRisk row (history) from plan snapshot
@@ -577,6 +582,7 @@ async function purchaseChallenge(req, res, next) {
       gateway,
       prices,
       transaction: t,
+      admin_id: req?.admin?.id,
     });
 
     await t.commit();

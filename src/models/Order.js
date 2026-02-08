@@ -4,6 +4,7 @@ const sequelize = require("../../db");
 
 const User = require("./User");
 const UserChallenge = require("./Challenge/UserChallenge");
+const Admin = require("./Admin");
 
 const Order = sequelize.define(
   "Order",
@@ -35,7 +36,13 @@ const Order = sequelize.define(
 
     // درگاه
     gateway: {
-      type: DataTypes.ENUM("peykan", "nowpayments", "wallet", "coupon_free"), // مثلا "peykan", "idpay", ...
+      type: DataTypes.ENUM(
+        "peykan",
+        "nowpayments",
+        "wallet",
+        "coupon_free",
+        "admin",
+      ), // مثلا "peykan", "idpay", ...
       allowNull: false,
     },
 
@@ -79,6 +86,10 @@ const Order = sequelize.define(
 // ریلیشن‌ها
 User.hasMany(Order, { foreignKey: "user_id" });
 Order.belongsTo(User, { foreignKey: "user_id" });
+
+// ریلیشن‌ها
+Admin.hasMany(Order, { foreignKey: "admin_id" });
+Order.belongsTo(Admin, { foreignKey: "admin_id" });
 
 // یک چالش می‌تونه چند Order داشته باشد (کاربر چند بار تلاش برای پرداخت کند)
 UserChallenge.hasMany(Order, { foreignKey: "user_challenge_id" });

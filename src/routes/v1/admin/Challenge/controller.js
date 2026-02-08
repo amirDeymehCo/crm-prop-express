@@ -4,11 +4,14 @@ const ChallengePlan = require("../../../../models/Challenge/ChallengePlan");
 const ChallengePhase = require("../../../../models/Challenge/ChallengePhase");
 const AccountInstance = require("../../../../models/Challenge/AccountInstance");
 const HistoryChallenge = require("../../../../models/Challenge/HistoryChallenge");
+const Order = require("../../../../models/Order");
 const ChallengeType = require("../../../../models/Challenge/ChallengeType");
 const User = require("../../../../models/User");
+const Admin = require("../../../../models/Admin");
 const sequelize = require("../../../../../db");
 const CreateMTUser = require("../../../../services/BuyCh/CreateMTUser");
 const founcList = require("../../../../utils/List");
+const createChFounc = require("../../../../services/BuyCh/CreateCh");
 
 // اگر پسوردها رو جایی داری
 const generateMainPassword = require("../../../../services/BuyCh/CreatePassword"); // مسیرش رو درست کن
@@ -20,6 +23,7 @@ const typesStatus = {
   phase1: "مرحله اول",
   phase2: "مرحله دوم",
   real: "مرحله ریل ",
+  pending_payment: "در انتظار پرداخت",
 };
 
 function getPhaseRulesFromSnapshot(userChallenge, phaseIndex) {
@@ -184,6 +188,7 @@ const Controller = class extends Controllers {
 
       switch (status) {
         case "payment_phase2":
+        case "pending_payment":
         case "closed": {
           await userCh.update({ status }, { transaction: t });
 
@@ -378,7 +383,34 @@ const Controller = class extends Controllers {
             "createdAt",
           ],
         },
-        AccountInstance,
+        {
+          model: AccountInstance,
+          include: [
+            {
+              model: Admin,
+              as: "created_by_admin",
+              attributes: ["id", "name", "avatar"],
+            },
+          ],
+        },
+        {
+          model: HistoryChallenge,
+          include: [
+            {
+              model: Admin,
+              attributes: ["id", "name", "avatar"],
+            },
+          ],
+        },
+        {
+          model: Order,
+          include: [
+            {
+              model: Admin,
+              attributes: ["id", "name", "avatar"],
+            },
+          ],
+        },
       ],
     });
 
@@ -396,6 +428,60 @@ const Controller = class extends Controllers {
       message: "اطلاعات چالش",
       data: singleCh,
     });
+  }
+  async createChallenge(req, res, next) {
+    const t = await sequelize.transaction();
+    try {
+      /**
+       * ورودی‌های لازم:
+       * req.body.user_id
+       * req.body.challenge_plan_id
+       * بقیه چیزهایی که createChFounc نیاز داره
+       */
+
+      // 1) fake user برای reuse منطق
+      const targetUser = await User.findByPk(req.body.user_id);
+      if (!targetUser) {
+        await t.rollback();
+        return this.response({
+          res,
+          status: 404,
+          message: "کاربر یافت نشد",
+        });
+      }
+
+      // ⚠️ چون createChFounc از req.user استفاده می‌کنه
+      const fakeReq = {
+        ...req,
+        user: targetUser,
+        body: {
+          ...req.body,
+          gateway: "admin", // صرفاً جهت لاگ یا تشخیص
+        },
+      };
+
+      // 2) ساخت چالش + order + payment
+      const chData = await createChFounc(fakeReq, res, next, t);
+
+      await t.commit();
+      return this.response({
+        res,
+        status: 201,
+        message: "چالش با موفقیت ساخته شد و در انتظار پرداخت کاربر است",
+        data: {
+          user_challenge_id: chData?.userChallenge.id,
+          order_id: chData?.order?.gateway_order_id,
+          challenge_status: chData?.userChallenge?.status,
+        },
+      });
+    } catch (err) {
+      await t.rollback();
+      return this.response({
+        res,
+        status: err.status || 500,
+        message: err.message || "خطای سرور",
+      });
+    }
   }
 };
 
