@@ -9,7 +9,6 @@ const authAdmin = (req, res, next) => {
     return res.status(401).json({ message: "توکن معتبر نیست" });
   }
 
-
   if (!token) {
     return res.status(401).json({ message: "لطفا وارد سیستم شوید" });
   }
@@ -22,16 +21,23 @@ const authAdmin = (req, res, next) => {
         return res.status(401).json({ message: "لطفا وارد سیستم شوید" });
       }
 
-      const userFind = await Admin.findByPk(user.id, {
-        attributes: { exclude: ["password"] },
-      }); if (!userFind) {
-        return res.status(401).json({ message: "کاربر یافت نشد" });
+      console.log(user);
+
+      if (user?.type_token !== "admin") {
+        return res.status(401).json({ message: "ادمین یافت نشد" });
       }
 
+      const userFind = await Admin.findByPk(user.id, {
+        attributes: { exclude: ["password"] },
+      });
 
-      req.admin = userFind?.dataValues
+      if (!userFind?.dataValues) {
+        return res.status(401).json({ message: "ادمین یافت نشد" });
+      }
+
+      req.admin = userFind?.dataValues;
       next();
-    }
+    },
   );
 };
 

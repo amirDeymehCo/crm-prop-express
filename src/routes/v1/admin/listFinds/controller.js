@@ -6,8 +6,7 @@ const User = require("../../../../models/User");
 const CallRejectReason = require("../../../../models/Call/CallRejectReason");
 const CallResultOption = require("../../../../models/Call/CallResultOption");
 const ReferralCommission = require("../../../../models/ReferralCommission");
-const founcList = require("../../../../utils/List");
-const sequelize = require("../../../../../db");
+const Admin = require("../../../../models/Admin");
 const { fn, col, Op, literal } = require("sequelize");
 
 const Controller = class extends Controllers {
@@ -183,6 +182,17 @@ const Controller = class extends Controllers {
       balance: e?.balance,
     }));
     this.response({ res, data: newList });
+  }
+  async admins(req, res) {
+    const adminsList = await Admin.findAll();
+
+    const newFormat = adminsList?.map((e, i) => ({
+      value: e?.id,
+      label: e?.name,
+      avatar: e?.avatar || "default",
+    }));
+
+    this.response({ res, data: newFormat });
   }
 };
 

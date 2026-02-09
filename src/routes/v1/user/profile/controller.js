@@ -3,7 +3,6 @@ const ReferralCommission = require("../../../../models/ReferralCommission");
 const ReferralCommissionRule = require("../../../../models/ReferralCommissionRule");
 const User = require("../../../../models/User");
 const sequelize = require("../../../../../db");
-const founcList = require("../../../../utils/List");
 const avatars = require("../../../../configs/avatars");
 const bcrypt = require("bcrypt");
 const { fn, col, literal, Op } = require("sequelize");

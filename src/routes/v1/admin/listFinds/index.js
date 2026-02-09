@@ -11,6 +11,7 @@ router
   .get("/challenges", asyncHandler(controller.challenges))
   .get("/refral-list", asyncHandler(controller.refral))
   .get("/type-challenges", asyncHandler(controller.typeChallenge))
-  .get("/plans/:type", asyncHandler(controller.plansFind));
+  .get("/plans/:type", asyncHandler(controller.plansFind))
+  .get("/admins", asyncHandler(controller.admins));
 
 module.exports = router;

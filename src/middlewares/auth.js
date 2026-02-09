@@ -11,7 +11,6 @@ const authUser = (req, res, next) => {
     return res.status(401).json({ message: "توکن معتبر نیست" });
   }
 
-
   if (!token) {
     return res.status(401).json({ message: "لطفا وارد سیستم شوید" });
   }
@@ -23,21 +22,29 @@ const authUser = (req, res, next) => {
       if (err) {
         return res.status(401).json({ message: "لطفا وارد سیستم شوید" });
       }
-
-      const userFind = await User.findByPk(user.id, {
-        attributes: { exclude: ["password", "responsible_admin_id"] },
-      }); if (!userFind) {
+      if (user?.type_token !== "user") {
         return res.status(401).json({ message: "کاربر یافت نشد" });
       }
 
-      const walletFind = await Wallet.findOne({ where: { user_id: userFind?.id } })
+      const userFind = await User.findByPk(user.id, {
+        attributes: { exclude: ["password", "responsible_admin_id"] },
+      });
+      if (!userFind) {
+        return res.status(401).json({ message: "کاربر یافت نشد" });
+      }
+
+      const walletFind = await Wallet.findOne({
+        where: { user_id: userFind?.id },
+      });
       const setting = await Setting.findOne({ where: { id: 1 } });
-      const amount_irr = walletFind?.balance * setting?.dollar_price
+      const amount_irr = walletFind?.balance * setting?.dollar_price;
 
-
-      req.user = { ...userFind.dataValues, wallet: { ...walletFind?.dataValues, amount_irr } };
+      req.user = {
+        ...userFind.dataValues,
+        wallet: { ...walletFind?.dataValues, amount_irr },
+      };
       next();
-    }
+    },
   );
 };
 

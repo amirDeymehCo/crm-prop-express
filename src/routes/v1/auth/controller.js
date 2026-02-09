@@ -185,9 +185,13 @@ const Controller = class extends Controllers {
       return res.status(400).json({ message: "کاربری با این مشخصات یافت نشد" });
     }
 
-    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, {
-      expiresIn: "24h",
-    });
+    const token = jwt.sign(
+      { id: user.id, type_token: "user" },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "24h",
+      },
+    );
 
     this.response({
       res,
@@ -251,7 +255,7 @@ const Controller = class extends Controllers {
       await user.save();
 
       const token = jwt.sign(
-        { id: user.id },
+        { id: user.id, type_token: "user" },
         process.env.JWT_SECRET || "dawdawfawf_adjaiwdhawihfmafa",
         {
           expiresIn: "24h",

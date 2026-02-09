@@ -12,6 +12,12 @@ const Controller = class extends Controllers {
   async create(req, res) {
     const files = req?.files?.map((e, i) => e?.filename);
 
+    const status = {
+      ticket: "ticket_open",
+      widthdraw: "widthdraw_requsted",
+      kyc: "kvc_pending",
+    };
+
     if (req?.body?.type === "widthdraw") {
       if (!req?.body?.userChallenge || req?.body?.userChallenge == "null")
         return this.response({
@@ -43,7 +49,7 @@ const Controller = class extends Controllers {
       user_id: req?.user?.id,
       title: req?.body?.title,
       priority: req?.body?.priority,
-      status: "ticket_open",
+      status: status[req?.body?.stauts],
       type: req?.body?.type || "ticket",
       userChallenge: req?.body?.userChallenge || null,
       files: [],

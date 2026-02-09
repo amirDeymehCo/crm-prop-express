@@ -1,53 +1,119 @@
 // rbacConfig.js
 
-// ۱) پرمیشن‌های ریز
 const PERMISSIONS = [
-    // Ticket
-    { code: "ticket.read", description: "مشاهده تیکت‌ها" },
-    { code: "ticket.reply", description: "پاسخ به تیکت‌ها" },
-    { code: "ticket.delete", description: "حذف تیکت‌ها" },
+  // Orders - سفارشات
+  { code: "order.list", description: "لیست سفارشات" },
+  { code: "order.read", description: "مشاهده اطلاعات سفارش" },
+  { code: "order.create", description: "ایجاد سفارش جدید" },
 
-    // User
-    { code: "user.read", description: "مشاهده کاربران" },
-    { code: "user.edit", description: "ویرایش کاربران" },
+  // Users - کاربران
+  { code: "user.list", description: "لیست کاربران" },
+  { code: "user.create", description: "ایجاد کاربر جدید" },
+  { code: "user.read", description: "مشاهده اطلاعات یک کاربر" },
 
-    // Finance
-    { code: "payment.read", description: "مشاهده پرداخت‌ها" },
-    { code: "payment.verify", description: "تایید پرداخت‌ها" },
+  // Sales Team - تیم فروش
+  { code: "sales.calls.list", description: "لیست تماس‌ها" },
+  { code: "sales.calls.read", description: "مشاهده تماس" },
+  { code: "sales.calls.create", description: "ثبت تماس جدید" },
+  { code: "sales.sms.list", description: "لیست پیامک‌ها" },
+  { code: "sales.sms.send", description: "ارسال پیامک جدید" },
+  { code: "sales.report.read", description: "مشاهده گزارش تیم فروش" },
 
-    //Customer
-    { code: "customer.read", description: "مشاهده اطلاعات" },
-    { code: "customer.calls", description: "تماس ها" },
-    { code: "customer.sms", description: "پیام ها" },
+  // Support Team - تیم پشتیبانی
+  { code: "support.ticket.list", description: "لیست تیکت‌ها" },
+  { code: "support.ticket.create", description: "ثبت تیکت جدید" },
+  { code: "support.ticket.reply", description: "مشاهده و پاسخ به تیکت" },
+  { code: "support.report.read", description: "مشاهده گزارش تیم پشتیبانی" },
+
+  // Profit Withdrawals - برداشت سود
+  { code: "profit.list", description: "لیست برداشت سودها" },
+  { code: "profit.chat.read", description: "مشاهده اطلاعات چت برداشت سود" },
+
+  // Discounts - تخفیفات
+  { code: "discount.list", description: "لیست تخفیف‌ها" },
+  { code: "discount.manage", description: "ایجاد و ویرایش تخفیف" },
+
+  // Certificates - گواهینامه‌ها
+  { code: "certificate.list", description: "لیست گواهینامه‌ها" },
+
+  // Referral - رفرال
+  { code: "referral.list", description: "لیست رفرال‌ها" },
+
+  // KYC - احراز هویت
+  { code: "kyc.list", description: "لیست احراز هویت‌ها" },
+  {
+    code: "kyc.manage",
+    description: "مشاهده اطلاعات و تغییر وضعیت احراز هویت",
+  },
 ];
 
-
-// ۲) گروه‌ها + این‌که چه permissionهایی داشته باشن
 const GROUPS = [
-    {
-        code: "support.view_only",
-        name: "پشتیبان - فقط مشاهده",
-        description: "دسترسی فقط برای دیدن تیکت‌ها",
-        permissions: ["ticket.read"],
-    },
-    {
-        code: "support.basic",
-        name: "پشتیبان - عادی",
-        description: "دیدن و پاسخ دادن به تیکت‌ها",
-        permissions: ["ticket.read", "ticket.reply"],
-    },
-    {
-        code: "finance.standard",
-        name: "مالی - استاندارد",
-        description: "مشاهده و تایید پرداخت‌ها",
-        permissions: ["payment.read", "payment.verify"],
-    },
-    {
-        code: "customer.standard",
-        name: "ارتباط با مشتری - فول",
-        description: "مشاهده و تایید پرداخت‌ها",
-        permissions: ["payment.read", "payment.verify"],
-    },
+  {
+    code: "orders",
+    name: "سفارشات",
+    description: "دسترسی کامل به بخش سفارشات",
+    permissions: ["order.list", "order.read", "order.create"],
+  },
+  {
+    code: "users",
+    name: "کاربران",
+    description: "دسترسی کامل به بخش کاربران",
+    permissions: ["user.list", "user.read", "user.create"],
+  },
+  {
+    code: "sales",
+    name: "تیم فروش",
+    description: "دسترسی کامل به تیم فروش",
+    permissions: [
+      "sales.calls.list",
+      "sales.calls.read",
+      "sales.calls.create",
+      "sales.sms.list",
+      "sales.sms.send",
+      "sales.report.read",
+    ],
+  },
+  {
+    code: "support",
+    name: "تیم پشتیبانی",
+    description: "دسترسی کامل به تیم پشتیبانی",
+    permissions: [
+      "support.ticket.list",
+      "support.ticket.create",
+      "support.ticket.reply",
+      "support.report.read",
+    ],
+  },
+  {
+    code: "profit",
+    name: "برداشت سود",
+    description: "دسترسی کامل به برداشت سودها",
+    permissions: ["profit.list", "profit.chat.read"],
+  },
+  {
+    code: "discounts",
+    name: "تخفیفات",
+    description: "دسترسی کامل به تخفیفات",
+    permissions: ["discount.list", "discount.manage"],
+  },
+  {
+    code: "certificates",
+    name: "گواهینامه‌ها",
+    description: "دسترسی به گواهینامه‌ها",
+    permissions: ["certificate.list"],
+  },
+  {
+    code: "referrals",
+    name: "رفرال",
+    description: "دسترسی به رفرال‌ها",
+    permissions: ["referral.list"],
+  },
+  {
+    code: "kyc",
+    name: "احراز هویت",
+    description: "مدیریت احراز هویت کاربران",
+    permissions: ["kyc.list", "kyc.manage"],
+  },
 ];
 
 module.exports = { PERMISSIONS, GROUPS };

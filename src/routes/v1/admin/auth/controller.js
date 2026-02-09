@@ -2,7 +2,6 @@ const Controllers = require("../../../controllers");
 const Admin = require("../../../../models/Admin");
 const jwt = require("jsonwebtoken");
 
-
 const Controller = class extends Controllers {
   async login(req, res) {
     const mobile = String(req.body.mobile).trim();
@@ -21,16 +20,19 @@ const Controller = class extends Controllers {
       return res.status(400).json({ message: "ادمینی با این مشخصات یافت نشد" });
     }
 
-    const token = jwt.sign({ id: admin.id }, process.env.JWT_SECRET, {
-      expiresIn: "24h",
-    });
+    const token = jwt.sign(
+      { id: admin.id, type_token: "admin" },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "24h",
+      },
+    );
 
     this.response({
       res,
       data: { token },
       message: "ادمین محترم، به مای پراپ خوش آمدید",
     });
-
   }
 };
 
