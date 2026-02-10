@@ -3,26 +3,19 @@ const router = express.Router();
 const Controller = require("./controller");
 const validator = require("./validation");
 const asyncHandler = require("../../../../utils/asyncHandler");
+const can = require("../../../../middlewares/can");
 
 router
-  .get(
-    "/",
-    asyncHandler(Controller.listUsers)
-  )
+  .get("/", can("user.list"), asyncHandler(Controller.listUsers))
   .post(
     "/create",
+    can("user.create"),
     validator.createUser(),
     Controller.validationBody,
-    asyncHandler(Controller.createUser)
+    asyncHandler(Controller.createUser),
   )
-  .post(
-    "/update/:id",
-    asyncHandler(Controller.updateUser)
-  )
-  .post(
-    "/depositWallet",
-    asyncHandler(Controller.depositWallet)
-  )
-  .get("/:id", asyncHandler(Controller.findUser))
+  .post("/update/:id", can("user.create"), asyncHandler(Controller.updateUser))
+  .post("/depositWallet", asyncHandler(Controller.depositWallet))
+  .get("/:id", can("user.read"), asyncHandler(Controller.findUser));
 
 module.exports = router;

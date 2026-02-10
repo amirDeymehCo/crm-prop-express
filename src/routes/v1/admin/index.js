@@ -11,7 +11,6 @@ const adminsRouter = require("./admins");
 const Admin = require("../../../models/Admin");
 const Permission = require("../../../models/Permission");
 const PermissionGroup = require("../../../models/PermissionGroup");
-const AdminPermission = require("../../../models/AdminPermission");
 
 router.use("/users", usersRouter);
 router.use("/customer", customerRouter);
@@ -61,7 +60,7 @@ router.get("/profile", async (req, res) => {
   const resFormat = {
     id: admin?.id,
     name: admin?.name,
-    is_supoer_admin: admin?.is_supoer_admin,
+    is_super_admin: admin?.is_super_admin ?? false,
     mobile: admin?.mobile,
     permissions_codes,
     groupPermissions_codes,

@@ -7,41 +7,42 @@ async function loadAdminPermissions(req, res, next) {
   if (!req.admin?.id) return next();
 
   // const admin = await Admin.findByPk(req.admin?.id, {
-  //     include: [
+  //   include: [
+  //     {
+  //       model: Permission,
+  //       through: { attributes: [] },
+  //     },
+  //     {
+  //       model: PermissionGroup,
+  //       include: [
   //         {
-  //             model: Permission,
-  //             through: { attributes: [] },
+  //           model: Permission,
+  //           through: { attributes: [] },
+  //           as: "Permissions",
   //         },
-  //         {
-  //             model: PermissionGroup,
-  //             include: [
-  //                 {
-  //                     model: Permission,
-  //                     through: { attributes: [] },
-  //                 },
-  //             ],
-  //             through: { attributes: [] },
-  //         },
-  //     ],
+  //       ],
+  //       through: { attributes: [] },
+  //     },
+  //   ],
   // });
 
   // if (!admin) return res.status(401).json({ message: "Admin not found" });
 
   // const directPermissions = admin.Permissions || [];
   // const groupPermissions =
-  //     admin.PermissionGroups?.flatMap(g => g.Permissions || []) || [];
+  //   admin.PermissionGroups?.flatMap((g) => g.Permissions || []) || [];
 
   // const allCodes = [
-  //     ...directPermissions.map(p => p.code),
-  //     ...groupPermissions.map(p => p.code),
+  //   ...directPermissions.map((p) => p.code),
+  //   ...groupPermissions.map((p) => p.code),
   // ];
 
   // const uniqueCodes = [...new Set(allCodes)];
 
   // req.admin = {
-  //     id: admin.id,
-  //     is_super_admin: admin.is_super_admin,
-  //     permissions: uniqueCodes,
+  //   id: admin.id,
+  //   is_super_admin: admin.is_super_admin,
+  //   permissions: uniqueCodes,
   // };
 
   next();

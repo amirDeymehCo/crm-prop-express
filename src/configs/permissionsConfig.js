@@ -28,10 +28,12 @@ const PERMISSIONS = [
   // Profit Withdrawals - برداشت سود
   { code: "profit.list", description: "لیست برداشت سودها" },
   { code: "profit.chat.read", description: "مشاهده اطلاعات چت برداشت سود" },
+  { code: "profit.chat.edit", description: "ویرایش اطلاعات" },
 
   // Discounts - تخفیفات
   { code: "discount.list", description: "لیست تخفیف‌ها" },
   { code: "discount.manage", description: "ایجاد و ویرایش تخفیف" },
+  { code: "discount.delete", description: "حذف کد تخفیف" },
 
   // Certificates - گواهینامه‌ها
   { code: "certificate.list", description: "لیست گواهینامه‌ها" },
@@ -49,13 +51,13 @@ const PERMISSIONS = [
 
 const GROUPS = [
   {
-    code: "orders",
+    code: "order",
     name: "سفارشات",
     description: "دسترسی کامل به بخش سفارشات",
     permissions: ["order.list", "order.read", "order.create"],
   },
   {
-    code: "users",
+    code: "user",
     name: "کاربران",
     description: "دسترسی کامل به بخش کاربران",
     permissions: ["user.list", "user.read", "user.create"],
@@ -88,22 +90,22 @@ const GROUPS = [
     code: "profit",
     name: "برداشت سود",
     description: "دسترسی کامل به برداشت سودها",
-    permissions: ["profit.list", "profit.chat.read"],
+    permissions: ["profit.list", "profit.chat.read", "profit.chat.edit"],
   },
   {
-    code: "discounts",
+    code: "discount",
     name: "تخفیفات",
     description: "دسترسی کامل به تخفیفات",
     permissions: ["discount.list", "discount.manage"],
   },
   {
-    code: "certificates",
+    code: "certificate",
     name: "گواهینامه‌ها",
     description: "دسترسی به گواهینامه‌ها",
     permissions: ["certificate.list"],
   },
   {
-    code: "referrals",
+    code: "referral",
     name: "رفرال",
     description: "دسترسی به رفرال‌ها",
     permissions: ["referral.list"],
