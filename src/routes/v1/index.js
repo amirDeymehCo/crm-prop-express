@@ -14,6 +14,6 @@ router.use("/auth", authLimiter, authRouter);
 router.use("/authAdmin", authAdminRouter);
 router.use("/global", globalRouter);
 router.use("/user", authUser, userRouter);
-router.use("/admin", authAdmin, loadAdminPermissions, adminRouter);
+router.use("/admin", authAdmin, adminRouter);
 
 module.exports = router;
