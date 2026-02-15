@@ -186,6 +186,7 @@ const Controller = class extends Controllers {
           attributes: ["id", "mobile", "name", "avatar"],
         },
       ],
+      order: [["createdAt", "DESC"]],
     });
 
     const smsMessages = await SmsMessage.findAll({
@@ -197,6 +198,7 @@ const Controller = class extends Controllers {
           attributes: ["id", "mobile", "name", "avatar"],
         },
       ],
+      order: [["createdAt", "DESC"]],
     });
 
     this.response({

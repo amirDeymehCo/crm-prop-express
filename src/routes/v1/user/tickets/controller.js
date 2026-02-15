@@ -7,6 +7,7 @@ const ChallengeType = require("../../../../models/Challenge/ChallengeType");
 const User = require("../../../../models/User");
 const founcList = require("../../../../utils/List");
 const { Op } = require("sequelize");
+const shahkarInquiry = require("../../../../services/ShahkarInquiry");
 
 const Controller = class extends Controllers {
   async create(req, res) {
@@ -165,6 +166,49 @@ const Controller = class extends Controllers {
     });
 
     this.response({ res, status: 200, message: "پیام شما با موفقیت ارسال شد" });
+  }
+  async checkNationcode(req, res) {
+    const resultShahkar = await shahkarInquiry(
+      req?.user?.mobile,
+      req?.body?.nationcode,
+    );
+
+    console.log(resultShahkar);
+
+    // 1️⃣ خطاهای سیستمی یا ولیدیشن
+    if (!resultShahkar || resultShahkar.matched === null) {
+      return this.response({
+        res,
+        status: 400,
+        message:
+          resultShahkar?.message || "مشکلی پیش آمده است بعدا امتحان نمایید",
+      });
+    }
+
+    // 2️⃣ عدم تطابق کد ملی و موبایل
+    if (resultShahkar.matched === false) {
+      return this.response({
+        res,
+        status: 400,
+        message: "شما بایستی کد ملی صاحب شماره تلفن را وارد نمایید",
+      });
+    }
+
+    // 3️⃣ تطابق موفق
+    if (resultShahkar.matched === true) {
+      return this.response({
+        res,
+        status: 200,
+        message: "تطابق کد ملی و شماره موبایل با موفقیت انجام شد",
+      });
+    }
+
+    // 4️⃣ fallback (نباید به ایجا برسیم)
+    return this.response({
+      res,
+      status: 400,
+      message: "مشکلی پیش آمده است بعدا امتحان نمایید",
+    });
   }
 };
 

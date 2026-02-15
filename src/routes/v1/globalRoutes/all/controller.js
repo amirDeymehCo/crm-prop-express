@@ -3,6 +3,10 @@ const Order = require("../.././../../models/Order");
 const Payment = require("../.././../../models/Payment");
 const WalletTransaction = require("../.././../../models/WalletTransaction");
 const Wallet = require("../.././../../models/Wallet");
+const Setting = require("../.././../../models/Setting");
+const ChallengeType = require("../.././../../models/Challenge/ChallengeType");
+const ChallengePlan = require("../.././../../models/Challenge/ChallengePlan");
+const ChallengePhase = require("../.././../../models/Challenge/ChallengePhase");
 const { verifyWithGateway } = require("../../../../services/PeykanPayment");
 const sequelize = require("../../../../../db");
 const {
@@ -261,6 +265,34 @@ const Controller = class extends Controllers {
         message: err?.message || "خطای سرور در پردازش پرداخت",
       });
     }
+  }
+  async getPlansList(req, res) {
+    const setting = await Setting.findByPk(1);
+    const listTypes = await ChallengeType?.findAll({
+      include: [{ model: ChallengePlan, order: [["balance", "ASC"]] }],
+    });
+
+    this.response({
+      res,
+      status: 200,
+      message: "اطلاعات چالش ها",
+      data: {
+        listTypes,
+        dollar_price: setting?.dollar_price,
+      },
+    });
+  }
+  async getPhase(req, res) {
+    const details = await ChallengePhase?.findAll({
+      where: { challenge_plan_id: req?.params?.planId },
+    });
+
+    this.response({
+      res,
+      status: 200,
+      message: "اطلاعات دیتیل یه چالش",
+      data: details,
+    });
   }
 };
 

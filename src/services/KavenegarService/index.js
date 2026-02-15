@@ -39,19 +39,25 @@ async function sendCustomMessage({ receptor, message }) {
   try {
     const url = `https://api.kavenegar.com/v1/${KAVENEGAR_API_KEY}/sms/send.json`;
 
-    const { data } = await axios.get(url, {
-      params: {
-        receptor,
-        message,
-        sender: SENDER_NUMBER,
+    const params = new URLSearchParams();
+    params.append(
+      "receptor",
+      Array.isArray(receptor) ? receptor.join(",") : receptor,
+    );
+    params.append("message", message);
+    params.append("sender", process.env.KAVENEGAR_SENDER);
+
+    const { data, status } = await axios.post(url, params.toString(), {
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
       },
-      timeout: 10000,
+      // timeout: 10000,
     });
 
     return data;
   } catch (error) {
     console.log(error);
-    const err = new Error("خطا در ارسال پیام دلخواه");
+    const err = new Error(error?.message);
     err.status = 400;
     throw err;
   }

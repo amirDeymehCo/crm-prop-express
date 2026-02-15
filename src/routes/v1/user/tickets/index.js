@@ -21,6 +21,7 @@ router
     validator.sendMessage(),
     Controller.validationBody,
     asyncHandler(Controller.sendMessage),
-  );
+  )
+  .post("/check-nationcode", asyncHandler(Controller.checkNationcode));
 
 module.exports = router;
