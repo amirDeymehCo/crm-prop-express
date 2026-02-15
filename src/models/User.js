@@ -26,7 +26,7 @@ const User = sequelize.define(
     avatar: DataTypes.STRING,
     firstname: { type: DataTypes.STRING, allowNull: false },
     lastname: { type: DataTypes.STRING, allowNull: false },
-    username: { type: DataTypes.STRING, allowNull: false },
+    username: { type: DataTypes.STRING, allowNull: true },
     email: { type: DataTypes.STRING, allowNull: false },
     mobile: { type: DataTypes.STRING, allowNull: false },
     verify_mobile: { type: DataTypes.BOOLEAN, defaultValue: false },
