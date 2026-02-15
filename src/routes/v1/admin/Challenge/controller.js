@@ -8,10 +8,20 @@ const Order = require("../../../../models/Order");
 const ChallengeType = require("../../../../models/Challenge/ChallengeType");
 const User = require("../../../../models/User");
 const Admin = require("../../../../models/Admin");
+const Certificates = require("../../../../models/Certificates");
 const sequelize = require("../../../../../db");
 const CreateMTUser = require("../../../../services/BuyCh/CreateMTUser");
 const founcList = require("../../../../utils/List");
 const createChFounc = require("../../../../services/BuyCh/CreateCh");
+const fs = require("fs");
+const path = require("path");
+const puppeteer = require("puppeteer");
+const QRCode = require("qrcode");
+const dayjs = require("dayjs");
+const { v4: uuid } = require("uuid");
+const {
+  getCertificateHTMLPhase,
+} = require("../../../../utils/certificateTemplatePhase");
 
 // اگر پسوردها رو جایی داری
 const generateMainPassword = require("../../../../services/BuyCh/CreatePassword"); // مسیرش رو درست کن
@@ -137,6 +147,73 @@ async function provisionMTAndAttach({
   return acc;
 }
 
+async function createPhaseCertificate({
+  user,
+  phase,
+  total_profit,
+  withdraw_profit = 0,
+}) {
+  const date = new Date();
+  const certificateId = uuid();
+  const formattedDate = dayjs(date).format("DD MMMM YYYY");
+
+  const fileName = `phase-${phase}-${certificateId}.png`;
+
+  const qrData = await QRCode.toDataURL(fileName);
+  const html = getCertificateHTMLPhase({
+    fullName: `${user.firstname} ${user.lastname}`,
+    qrData,
+    formattedDate,
+    phase,
+  });
+
+  const browser = await puppeteer.launch({ headless: "new" });
+  const page = await browser.newPage();
+
+  await page.setViewport({
+    width: 1123,
+    height: 794,
+    deviceScaleFactor: 2,
+  });
+
+  await page.setContent(html, { waitUntil: "load" });
+
+  const outputDir = path.join(process.cwd(), "public/certificates");
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
+
+  const filePath = path.join(outputDir, fileName);
+
+  await page.screenshot({
+    path: filePath,
+    type: "png",
+    fullPage: false,
+  });
+
+  await browser.close();
+
+  return Certificates.create({
+    type: `steep${phase}`,
+    url_file: `certificates/${fileName}`,
+    fullname: `${user.firstname} ${user.lastname}`,
+    date,
+    total_profit,
+    withdraw_profit,
+    user_id: user.id,
+  });
+}
+
+function getCertificatePhase(prevPhase, newPhase) {
+  // phase1 -> phase2  => cert phase 1
+  if (prevPhase === 1 && newPhase === 2) return 1;
+
+  // phase2 -> real => cert phase 2
+  if (prevPhase === 2 && newPhase === 3) return 2;
+
+  return null;
+}
+
 const Controller = class extends Controllers {
   async changeStatus(req, res) {
     const t = await sequelize.transaction();
@@ -185,6 +262,7 @@ const Controller = class extends Controllers {
       // نکته: اسم status ها را با سیستم خودت یکی کن
       // مثال:
       let phaseIndex = null;
+      const perPhaseIndex = userCh?.current_phase_index;
 
       switch (status) {
         case "payment_phase2":
@@ -283,7 +361,34 @@ const Controller = class extends Controllers {
         t,
       });
 
+      const certificatePhase = getCertificatePhase(perPhaseIndex, phaseIndex);
+      let certificatePayload;
+      if (certificatePhase) {
+        const user = await User.findByPk(userCh.user_id, {
+          attributes: ["id", "firstname", "lastname"],
+          transaction: t,
+        });
+
+        // اینجا فقط دیتا جمع می‌کنیم
+        certificatePayload = {
+          user,
+          phase: certificatePhase,
+          total_profit: 0,
+          withdraw_profit: 0,
+        };
+      }
+
       await t.commit();
+
+      console.log("certificatePhase=>", certificatePhase);
+      console.log("certificatePayload=>", certificatePayload);
+
+      // ⬅️ مهم: بیرون از transaction
+      if (certificatePayload) {
+        createPhaseCertificate(certificatePayload).catch((err) =>
+          console.error("CERTIFICATE ERROR:", err),
+        );
+      }
 
       return this.response({
         res,

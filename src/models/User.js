@@ -26,6 +26,7 @@ const User = sequelize.define(
     avatar: DataTypes.STRING,
     firstname: { type: DataTypes.STRING, allowNull: false },
     lastname: { type: DataTypes.STRING, allowNull: false },
+    username: { type: DataTypes.STRING, allowNull: false },
     email: { type: DataTypes.STRING, allowNull: false },
     mobile: { type: DataTypes.STRING, allowNull: false },
     verify_mobile: { type: DataTypes.BOOLEAN, defaultValue: false },
@@ -49,6 +50,10 @@ const User = sequelize.define(
     referral_code: {
       type: DataTypes.STRING(32),
       allowNull: true,
+    },
+    interview: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
     },
   },
   {

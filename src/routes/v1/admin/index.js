@@ -8,6 +8,7 @@ const couponsRouter = require("./coupons");
 const kycRouter = require("./kyc");
 const listFindsRouter = require("./listFinds");
 const adminsRouter = require("./admins");
+const certificatesRouter = require("./certificates");
 const Admin = require("../../../models/Admin");
 const Permission = require("../../../models/Permission");
 const PermissionGroup = require("../../../models/PermissionGroup");
@@ -20,6 +21,7 @@ router.use("/challenge", challengeRouter);
 router.use("/coupons", couponsRouter);
 router.use("/kyc", kycRouter);
 router.use("/admins", adminsRouter);
+router.use("/certificates", certificatesRouter);
 
 router.get("/profile", async (req, res) => {
   const admin = await Admin.findByPk(req?.admin?.id, {

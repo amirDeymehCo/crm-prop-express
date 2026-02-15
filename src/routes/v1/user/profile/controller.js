@@ -153,8 +153,9 @@ const Controller = class extends Controllers {
 
   async updatedProfile(req, res) {
     const newData = {};
-    if (req?.body?.firstname) newData.firstname = req?.body?.firstname;
-    if (req?.body?.lastname) newData.lastname = req?.body?.lastname;
+    // if (req?.body?.firstname) newData.firstname = req?.body?.firstname;
+    // if (req?.body?.lastname) newData.lastname = req?.body?.lastname;
+    if (req?.body?.username) newData.username = req?.body?.username;
 
     await User.update(newData, { where: { id: req?.user?.id } });
 
