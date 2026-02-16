@@ -56,7 +56,7 @@ async function sendCustomMessage({ receptor, message }) {
 
     return data;
   } catch (error) {
-    console.log(error);
+    console.log(error?.response?.data);
     const err = new Error(error?.message);
     err.status = 400;
     throw err;

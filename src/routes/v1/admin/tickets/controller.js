@@ -4,6 +4,7 @@ const User = require("../../../../models/User");
 const Message = require("../../../../models/Message");
 const Admin = require("../../../../models/Admin");
 const founcList = require("../../../../utils/List");
+const { sendCustomMessage } = require("../../../../services/KavenegarService");
 
 const Controller = class extends Controllers {
   async list(req, res) {
@@ -118,7 +119,9 @@ const Controller = class extends Controllers {
     });
   }
   async sendMessage(req, res) {
-    const findTicket = await Ticket.findByPk(req?.params?.id);
+    const findTicket = await Ticket.findByPk(req?.params?.id, {
+      include: [{ model: User, attributes: ["id", "mobile"] }],
+    });
     if (!findTicket)
       return this.response({
         res,
@@ -144,6 +147,15 @@ const Controller = class extends Controllers {
         { admin_id: req?.admin?.id },
         { where: { id: findTicket?.id } },
       );
+    }
+
+    try {
+      const sendSms = await sendCustomMessage({
+        receptor: findTicket?.User?.mobile,
+        message: `کاربر مای پراپ، پاسخی برای تیکت ${findTicket?.id} شما ثبت شد.`,
+      });
+    } catch (err) {
+      console.log(err);
     }
 
     this.response({ res, status: 200, message: "پیام شما با موفقیت ارسال شد" });
