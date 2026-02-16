@@ -9,6 +9,9 @@ const ChallengeType = require("../../../../models/Challenge/ChallengeType");
 const User = require("../../../../models/User");
 const Admin = require("../../../../models/Admin");
 const Certificates = require("../../../../models/Certificates");
+const ChallengeRejectReason = require("../../../../models/ChallengeRejectReason");
+const ChallengeRejection = require("../../../../models/ChallengeRejection");
+const ChallengeRejectionItem = require("../../../../models/ChallengeRejectionItem");
 const sequelize = require("../../../../../db");
 const CreateMTUser = require("../../../../services/BuyCh/CreateMTUser");
 const founcList = require("../../../../utils/List");
@@ -232,6 +235,7 @@ const Controller = class extends Controllers {
               "has_floating_risk",
               "max_overall_drawdown_percent",
               "max_daily_drawdown_percent",
+              "challenge_type_id",
             ],
           },
           { model: ChallengePhase, attributes: ["id", "group", "phase_index"] },
@@ -249,14 +253,14 @@ const Controller = class extends Controllers {
         });
       }
 
-      if (String(userCh.status) === String(status)) {
-        await t.rollback();
-        return this.response({
-          res,
-          status: 400,
-          message: "وضعیت ارسالی با وضعیت فعلی چالش یکی هست",
-        });
-      }
+      // if (String(userCh.status) === String(status)) {
+      //   await t.rollback();
+      //   return this.response({
+      //     res,
+      //     status: 400,
+      //     message: "وضعیت ارسالی با وضعیت فعلی چالش یکی هست",
+      //   });
+      // }
 
       // 2) انتخاب تنظیمات هر وضعیت
       // نکته: اسم status ها را با سیستم خودت یکی کن
@@ -266,8 +270,7 @@ const Controller = class extends Controllers {
 
       switch (status) {
         case "payment_phase2":
-        case "pending_payment":
-        case "closed": {
+        case "pending_payment": {
           await userCh.update({ status }, { transaction: t });
 
           await HistoryChallenge.create(
@@ -285,6 +288,77 @@ const Controller = class extends Controllers {
             res,
             status: 200,
             message: "وضعیت چالش با موفقیت تغییر کرد",
+          });
+        }
+        case "closed": {
+          const { reason_ids = [], description = null } = req.body;
+
+          if (!Array.isArray(reason_ids) || reason_ids.length === 0) {
+            await t.rollback();
+            return this.response({
+              res,
+              status: 400,
+              message: "حداقل یک دلیل برای رد شدن انتخاب کنید",
+            });
+          }
+
+          // بررسی اینکه reason ها معتبر باشند
+          const validReasons = await ChallengeRejectReason.findAll({
+            where: { id: reason_ids },
+            attributes: ["id"],
+            transaction: t,
+          });
+
+          if (validReasons.length !== reason_ids.length) {
+            await t.rollback();
+            return this.response({
+              res,
+              status: 400,
+              message: "برخی از دلایل انتخاب شده معتبر نیستند",
+            });
+          }
+
+          // 1️⃣ آپدیت وضعیت چالش
+          await userCh.update({ status: "closed" }, { transaction: t });
+
+          // 2️⃣ ثبت رویداد رد شدن
+          const rejection = await ChallengeRejection.create(
+            {
+              user_challenge_id: userCh.id,
+              challenge_type_id: userCh?.ChallengePlan?.challenge_type_id,
+              admin_id: req?.admin?.id,
+              description,
+            },
+            { transaction: t },
+          );
+
+          // 3️⃣ ثبت آیتم‌های دلایل
+          const rejectionItems = reason_ids.map((reasonId) => ({
+            challenge_rejection_id: rejection.id,
+            reason_id: reasonId,
+          }));
+
+          await ChallengeRejectionItem.bulkCreate(rejectionItems, {
+            transaction: t,
+          });
+
+          // 4️⃣ ثبت تاریخچه
+          await HistoryChallenge.create(
+            {
+              type: "challenge_rejected",
+              user_challenge_id: user_challenge_id,
+              admin_id: req?.admin?.id,
+              title: `چالش رد شد (${reason_ids.length} دلیل ثبت شد)`,
+            },
+            { transaction: t },
+          );
+
+          await t.commit();
+
+          return this.response({
+            res,
+            status: 200,
+            message: "چالش با موفقیت رد شد",
           });
         }
         case "phase1":
@@ -586,6 +660,55 @@ const Controller = class extends Controllers {
         status: err.status || 500,
         message: err.message || "خطای سرور",
       });
+    }
+  }
+  async rejectedRasions(req, res) {
+    const list = await ChallengeRejectReason.findAll({
+      where: { is_active: 1 },
+    });
+
+    this.response({ res, status: 200, data: list });
+  }
+  async getRejectionReasonsByUserChallengeId(req, res) {
+    try {
+      const userChallengeId = req?.params?.user_challenge_id;
+
+      const rejection = await ChallengeRejection.findOne({
+        where: {
+          user_challenge_id: userChallengeId,
+        },
+        include: [
+          {
+            model: ChallengeRejectionItem,
+            as: "items",
+            include: [
+              {
+                model: ChallengeRejectReason,
+                as: "reason",
+                attributes: ["id", "title", "code", "category"],
+              },
+            ],
+          },
+        ],
+        order: [["createdAt", "DESC"]],
+      });
+
+      if (!rejection) {
+        this.response({ res, status: 200, data: null });
+      }
+
+      this.response({
+        res,
+        data: {
+          id: rejection?.id,
+          description: rejection?.description,
+          admin: rejection?.admin,
+          reasons: rejection?.items?.map((item) => item.reason),
+        },
+      });
+    } catch (error) {
+      console.error(error);
+      this.response({ res, status: 200, data: null });
     }
   }
 };

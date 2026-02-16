@@ -1,6 +1,7 @@
 // models/ChallengeType.js
 const { DataTypes } = require("sequelize");
 const sequelize = require("../../../db");
+const ChallengeRejection = require("../ChallengeRejection");
 
 const ChallengeType = sequelize.define("ChallengeType", {
   logo: {
@@ -20,6 +21,15 @@ const ChallengeType = sequelize.define("ChallengeType", {
     type: DataTypes.STRING,
     allowNull: true,
   },
+});
+
+ChallengeType.hasMany(ChallengeRejection, {
+  foreignKey: "challenge_type_id",
+  as: "rejections",
+});
+ChallengeRejection.belongsTo(ChallengeType, {
+  foreignKey: "challenge_type_id",
+  as: "rejections",
 });
 
 module.exports = ChallengeType;

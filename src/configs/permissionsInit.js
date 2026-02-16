@@ -2,6 +2,8 @@ const { PERMISSIONS, GROUPS } = require("./permissionsConfig");
 const Permission = require("../models/Permission");
 const PermissionGroup = require("../models/PermissionGroup");
 const Admin = require("../models/Admin");
+const ChallengeRejectReason = require("../models/ChallengeRejectReason");
+const { REJECT_REASONS } = require("./RejectedChallengeConfig");
 
 async function initRbac() {
   console.log("[RBAC] Initializing permissions & groups...");
@@ -52,7 +54,28 @@ async function initRbac() {
     }
   }
 
-  /* ================== 3) Super Admin ================== */
+  /* ================== 3) Rejeacted Resions ================== */
+  for (const reason of REJECT_REASONS) {
+    const [row] = await ChallengeRejectReason.findOrCreate({
+      where: { code: reason.code },
+      defaults: {
+        code: reason.code,
+        title: reason.title,
+        category: reason.category,
+        is_active: true,
+      },
+    });
+
+    // اگر قبلا ساخته شده ولی title تغییر کرده بود
+    if (row.title !== reason.title || row.category !== reason.category) {
+      await row.update({
+        title: reason.title,
+        category: reason.category,
+      });
+    }
+  }
+
+  /* ================== 4) Super Admin ================== */
   await Admin.findOrCreate({
     where: { mobile: "09358468124" },
     defaults: {

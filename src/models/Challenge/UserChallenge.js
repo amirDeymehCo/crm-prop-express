@@ -7,6 +7,7 @@ const { STATUS_USER_CHALLENGE } = require("../../utils/statusList");
 const ChallengePhase = require("./ChallengePhase");
 const ChallengeType = require("./ChallengeType");
 const Admin = require("../Admin");
+const ChallengeRejection = require("../ChallengeRejection");
 
 const UserChallenge = sequelize.define("UserChallenge", {
   status: {
@@ -116,5 +117,10 @@ ChallengePlan.hasMany(UserChallenge, { foreignKey: "challenge_plan_id" });
 UserChallenge.belongsTo(ChallengePlan, { foreignKey: "challenge_plan_id" });
 
 UserChallenge.belongsTo(ChallengePhase, { foreignKey: "challenge_phase" });
+
+UserChallenge.hasOne(ChallengeRejection, {
+  foreignKey: "user_challenge_id",
+  as: "rejection",
+});
 
 module.exports = UserChallenge;
