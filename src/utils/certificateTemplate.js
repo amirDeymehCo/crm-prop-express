@@ -13,7 +13,6 @@ module.exports.getCertificateHTML = ({
     "public",
     "certificate-withdrawal.jpg",
   );
-
   const imageBase64 = fs.readFileSync(imagePath, "base64");
 
   const bgImage = `data:image/jpeg;base64,${imageBase64}`;

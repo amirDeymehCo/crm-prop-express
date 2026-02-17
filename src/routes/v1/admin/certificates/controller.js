@@ -111,9 +111,9 @@ const Controller = class extends Controllers {
         res,
         status: 400,
         data: {
-          __dirname,
-          file: fs.readdirSync(path.resolve(__dirname, "../../")),
-          msg: err?.toString(),
+          url: path.join(process.cwd(), "public", "certificate-withdrawal.jpg"),
+          bsae: process.cwd(),
+          err: err?.toString(),
         },
       });
     }
