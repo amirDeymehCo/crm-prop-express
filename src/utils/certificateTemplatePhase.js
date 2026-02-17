@@ -8,10 +8,10 @@ module.exports.getCertificateHTMLPhase = ({
   formattedDate,
   phase,
 }) => {
-  const imagePath = path.resolve(
-    phase === 1
-      ? "public/certificate_phase_1.jpg"
-      : "public/certificate_phase_2.jpg",
+  const imagePath = path.join(
+    process.cwd(),
+    "public",
+    phase === 1 ? "certificate_phase_1.jpg" : "certificate_phase_2.jpg",
   );
 
   const imageBase64 = fs.readFileSync(imagePath, "base64");
