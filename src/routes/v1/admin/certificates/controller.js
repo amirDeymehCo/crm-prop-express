@@ -60,6 +60,12 @@ const Controller = class extends Controllers {
 
       const browser = await puppeteer.launch({
         headless: "new",
+        args: [
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-dev-shm-usage",
+          "--disable-gpu",
+        ],
       });
 
       const page = await browser.newPage();
@@ -102,7 +108,10 @@ const Controller = class extends Controllers {
       this.response({ res, message: "گواهینامه با موفقیت ایجاد شد" });
     } catch (err) {
       console.error(err);
-      res.status(500).json({ message: "Error generating certificate" });
+      res.status(500).json({
+        message: "Error generating certificate",
+        data: err.toString(),
+      });
     }
   }
   async listCarts(req, res) {
