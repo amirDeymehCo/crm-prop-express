@@ -22,7 +22,6 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
-      - public_data:/app/public
     command: npm start
     networks:
       - props-network-crm
