@@ -8,7 +8,11 @@ module.exports.getCertificateHTML = ({
   formattedDate,
   qrData,
 }) => {
-  const imagePath = path.resolve("public/certificate-withdrawal.jpg");
+  const imagePath = path.join(
+    process.cwd(),
+    "public",
+    "certificate-withdrawal.jpg",
+  );
 
   const imageBase64 = fs.readFileSync(imagePath, "base64");
 
