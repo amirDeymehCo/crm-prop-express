@@ -84,11 +84,11 @@ const Controller = class extends Controllers {
         return res.status(400).json({ message: "ادمین یافت نشد" });
       }
 
-      if (admin.is_super_admin) {
-        return res.status(400).json({
-          message: "امکان تغییر سطح دسترسی ادمین کل وجود ندارد",
-        });
-      }
+      // if (admin.is_super_admin) {
+      //   return res.status(400).json({
+      //     message: "امکان تغییر سطح دسترسی ادمین کل وجود ندارد",
+      //   });
+      // }
 
       /* ========= 1️⃣ Full groups ========= */
       const groups = await PermissionGroup.findAll({
