@@ -107,10 +107,14 @@ const Controller = class extends Controllers {
 
       this.response({ res, message: "گواهینامه با موفقیت ایجاد شد" });
     } catch (err) {
-      console.error(err);
-      res.status(500).json({
-        message: "Error generating certificate",
-        data: err.toString(),
+      this.response({
+        res,
+        status: 400,
+        data: {
+          __dirname,
+          file: fs.readdirSync(path.resolve(__dirname, "../../")),
+          msg: err?.toString(),
+        },
       });
     }
   }
