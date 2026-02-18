@@ -32,6 +32,10 @@ router
     "/pay-pending-challenge",
     Controller.validationBody,
     asyncHandler(Controller.payPendingChallenge),
+  )
+  .get(
+    "/get-analysis-data/:mt_login",
+    asyncHandler(Controller.getAnalysisData),
   );
 
 module.exports = router;

@@ -9,6 +9,8 @@ const AccountInstance = require("../../../../models/Challenge/AccountInstance");
 const { createChFounc } = require("../../../../services/BuyCh");
 const { paykanService } = require("../../../../services/PeykanPayment");
 const Setting = require("../../../../models/Setting");
+const Admin = require("../../../../models/Admin");
+const User = require("../../../../models/User");
 const { createDepositUSDInvoice } = require("../../../../services/NOWPayments");
 const { payWithWallet } = require("../../../../services/BuyCh/WalletPay");
 const {
@@ -22,6 +24,9 @@ const RequestChnageStatus = require("../../../../models/RequestChangeStatus");
 const Order = require("../../../../models/Order");
 const founcList = require("../../../../utils/List");
 const { Op } = require("sequelize");
+const {
+  fetchFullAccountAnalysis,
+} = require("../../../..//services/AnalysisUser/accountAnalysisService");
 
 const Controller = class extends Controllers {
   async getPlansList(req, res) {
@@ -177,7 +182,6 @@ const Controller = class extends Controllers {
       });
     }
   }
-
   async callbackBuyCh(req, res) {
     const t = await sequelize.transaction();
     try {
@@ -332,26 +336,36 @@ const Controller = class extends Controllers {
     this.response({ res, message: "لیست چالش های کاربر", data: list });
   }
   async singleChallenge(req, res) {
-    const singleCh = await UserChallenge?.findOne(
-      { where: { id: req?.params?.id, user_id: req?.user?.id } },
-      {
-        include: [
-          {
-            model: ChallengePlan,
-            include: [ChallengeType],
-          },
-          AccountInstance,
-        ],
-        attributes: [
-          "id",
-          "status",
-          "current_phase_index",
-          "price_usd",
-          "createdAt",
-          "updatedAt",
-        ],
-      },
-    );
+    const singleCh = await UserChallenge?.findOne({
+      where: { id: req?.params?.id, user_id: req?.user?.id },
+      include: [
+        {
+          model: ChallengePlan,
+          include: [ChallengeType, ChallengePhase],
+        },
+        {
+          model: User,
+          attributes: [
+            "id",
+            "firstname",
+            "lastname",
+            "avatar",
+            "mobile",
+            "createdAt",
+          ],
+        },
+        {
+          model: AccountInstance,
+          include: [
+            {
+              model: Admin,
+              as: "created_by_admin",
+              attributes: ["id", "name", "avatar"],
+            },
+          ],
+        },
+      ],
+    });
 
     if (!singleCh)
       return this.response({
@@ -690,6 +704,24 @@ const Controller = class extends Controllers {
         message: err.message || "خطای سرور",
       });
     }
+  }
+  async getAnalysisData(req, res) {
+    const mt_login = req?.params?.mt_login;
+    if (!mt_login)
+      return this.response({
+        res,
+        status: 400,
+        message: "ارسال شناسه لاگین اجباری است",
+      });
+
+    const dataAccount = await fetchFullAccountAnalysis(mt_login);
+
+    this.response({
+      res,
+      status: 200,
+      message: "اطلاعات اکانت شما",
+      data: { dataAccount },
+    });
   }
 };
 
