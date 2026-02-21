@@ -24,7 +24,7 @@ async function fetchFullAccountAnalysis(login) {
   return {
     stats,
     openPositions: openPositions?.data ?? [],
-    closedPositions: closedPositions?.data ?? [],
+    closedPositions: closedPositions?.positions ?? [],
     performance: perf,
     baseBalanceDaily: info?.stops?.base_balance_daily ?? null,
     fetchedAt: new Date(),

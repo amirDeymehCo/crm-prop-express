@@ -16,6 +16,7 @@ router
   )
   .post("/update/:id", can("user.create"), asyncHandler(Controller.updateUser))
   .post("/depositWallet", asyncHandler(Controller.depositWallet))
+  .post("/withdrawWallet", asyncHandler(Controller.withdrawWallet))
   .get("/:id", can("user.read"), asyncHandler(Controller.findUser));
 
 module.exports = router;

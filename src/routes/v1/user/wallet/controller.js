@@ -13,12 +13,14 @@ const WidthdrawRequest = require("../../../../models/WidthdrawRequest");
 const WalletTransaction = require("../../../../models/WalletTransaction");
 const Order = require("../../../../models/Order");
 const Otp = require("../../../../models/Otp");
+const User = require("../../../../models/User");
 const founcList = require("../../../../utils/List");
 const sequelize = require("../../../../../db");
 const {
   generateCode,
   sendCode,
 } = require("../../../../services/KavenegarService");
+const { Op } = require("sequelize");
 
 const Controller = class extends Controllers {
   async depositIRR(req, res) {
@@ -273,18 +275,95 @@ const Controller = class extends Controllers {
     });
   }
   async transactionsList(req, res) {
-    const where = {};
     const {
-      query: { type, status },
+      query: { page = 1, limit = 5, type, status },
     } = req;
 
-    if (type) where.type = type;
-    if (status) where.status = status;
+    const currentPage = Number(page);
+    const perPage = Number(limit);
 
-    const transactions = await founcList(Order, req, where, {
-      attributes: { exclude: ["meta"] },
+    // 1. find wallet
+    const wallet = await Wallet.findOne({
+      where: { user_id: req.user.id },
     });
-    this.response({ res, message: "تاریختچه تراکنش ها", data: transactions });
+
+    if (!wallet) {
+      return this.response({
+        res,
+        message: "کیف پول یافت نشد",
+        data: {
+          totalCount: 0,
+          currentPage,
+          totalPages: 0,
+          limit: perPage,
+          items: [],
+        },
+      });
+    }
+
+    // 2. wallet tx
+    const walletWhere = { wallet_id: wallet.id };
+    if (type) walletWhere.type = type;
+    if (status) walletWhere.status = status;
+
+    const walletTx = await WalletTransaction.findAll({
+      where: walletWhere,
+      attributes: [
+        "id",
+        "type",
+        "amount",
+        "status",
+        "created_at",
+        [sequelize.literal("'wallet'"), "source"],
+      ],
+      raw: true,
+    });
+
+    // 3. orders (gateway only)
+    const orderWhere = {
+      user_id: req.user.id,
+      gateway: { [Op.ne]: "wallet" },
+    };
+    if (status) orderWhere.status = status;
+
+    const orders = await Order.findAll({
+      where: orderWhere,
+      attributes: [
+        "id",
+        ["type", "type"],
+        ["amount_usd", "amount"],
+        "status",
+        "created_at",
+        [sequelize.literal("'order'"), "source"],
+      ],
+      raw: true,
+    });
+
+    // 4. merge
+    let items = [...walletTx, ...orders];
+
+    // 5. sort (newest first)
+    items.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    // 6. pagination (in-memory)
+    const totalCount = items.length;
+    const totalPages = Math.ceil(totalCount / perPage);
+    const offset = (currentPage - 1) * perPage;
+
+    items = items.slice(offset, offset + perPage);
+
+    // 7. response
+    this.response({
+      res,
+      message: "تاریخچه تراکنش‌ها",
+      data: {
+        totalCount,
+        currentPage,
+        totalPages,
+        limit: perPage,
+        items,
+      },
+    });
   }
   async states(req, res) {
     const stats = await WalletTransaction.findAll({

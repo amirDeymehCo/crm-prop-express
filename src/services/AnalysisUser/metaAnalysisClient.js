@@ -26,10 +26,8 @@ async function callMeta(endpoint, payload, apiKey) {
       },
     });
 
-    console.log(endpoint, "  ", data);
-
-    if (status !== 200) return "ERRRORED";
-    if (!data?.ok) return "ERRORED";
+    if (status !== 200) return null;
+    if (!data?.ok) return null;
 
     return data;
   } catch (err) {

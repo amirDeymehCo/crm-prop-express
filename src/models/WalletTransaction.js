@@ -2,6 +2,7 @@
 const { DataTypes } = require("sequelize");
 const sequelize = require("../../db");
 const Wallet = require("./Wallet");
+const Admin = require("./Admin");
 
 const WalletTransaction = sequelize.define(
   "WalletTransaction",
@@ -47,6 +48,19 @@ const WalletTransaction = sequelize.define(
       type: DataTypes.JSON,
       allowNull: true,
     },
+    actor_type: {
+      type: DataTypes.ENUM("user", "admin", "system"),
+      allowNull: false,
+      defaultValue: "system",
+    },
+    admin_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
+    wallet_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
   },
   {
     tableName: "wallet_transactions",
@@ -56,5 +70,8 @@ const WalletTransaction = sequelize.define(
 
 WalletTransaction.belongsTo(Wallet, { foreignKey: "wallet_id" });
 Wallet.hasMany(WalletTransaction, { foreignKey: "wallet_id" });
+
+WalletTransaction.belongsTo(Admin, { foreignKey: "admin_id" });
+Admin.hasMany(WalletTransaction, { foreignKey: "admin_id" });
 
 module.exports = WalletTransaction;

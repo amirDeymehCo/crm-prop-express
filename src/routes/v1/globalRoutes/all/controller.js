@@ -200,11 +200,9 @@ const Controller = class extends Controllers {
         );
 
         await t.commit();
-        return this.response({
-          res,
-          status: 400,
-          message: "پرداخت تایید نشد",
-        });
+        return res.redirect(
+          baseSite + `/account/challenges?status=${verify?.status}`,
+        );
       }
 
       /** ✅ تایید موفق => finalize چالش */

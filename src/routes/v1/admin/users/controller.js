@@ -11,6 +11,7 @@ const ReferralCommission = require("../../../../models/ReferralCommission");
 const Call = require("../../../../models/Call/Call");
 const SmsMessage = require("../../../../models/SmsMessage");
 const ChallengeType = require("../../../../models/Challenge/ChallengeType");
+const Admin = require("../../../../models/Admin");
 const founcList = require("../../../../utils/List");
 const sequelize = require("../../../../../db");
 const { Op, fn, col, literal } = require("sequelize");
@@ -109,17 +110,67 @@ const Controller = class extends Controllers {
       limit: 2,
     });
 
-    // transactions
-    const transactions = await WalletTransaction.findAll({
-      where: { wallet_id: wallet?.id },
-      limit: 2,
+    // // transactions
+    // const transactions = await WalletTransaction.findAll({
+    //   where: { wallet_id: wallet?.id },
+    // });
+
+    // // orders
+    // const orders = await Order.findAll({
+    //   where: { user_id: user?.id },
+    //   // limit: 2,
+    //   attributes: ["id", "type", "amount_usd"],
+    //   include: [
+    //     {
+    //       model: UserChallenge,
+    //       attributes: ["id", "current_phase_index", "status"],
+    //       include: {
+    //         model: ChallengePlan,
+    //         attributes: ["id", "title", "balance"],
+    //         include: {
+    //           model: ChallengeType,
+    //         },
+    //       },
+    //     },
+    //   ],
+    // });
+
+    const userChallenges = await UserChallenge.findAll({
+      where: { user_id: user?.id },
+      include: [
+        {
+          model: ChallengePlan,
+          attributes: ["id", "title", "balance"],
+          include: [ChallengeType],
+        },
+      ],
     });
 
-    // orders
+    const walletTx = await WalletTransaction.findAll({
+      where: { wallet_id: wallet?.id },
+      attributes: [
+        "id",
+        "type",
+        "amount",
+        "status",
+        "created_at",
+        "admin_id",
+        [sequelize.literal("'wallet'"), "source"],
+      ],
+      include: [
+        {
+          model: Admin,
+          attributes: ["id", "name", "avatar"],
+        },
+      ],
+    });
+
+    // 3. orders
+    const orderWhere = { user_id: user?.id };
+
     const orders = await Order.findAll({
-      where: { user_id: user?.id },
-      limit: 2,
-      attributes: ["id", "type", "amount_usd"],
+      where: orderWhere,
+      attributes: ["id", "type", "amount_usd", "status", "createdAt"],
       include: [
         {
           model: UserChallenge,
@@ -129,11 +180,37 @@ const Controller = class extends Controllers {
             attributes: ["id", "title", "balance"],
             include: {
               model: ChallengeType,
+              attributes: ["id", "name"],
             },
           },
         },
       ],
     });
+
+    // normalize orders
+    const normalizedOrders = orders.map((o) => ({
+      id: o.id,
+      source: "order",
+      type: o.type,
+      amount: o.amount_usd,
+      status: o.status,
+      created_at: o.created_at || o?.createdAt,
+      meta: o.UserChallenge
+        ? {
+            challenge_id: o.UserChallenge.id,
+            phase: o.UserChallenge.current_phase_index,
+            challenge_status: o.UserChallenge.status,
+            plan: o.UserChallenge.ChallengePlan?.title,
+            challenge_type: o.UserChallenge.ChallengePlan?.ChallengeType?.title,
+          }
+        : null,
+    }));
+
+    // 4. merge
+    let items = [...walletTx, ...normalizedOrders];
+
+    // 5. sort
+    items.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
     // requestWidthdraw
     const requestWidthdraw = await Ticket.findAll({
@@ -156,29 +233,9 @@ const Controller = class extends Controllers {
       ],
     });
 
-    // referrer
-    // const listUsersRefral = await ReferralCommission.findAll({
-    //   attributes: [
-    //     "referred_user_id",
-    //     [sequelize.fn("SUM", sequelize.col("order_amount")), "total_paid"],
-    //     [sequelize.fn("SUM", sequelize.col("commission_amount")), "total_commission"],
-    //   ],
-    //   include: [
-    //     {
-    //       model: User,
-    //       as: "referredUser",
-    //       attributes: ["id", "avatar", "firstname", "lastname"],
-    //     },
-    //   ],
-    //   group: ["referred_user_id", "referredUser.id"],
-    //   order: [[sequelize.literal("total_paid"), "DESC"]],
-    //   limit: 2,
-    //   where: { referrer_id: user?.id }
-    // })
-
     const listUsersRefral = await User.findAll({
       where: {
-        referrer_id: user?.referrer_id,
+        referrer_id: user?.id,
       },
       attributes: [
         "id",
@@ -229,12 +286,14 @@ const Controller = class extends Controllers {
           ...wallet.dataValues,
           amount_irr,
         },
-        transactions,
-        orders,
+        // transactions,
+        // orders,
+        transactionsList: items,
         requestWidthdraw,
         listUsersRefral,
         calls,
         messages,
+        userChallenges,
       },
     });
   }
@@ -254,11 +313,32 @@ const Controller = class extends Controllers {
   }
   async depositWallet(req, res) {
     const wallet = await Wallet.findByPk(req?.body?.wallet_id);
+    const balance_before = Number(wallet?.balance);
+    const balance_after = Number(wallet?.balance) + Number(req?.body?.amount);
     await wallet.update({
-      balance: Number(wallet?.balance) + Number(req?.body?.amount),
+      balance: balance_after,
+    });
+
+    const newTransaction = await WalletTransaction.create({
+      type: "deposit",
+      amount: Number(req?.body?.amount),
+      balance_before,
+      balance_after,
+      status: "completed",
+      actor_type: "admin",
+      admin_id: req?.admin?.id,
+      wallet_id: wallet?.id,
     });
 
     this.response({ res, message: "موجودی افزایش پیدا کرد" });
+  }
+  async withdrawWallet(req, res) {
+    const wallet = await Wallet.findByPk(req?.body?.wallet_id);
+    await wallet.update({
+      balance: Number(wallet?.balance) - Number(req?.body?.amount),
+    });
+
+    this.response({ res, message: "موجودی ولت آپدیت شد" });
   }
 };
 

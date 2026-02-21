@@ -80,7 +80,7 @@ async function waitForDb(sequelizeInstance, opts = {}) {
       console.log("✅ DB Sync done");
     }
 
-    await initRbac();
+    // await initRbac();
 
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
