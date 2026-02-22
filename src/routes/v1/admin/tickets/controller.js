@@ -3,6 +3,8 @@ const Ticket = require("../../../../models/Ticket");
 const User = require("../../../../models/User");
 const Message = require("../../../../models/Message");
 const Admin = require("../../../../models/Admin");
+const AutoMessage = require("../../../../models/AutoMessage");
+const TicketNots = require("../../../../models/TicketNots");
 const founcList = require("../../../../utils/List");
 const { sendCustomMessage } = require("../../../../services/KavenegarService");
 
@@ -159,6 +161,51 @@ const Controller = class extends Controllers {
     }
 
     this.response({ res, status: 200, message: "پیام شما با موفقیت ارسال شد" });
+  }
+  async autoMessages(req, res) {
+    const list = await AutoMessage.findAll();
+
+    this.response({ res, status: 200, data: list });
+  }
+  async createMessage(req, res) {
+    const list = await AutoMessage.create(req?.body);
+
+    this.response({ res, status: 200, data: list });
+  }
+  async notesList(req, res) {
+    const list = await TicketNots.findAll({
+      where: { ticket_id: req?.params?.id },
+      include: [
+        {
+          model: Admin,
+          attributes: ["id", "name", "avatar"],
+        },
+      ],
+    });
+
+    this.response({ res, data: list });
+  }
+  async createNote(req, res) {
+    if (!req?.body?.ticket_id)
+      return this.response({
+        res,
+        status: 400,
+        message: "ارسال شناسه تیکت احباری است",
+      });
+    if (!req?.body?.note)
+      return this.response({
+        res,
+        status: 400,
+        message: "یادداشت را وارد نمایید",
+      });
+
+    await TicketNots.create({
+      ticket_id: req?.body?.ticket_id,
+      note: req?.body?.note,
+      admin_id: req?.admin?.id,
+    });
+
+    this.response({ res, message: "یادداشت ساخته شد" });
   }
 };
 

@@ -7,6 +7,10 @@ const validator = require("./validation");
 
 router
   .get("/", asyncHandler(Controller.list))
+  .get("/auto-messages-list", asyncHandler(Controller.autoMessages))
+  .post("/create-auto-message", asyncHandler(Controller.createMessage))
+  .post("/notes", asyncHandler(Controller.createNote))
+  .get("/notes/:id", asyncHandler(Controller.notesList))
   .post(
     "/",
     upload.array("filesTicket", 5),
