@@ -42,6 +42,7 @@ const Call = sequelize.define(
         "BIME_CHALLENGE",
         "PHONES_BUY",
         "PHONES_NOT_BUY",
+        "CAMPAIGN",
       ),
       allowNull: true,
     },

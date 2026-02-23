@@ -8,6 +8,8 @@ const CallRejectReason = require("../../../../models/Call/CallRejectReason");
 const CallResultOption = require("../../../../models/Call/CallResultOption");
 const SmsMessage = require("../../../../models/SmsMessage");
 const CallReminder = require("../../../../models/Call/CallReminder");
+const ChallengePlan = require("../../../../models/Challenge/ChallengePlan");
+const ChallengeType = require("../../../../models/Challenge/ChallengeType");
 const sequelize = require("../../../../../db");
 const founcList = require("../../../../utils/List");
 const { sendCustomMessage } = require("../../../../services/KavenegarService");
@@ -454,6 +456,26 @@ const Controller = class extends Controllers {
         error: error.message,
       });
     }
+  }
+  async userChallenges(req, res) {
+    const list = await UserChallenge.findAll({
+      where: { user_id: req?.params?.user_id },
+      include: [
+        {
+          model: ChallengePlan,
+          attributes: [
+            "id",
+            "title",
+            "leverage",
+            "balance",
+            "challenge_type_id",
+          ],
+          include: [ChallengeType],
+        },
+      ],
+    });
+
+    this.response({ res, status: 200, data: list });
   }
 };
 

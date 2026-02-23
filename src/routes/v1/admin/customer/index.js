@@ -40,4 +40,9 @@ router
   .get("/remeinder-count", asyncHandler(Controller.remeinderCount))
   .get("/remeinder-list", asyncHandler(Controller.remeinderList));
 
+router.get(
+  "/user-challenges/:user_id",
+  asyncHandler(Controller.userChallenges),
+);
+
 module.exports = router;

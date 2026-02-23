@@ -16,6 +16,7 @@ const SmsMessage = sequelize.define(
         "returning_user",
         "discount",
         "festival",
+        "CAMPAIGN",
       ),
       allowNull: true,
     },
