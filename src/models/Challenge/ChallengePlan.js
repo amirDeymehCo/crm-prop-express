@@ -33,7 +33,7 @@ const ChallengePlan = sequelize.define("ChallengePlan", {
   },
   price_irr: {
     // قیمت ریالی (اگر داری)
-    type: DataTypes.BIGINT,
+    type: DataTypes.BIGINT.UNSIGNED,
     allowNull: true,
   },
   profit_share_percent: {

@@ -61,7 +61,7 @@ const ChallengePhase = sequelize.define("ChallengePhase", {
     allowNull: true,
   },
   phase_fee_irr: {
-    type: DataTypes.BIGINT,
+    type: DataTypes.BIGINT.UNSIGNED,
     allowNull: true,
   },
 });

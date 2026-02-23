@@ -25,7 +25,7 @@ const Order = sequelize.define(
       allowNull: false,
     },
     amount_irr: {
-      type: DataTypes.BIGINT,
+      type: DataTypes.BIGINT.UNSIGNED,
       allowNull: true,
     },
     currency: {

@@ -34,4 +34,10 @@ router
   )
   .get("/sms/history", asyncHandler(Controller.smsList));
 
+// remainder
+
+router
+  .get("/remeinder-count", asyncHandler(Controller.remeinderCount))
+  .get("/remeinder-list", asyncHandler(Controller.remeinderList));
+
 module.exports = router;

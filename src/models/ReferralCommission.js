@@ -15,7 +15,7 @@ const ReferralCommission = sequelize.define("ReferralCommission", {
     allowNull: false,
   },
   order_amount: {
-    type: DataTypes.BIGINT,
+    type: DataTypes.BIGINT.UNSIGNED,
     allowNull: false,
   },
   percent: {
@@ -23,7 +23,7 @@ const ReferralCommission = sequelize.define("ReferralCommission", {
     allowNull: false,
   },
   commission_amount: {
-    type: DataTypes.BIGINT,
+    type: DataTypes.BIGINT.UNSIGNED,
     allowNull: false,
   },
   status: {
