@@ -490,7 +490,7 @@ const Controller = class extends Controllers {
         message: "کاربری با این شماره موبایل پیدا نشد",
       });
 
-    const { code } = await createOtp({ mobile });
+    const { code } = await createOtp({ mobile: req?.body?.mobile });
 
     const sent = await sendCode({
       receptor: req?.body?.mobile,
