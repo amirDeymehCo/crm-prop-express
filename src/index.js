@@ -24,6 +24,10 @@ app.use(
         "https://localhost:3000",
         "http://localhost:3001",
         "https://localhost:3001",
+        "https://myprop.trade",
+        "http://myprop.trade",
+        "https://crm.myprop.trade",
+        "http://crm.myprop.trade",
       ];
       cb(null, allowed.includes(origin));
     },
