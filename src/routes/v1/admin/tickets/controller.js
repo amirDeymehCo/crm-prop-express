@@ -28,6 +28,9 @@ const Controller = class extends Controllers {
           attributes: ["id", "avatar", "name"],
         },
       ],
+      order: [
+        ["updatedAt", "DESC"], // بعدش جدیدترین‌ها
+      ],
     });
 
     this.response({
