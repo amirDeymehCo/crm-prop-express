@@ -477,6 +477,26 @@ const Controller = class extends Controllers {
 
     this.response({ res, status: 200, data: list });
   }
+  async historyCalls(req, res) {
+    const callsList = await Call.findAll({
+      where: { user_id: req?.params?.user_id },
+      include: [
+        { model: Admin, attributes: ["id", "name", "avatar"], as: "admin" },
+      ],
+    });
+
+    this.response({ res, data: callsList });
+  }
+  async historyMessages(req, res) {
+    const messagesList = await SmsMessage.findAll({
+      where: { user_id: req?.params?.user_id },
+      include: [
+        { model: Admin, attributes: ["id", "name", "avatar"], as: "admin" },
+      ],
+    });
+
+    this.response({ res, data: messagesList });
+  }
 };
 
 module.exports = new Controller();

@@ -15,7 +15,18 @@ const Controller = class extends Controllers {
 
     const list = await User.findAll({
       where,
-      attributes: ["id", "firstname", "lastname", "avatar", "mobile"],
+      attributes: [
+        "id",
+        "firstname",
+        "lastname",
+        "avatar",
+        "mobile",
+        "email",
+        "status",
+        "kyc_status",
+        "kyc_steep",
+        "createdAt",
+      ],
       required: true,
     });
 
