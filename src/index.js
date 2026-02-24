@@ -18,7 +18,7 @@ app.set("trust proxy", 1);
 // بهتره cors قبل از limiter باشه (اختیاری)
 app.use(
   cors({
-    origin: "http://localhost:3000",
+    origin: "*",
     credentials: true,
   }),
 );
