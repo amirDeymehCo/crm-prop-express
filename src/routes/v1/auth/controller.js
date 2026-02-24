@@ -95,7 +95,7 @@ async function verifyOtpCode({ mobile, code, maxAttempts = 5 }) {
   }
 
   // ✅ موفق
-  otp.status = "verified";
+  otp.status = "verify";
   await otp.save();
 
   return {
