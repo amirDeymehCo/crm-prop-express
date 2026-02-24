@@ -290,74 +290,63 @@ const Controller = class extends Controllers {
     });
   }
   async verifyOtp(req, res) {
-    try {
-      const mobile = String(req.body.mobile).trim();
-      const code = String(req.body.code).trim();
+    const mobile = String(req.body.mobile).trim();
+    const code = String(req.body.code).trim();
 
-      const result = await verifyOtpCode({ mobile, code });
+    const result = await verifyOtpCode({ mobile, code });
 
-      if (!result?.success) {
-        return this.response({
-          res,
-          status: 400,
-          message: result?.message,
-        });
-      }
-
-      const user = await User.findOne({ where: { mobile } });
-
-      if (!user) {
-        return this.response({
-          res,
-          status: 400,
-          message: "کاربری با این شماره یافت نشد",
-        });
-      }
-
-      // ✅ تأیید شماره موبایل
-      user.verify_mobile = true;
-      await user.save();
-
-      // ✅ ایجاد توکن‌ها
-      const accessToken = generateAccessToken(user);
-      const refreshToken = generateRefreshToken();
-
-      const hashedRefreshToken = crypto
-        .createHash("sha256")
-        .update(refreshToken)
-        .digest("hex");
-
-      await user.update({
-        refresh_token: hashedRefreshToken,
-        refresh_token_expires_at: new Date(
-          Date.now() + 7 * 24 * 60 * 60 * 1000,
-        ),
-      });
-
-      // ✅ ست کوکی رفرش توکن
-      res.cookie("refreshToken", refreshToken, {
-        httpOnly: true,
-        sameSite: "none",
-        secure: true,
-        path: "/",
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-      });
-
+    if (!result?.success) {
       return this.response({
         res,
-        data: {
-          accessToken,
-        },
-        message: "به مای پراپ خوش آمدید",
-      });
-    } catch (err) {
-      console.error(err);
-      return this.response({
-        res,
-        status: 500,
-        message: "خطای سرور رخ داده است",
+        status: 400,
+        message: result?.message,
       });
     }
+
+    const user = await User.findOne({ where: { mobile } });
+
+    if (!user) {
+      return this.response({
+        res,
+        status: 400,
+        message: "کاربری با این شماره یافت نشد",
+      });
+    }
+
+    // ✅ تأیید شماره موبایل
+    user.verify_mobile = true;
+    await user.save();
+
+    // ✅ ایجاد توکن‌ها
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken();
+
+    const hashedRefreshToken = crypto
+      .createHash("sha256")
+      .update(refreshToken)
+      .digest("hex");
+
+    await user.update({
+      refresh_token: hashedRefreshToken,
+      refresh_token_expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    });
+
+    // ✅ ست کوکی رفرش توکن
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      sameSite: "none",
+      secure: true,
+      path: "/",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    return this.response({
+      res,
+      data: {
+        accessToken,
+      },
+      message: "به مای پراپ خوش آمدید",
+    });
   }
   async forgotPassword(req, res) {
     const userFind = await User.findOne({
