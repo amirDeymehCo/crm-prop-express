@@ -5,6 +5,7 @@ const router = require("./routes");
 const { globalLimiter } = require("./middlewares/rateLimit");
 const cleanQuery = require("./middlewares/cleanQuery");
 const initRbac = require("./configs/permissionsInit");
+const cookieParser = require("cookie-parser");
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -15,7 +16,12 @@ require("./crons/UpdateDollarPrice");
 app.set("trust proxy", 1);
 
 // بهتره cors قبل از limiter باشه (اختیاری)
-app.use(cors());
+app.use(
+  cors({
+    origin: "http://localhost:3000",
+    credentials: true,
+  }),
+);
 app.options("*", cors());
 
 app.use(globalLimiter);
@@ -23,23 +29,24 @@ app.use(cleanQuery);
 
 // اگر cors رو بالا گذاشتی، این هدرهای دستی معمولاً اضافه‌ان.
 // ولی اگر می‌خوای نگه داری، مشکلی نیست:
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  next();
-});
+// app.use((req, res, next) => {
+//   res.header("Access-Control-Allow-Origin", "*");
+//   res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+//   res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+//   next();
+// });
 
 // routes and middlewares
 app.use(express.json({ limit: "30mb" }));
+app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
 
-app.use("/public", (req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET,OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  next();
-});
+// app.use("/public", (req, res, next) => {
+//   res.header("Access-Control-Allow-Origin", "*");
+//   res.header("Access-Control-Allow-Methods", "GET,OPTIONS");
+//   res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+//   next();
+// });
 
 app.use(express.static("public"));
 app.use("/api", router);

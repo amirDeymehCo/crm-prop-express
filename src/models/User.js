@@ -55,6 +55,14 @@ const User = sequelize.define(
       type: DataTypes.BOOLEAN,
       defaultValue: false,
     },
+    refresh_token: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    refresh_token_expires_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
   },
   {
     hooks: {

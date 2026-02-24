@@ -10,6 +10,15 @@ const Otp = sequelize.define("Otp", {
     type: DataTypes.STRING,
     allowNull: false,
   },
+
+  code_hash: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  attempts: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+  },
   status: {
     type: DataTypes.ENUM("waiting", "verify", "expired"),
     allowNull: false,

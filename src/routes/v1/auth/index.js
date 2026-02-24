@@ -50,5 +50,6 @@ router.post(
   Controller.validationBody,
   asyncHandler(Controller.loginCode),
 );
+router.post("/refresh-token", asyncHandler(Controller.refreshToken));
 
 module.exports = router;

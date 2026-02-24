@@ -7,6 +7,103 @@ const {
 } = require("../../../services/KavenegarService");
 const jwt = require("jsonwebtoken");
 const { Op } = require("sequelize");
+const crypto = require("crypto");
+const bcrypt = require("bcrypt");
+
+function generateAccessToken(user) {
+  return jwt.sign({ id: user.id, type_token: "user" }, process.env.JWT_SECRET, {
+    expiresIn: "1m",
+  });
+}
+function generateRefreshToken() {
+  return crypto.randomBytes(64).toString("hex");
+}
+
+async function createOtp({ mobile, ttlMinutes = 2 }) {
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+  const codeHash = crypto.createHash("sha256").update(code).digest("hex");
+
+  await Otp.update(
+    { status: "expired" },
+    {
+      where: {
+        mobile,
+        status: "waiting",
+      },
+    },
+  );
+
+  const otp = await Otp.create({
+    mobile,
+    code_hash: codeHash,
+    attempts: 0,
+    status: "waiting",
+    expires_at: new Date(Date.now() + ttlMinutes * 60 * 1000),
+  });
+
+  return {
+    otpId: otp.id,
+    code,
+    expiresAt: otp.expires_at,
+  };
+}
+
+async function verifyOtpCode({ mobile, code, maxAttempts = 5 }) {
+  const otp = await Otp.findOne({
+    where: {
+      mobile,
+      status: "waiting",
+      expires_at: { [Op.gt]: new Date() },
+    },
+    order: [["createdAt", "DESC"]],
+  });
+
+  if (!otp) {
+    return {
+      success: false,
+      reason: "OTP_NOT_FOUND",
+      message: "کد معتبری برای این شماره وجود ندارد",
+    };
+  }
+
+  if (otp.attempts >= maxAttempts) {
+    otp.status = "expired";
+    await otp.save();
+
+    return {
+      success: false,
+      reason: "MAX_ATTEMPTS",
+      message: "تعداد تلاش بیش از حد مجاز",
+    };
+  }
+
+  const inputHash = crypto
+    .createHash("sha256")
+    .update(String(code))
+    .digest("hex");
+
+  if (otp.code_hash !== inputHash) {
+    otp.attempts += 1;
+    await otp.save();
+
+    return {
+      success: false,
+      reason: "INVALID_CODE",
+      message: "کد وارد شده نادرست است",
+    };
+  }
+
+  // ✅ موفق
+  otp.status = "verified";
+  await otp.save();
+
+  return {
+    success: true,
+    otpId: otp.id,
+    message: "کد با موفقیت تایید شد",
+  };
+}
 
 const Controller = class extends Controllers {
   async register(req, res) {
@@ -112,16 +209,10 @@ const Controller = class extends Controllers {
       /* --------------------------------------------------
        * 4) تولید و ذخیره OTP
        * -------------------------------------------------- */
-      const newCode = generateCode(4);
-
-      // منقضی کردن OTPهای قبلی
-      await Otp.update(
-        { status: "expired" },
-        { where: { mobile, status: "waiting" } },
-      );
+      const { code } = await createOtp({ mobile });
 
       // ارسال OTP (در صورت نیاز)
-      const sent = await sendCode({ receptor: mobile, token: newCode });
+      const sent = await sendCode({ receptor: mobile, token: code });
       if (!sent) {
         return this.response({
           res,
@@ -129,12 +220,6 @@ const Controller = class extends Controllers {
           message: "خطا در ارسال کد تایید",
         });
       }
-
-      await Otp.create({
-        mobile,
-        code: newCode,
-        status: "waiting",
-      });
 
       /* --------------------------------------------------
        * 5) پاسخ نهایی
@@ -175,71 +260,82 @@ const Controller = class extends Controllers {
       where: { mobile, verify_mobile: true },
     });
 
-    if (!user) {
+    if (!user || !(await user.verifyPassword(password))) {
       return res.status(400).json({ message: "کاربری با این مشخصات یافت نشد" });
     }
 
-    const passVerify = await user.verifyPassword(password);
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken();
 
-    if (!passVerify) {
-      return res.status(400).json({ message: "کاربری با این مشخصات یافت نشد" });
-    }
+    const hashedRefreshToken = crypto
+      .createHash("sha256")
+      .update(refreshToken)
+      .digest("hex");
 
-    const token = jwt.sign(
-      { id: user.id, type_token: "user" },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: "24h",
-      },
-    );
+    await user.update({
+      refresh_token: hashedRefreshToken,
+      refresh_token_expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    });
 
-    this.response({
-      res,
-      data: { token },
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      sameSite: "none", // ✅
+      secure: false, // لوکال اجازه دارد
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    console.log(res?.cookies);
+    console.log(res.getHeaders()["set-cookie"]);
+
+    return res.status(200).json({
+      data: { accessToken },
       message: "به مای پراپ خوش آمدید",
     });
+
+    // this.response({
+    //   res,
+    //   data: { accessToken },
+    //   message: "به مای پراپ خوش آمدید",
+    // });
   }
   async verifyOtp(req, res) {
     try {
       const mobile = String(req.body.mobile).trim();
       const code = String(req.body.code).trim();
 
-      const otp = await Otp.findOne({
-        where: { mobile, status: "waiting" },
-        order: [["createdAt", "DESC"]], // اگه چند تا OTP هست، آخریش
-      });
+      const result = await verifyOtpCode({ mobile, code });
 
-      if (!otp) {
+      if (!result?.success) {
         return this.response({
           res,
           status: 400,
-          message: "کدی برای این شماره تلفن ارسال نشده است",
+          message: result?.message,
         });
       }
 
-      const pastTime = Date.now() - new Date(otp.createdAt).getTime();
+      // const pastTime = Date.now() - new Date(otp.createdAt).getTime();
 
-      if (pastTime >= 2 * 60 * 1000) {
-        otp.status = "expired";
-        await otp.save();
+      // if (pastTime >= 2 * 60 * 1000) {
+      //   otp.status = "expired";
+      //   await otp.save();
 
-        return this.response({
-          res,
-          status: 400,
-          message: "کد ارسالی منقضی شده است",
-        });
-      }
+      //   return this.response({
+      //     res,
+      //     status: 400,
+      //     message: "کد ارسالی منقضی شده است",
+      //   });
+      // }
 
-      if (String(otp.code) !== code) {
-        return this.response({
-          res,
-          status: 400,
-          message: "کد ارسالی اشتباه است",
-        });
-      } else {
-        otp.status = "verify";
-        await otp.save();
-      }
+      // if (String(otp.code) !== code) {
+      //   return this.response({
+      //     res,
+      //     status: 400,
+      //     message: "کد ارسالی اشتباه است",
+      //   });
+      // } else {
+      //   otp.status = "verify";
+      //   await otp.save();
+      // }
 
       const user = await User.findOne({ where: { mobile } });
 
@@ -301,11 +397,7 @@ const Controller = class extends Controllers {
       });
     }
 
-    await Otp.create({
-      mobile: req?.body?.mobile,
-      code: newCode,
-      status: "waiting",
-    });
+    await createOtp({ mobile });
 
     this.response({
       res,
@@ -338,11 +430,7 @@ const Controller = class extends Controllers {
       });
     }
 
-    await Otp.create({
-      mobile: req?.body?.mobile,
-      code: newCode,
-      status: "waiting",
-    });
+    await createOtp({ mobile: req?.body?.mobile });
 
     this.response({
       res,
@@ -351,58 +439,58 @@ const Controller = class extends Controllers {
     });
   }
   async changePassword(req, res) {
-    const { mobile, code } = req.body;
-    const otp = await Otp.findOne({
-      where: { mobile, status: "waiting" },
-      order: [["createdAt", "DESC"]],
-    });
-    if (!otp)
+    try {
+      const { mobile, code, password } = req.body;
+
+      if (!mobile || !code || !password) {
+        return this.response({
+          res,
+          status: 400,
+          message: "اطلاعات ورودی ناقص است",
+        });
+      }
+
+      // 1️⃣ بررسی OTP به‌صورت امن
+      const otpResult = await verifyOtpCode({ mobile, code });
+
+      if (!otpResult.success) {
+        return this.response({
+          res,
+          status: 400,
+          message: otpResult.message,
+        });
+      }
+
+      // 2️⃣ پیدا کردن کاربر
+      const user = await User.findOne({ where: { mobile } });
+
+      if (!user) {
+        return this.response({
+          res,
+          status: 404,
+          message: "کاربر یافت نشد",
+        });
+      }
+
+      // 3️⃣ هش کردن رمز عبور جدید
+      const salt = await bcrypt.genSalt(12);
+      const hashedPassword = await bcrypt.hash(password, salt);
+
+      user.password = hashedPassword;
+      await user.save();
+
       return this.response({
         res,
-        status: 400,
-        message: "کدی برای این شماره تلفن ارسال نشده است",
+        message: "رمز عبور با موفقیت تغییر یافت",
       });
-
-    let targetDate = new Date(otp?.createdAt);
-    let currentDate = new Date();
-    let pastTime = currentDate.getTime() - targetDate.getTime();
-
-    if (pastTime >= 2 * 60 * 1000) {
-      otp.status = "expired";
-      await otp.save();
+    } catch (err) {
+      console.error("changePassword error:", err);
       return this.response({
         res,
-        status: 400,
-        message: "کد ارسالی منقضی شده است",
+        status: 500,
+        message: "خطای سرور رخ داده است",
       });
     }
-
-    if (otp?.code != code)
-      return this.response({
-        res,
-        status: 400,
-        message: "کد ارسالی اشتباه است",
-      });
-
-    otp.status = "verify";
-    await otp.save();
-
-    const user = await User.findOne({ where: { mobile } });
-
-    if (!user)
-      return this.response({
-        res,
-        status: 400,
-        message: "نام کاربری یا رمز عبور اشتباه است",
-      });
-
-    user.password = req?.body?.password;
-    await user.save();
-
-    this.response({
-      res,
-      message: "کاربر مای پراپ، رمز عبور شما با موفقیت تغییر یافت",
-    });
   }
   async loginCode(req, res) {
     const findUserByMobile = await User.findOne({
@@ -439,6 +527,70 @@ const Controller = class extends Controllers {
       status: 201,
       message: "کد تایید تلفن شماارسال شد",
     });
+  }
+  async logout(req, res) {
+    const refreshToken = req.cookies.refreshToken;
+
+    if (refreshToken) {
+      const hashed = crypto
+        .createHash("sha256")
+        .update(refreshToken)
+        .digest("hex");
+
+      await User.update(
+        { refresh_token: null, refresh_token_expires_at: null },
+        { where: { refresh_token: hashed } },
+      );
+    }
+
+    res.clearCookie("refreshToken");
+    res.json({ message: "خروج با موفقیت انجام شد" });
+  }
+  async refreshToken(req, res) {
+    console.log(req?.cookies);
+    console.log(res?.cookies);
+    const refreshToken = req.cookies.refreshToken;
+
+    if (!refreshToken) {
+      return this.response({ res, status: 400 });
+    }
+
+    const hashed = crypto
+      .createHash("sha256")
+      .update(refreshToken)
+      .digest("hex");
+
+    const user = await User.findOne({
+      where: {
+        refresh_token: hashed,
+        refresh_token_expires_at: { [Op.gt]: new Date() },
+      },
+    });
+
+    if (!user) {
+      return this.response({ res, status: 400, message: "عدم دسترسی" });
+    }
+
+    // rotation
+    const newAccessToken = generateAccessToken(user);
+    const newRefreshToken = generateRefreshToken();
+
+    await user.update({
+      refresh_token: crypto
+        .createHash("sha256")
+        .update(newRefreshToken)
+        .digest("hex"),
+      refresh_token_expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    });
+
+    res.cookie("refreshToken", newRefreshToken, {
+      httpOnly: true,
+      sameSite: "none", // ✅
+      secure: false, // لوکال اجازه دارد
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    res.json({ accessToken: newAccessToken });
   }
 };
 
