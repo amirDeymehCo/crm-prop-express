@@ -384,7 +384,7 @@ const Controller = class extends Controllers {
       });
     }
 
-    await createOtp({ mobile });
+    await createOtp({ mobile: req?.body?.mobile });
 
     this.response({
       res,
