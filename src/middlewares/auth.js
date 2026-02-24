@@ -1,75 +1,41 @@
 // middleware/authUser.js
 const jwt = require("jsonwebtoken");
-const crypto = require("crypto");
-const { Op } = require("sequelize");
 const User = require("../models/User");
 const Wallet = require("../models/Wallet");
 const Setting = require("../models/Setting");
 
 async function authUser(req, res, next) {
   try {
-    const authHeader = req.headers["authorization"];
+    const authHeader = req.headers.authorization;
+    console.log("req?.cookies=>>>>>>>");
+    console.log(req?.cookies);
+
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({ message: "توکن ارسال نشده" });
     }
 
     const token = authHeader.split(" ")[1];
-    let decoded;
 
-    // --- مرحله ۱: بررسی Access Token ---
+    let decoded;
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET);
     } catch (err) {
-      // اگر توکن منقضی شده (JWTExpiredError)
       if (err.name === "TokenExpiredError") {
-        const refreshToken = req.cookies?.refreshToken;
-        if (!refreshToken) {
-          return res
-            .status(401)
-            .json({ message: "توکن منقضی شد، لطفاً مجدداً وارد شوید" });
-        }
-
-        // hashed version
-        const hashed = crypto
-          .createHash("sha256")
-          .update(refreshToken)
-          .digest("hex");
-        const user = await User.findOne({
-          where: {
-            refresh_token: hashed,
-            refresh_token_expires_at: { [Op.gt]: new Date() },
-          },
+        return res.status(401).json({
+          message: "access token منقضی شده",
+          code: "TOKEN_EXPIRED",
         });
-
-        if (!user) {
-          return res
-            .status(401)
-            .json({ message: "توکن معتبر نیست یا منقضی شده" });
-        }
-
-        // ساخت توکن جدید
-        const newAccessToken = jwt.sign(
-          { id: user.id, type_token: "user" },
-          process.env.JWT_SECRET,
-          { expiresIn: "15m" },
-        );
-
-        res.setHeader("x-new-access-token", newAccessToken);
-        decoded = { id: user.id, type_token: "user" }; // ادامه جریان با توکن جدید
-      } else {
-        // سایر خطاهای JWT
-        return res
-          .status(401)
-          .json({ message: "توکن معتبر نیست یا دستکاری شده است" });
       }
+
+      return res.status(401).json({
+        message: "توکن معتبر نیست",
+      });
     }
 
-    // --- مرحله ۲: نوع توکن باید 'user' باشد ---
-    if (decoded?.type_token !== "user") {
-      return res.status(401).json({ message: "توکن کاربر معتبر نیست" });
+    if (decoded.type_token !== "user") {
+      return res.status(401).json({ message: "توکن نامعتبر است" });
     }
 
-    // --- مرحله ۳: واکشی داده‌ها ---
     const [userFind, walletFind, setting] = await Promise.all([
       User.findByPk(decoded.id, {
         attributes: { exclude: ["password", "responsible_admin_id"] },
@@ -82,7 +48,8 @@ async function authUser(req, res, next) {
       return res.status(404).json({ message: "کاربر یافت نشد" });
     }
 
-    const amount_irr = walletFind?.balance * setting?.dollar_price;
+    const amount_irr =
+      (walletFind?.balance || 0) * (setting?.dollar_price || 0);
 
     req.user = {
       ...userFind.dataValues,
@@ -92,7 +59,7 @@ async function authUser(req, res, next) {
     next();
   } catch (err) {
     console.error("Auth middleware error:", err);
-    return res.status(500).json({ message: "خطای داخلی سرور" });
+    res.status(500).json({ message: "خطای داخلی سرور" });
   }
 }
 
