@@ -490,10 +490,11 @@ const Controller = class extends Controllers {
         message: "کاربری با این شماره موبایل پیدا نشد",
       });
 
-    const newCode = generateCode(4);
+    const { code } = await createOtp({ mobile });
+
     const sent = await sendCode({
       receptor: req?.body?.mobile,
-      token: newCode,
+      token: code,
     });
     if (!sent) {
       return this.response({
@@ -502,12 +503,6 @@ const Controller = class extends Controllers {
         message: "در ارسال کد تایید مشکلی پیش آمده است، بعدا امتحان کنید",
       });
     }
-
-    await Otp.create({
-      mobile: req?.body?.mobile,
-      code: newCode,
-      status: "waiting",
-    });
 
     this.response({
       res,
