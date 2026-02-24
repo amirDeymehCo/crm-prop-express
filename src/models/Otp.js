@@ -8,7 +8,7 @@ const Otp = sequelize.define("Otp", {
   },
   code: {
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: true,
   },
 
   code_hash: {
