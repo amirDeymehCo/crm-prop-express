@@ -16,12 +16,7 @@ require("./crons/UpdateDollarPrice");
 app.set("trust proxy", 1);
 
 // بهتره cors قبل از limiter باشه (اختیاری)
-app.use(
-  cors({
-    origin: "*",
-    credentials: true,
-  }),
-);
+app.use(cors());
 app.options("*", cors());
 
 app.use(globalLimiter);
