@@ -5,7 +5,6 @@ const router = require("./routes");
 const { globalLimiter } = require("./middlewares/rateLimit");
 const cleanQuery = require("./middlewares/cleanQuery");
 const initRbac = require("./configs/permissionsInit");
-const cookieParser = require("cookie-parser");
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -18,8 +17,6 @@ app.set("trust proxy", 1);
 // بهتره cors قبل از limiter باشه (اختیاری)
 app.use(cors());
 app.options("*", cors());
-
-app.use(cookieParser());
 
 app.use(globalLimiter);
 app.use(cleanQuery);
