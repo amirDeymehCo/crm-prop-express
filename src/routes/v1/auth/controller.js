@@ -20,7 +20,7 @@ function generateRefreshToken() {
 }
 
 async function createOtp({ mobile, ttlMinutes = 2 }) {
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const code = Math.floor(1000 + Math.random() * 9000).toString();
 
   const codeHash = crypto.createHash("sha256").update(code).digest("hex");
 
