@@ -11,7 +11,7 @@ const DBLog = require("./models/DbLog");
 const app = express();
 const PORT = process.env.PORT || 8000;
 
-require("./crons/UpdateDollarPrice");
+// require("./crons/UpdateDollarPrice");
 
 app.use((req, res, next) => {
   try {
@@ -103,10 +103,10 @@ async function waitForDb(sequelizeInstance, opts = {}) {
     const shouldSync = process.env.DB_SYNC === "true";
     const syncAlter = process.env.DB_SYNC_ALTER === "true";
 
-    if (shouldSync) {
-      await sequelize.sync(syncAlter ? { alter: true } : {});
-      console.log("✅ DB Sync done");
-    }
+    // if (shouldSync) {
+    // await sequelize.sync();
+    // console.log("✅ DB Sync done");
+    // }
 
     // await initRbac();
 

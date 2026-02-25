@@ -1,5 +1,4 @@
 const { Sequelize } = require("sequelize");
-
 require("dotenv").config();
 
 const sequelize = new Sequelize(
@@ -13,8 +12,6 @@ const sequelize = new Sequelize(
     logging: false,
   },
 );
-
-sequelize.options.logging = console.log;
 
 module.exports = sequelize;
 

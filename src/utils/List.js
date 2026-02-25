@@ -9,6 +9,7 @@ const founcList = async (model, req, where = {}, otherProps = {}) => {
     where,
     limit: limit,
     offset: offset,
+    distinct: true,
     ...otherProps,
   });
 
