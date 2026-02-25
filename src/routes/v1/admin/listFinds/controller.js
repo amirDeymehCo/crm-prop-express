@@ -11,40 +11,58 @@ const { fn, col, Op, literal } = require("sequelize");
 
 const Controller = class extends Controllers {
   async users(req, res) {
+    const { search = "", page = 1, limit = 20 } = req.query;
+
+    const offset = (page - 1) * limit;
+
     const where = {};
 
-    const list = await User.findAll({
+    if (search) {
+      where[Op.or] = [
+        { firstname: { [Op.like]: `%${search}%` } },
+        { lastname: { [Op.like]: `%${search}%` } },
+        { mobile: { [Op.like]: `%${search}%` } },
+      ];
+    }
+
+    const { rows, count } = await User.findAndCountAll({
       where,
       attributes: [
         "id",
         "firstname",
         "lastname",
-        "avatar",
         "mobile",
+        "avatar",
         "email",
-        "status",
-        "kyc_status",
         "kyc_steep",
-        "createdAt",
+        "kyc_status",
       ],
-      required: true,
+      limit: Number(limit),
+      offset: Number(offset),
+      order: [["createdAt", "DESC"]],
     });
 
-    const newFormat = list?.map((e) => ({
+    const formatted = rows.map((e) => ({
       ...e?.dataValues,
-      value: e?.dataValues?.id,
+      avatar: e?.avatar || "default",
+      value: e.id,
       label:
-        e?.dataValues?.firstname +
-        "  " +
-        e?.dataValues?.lastname +
-        " -- " +
-        e?.dataValues?.mobile,
+        e.firstname && e.lastname
+          ? `${e.firstname} ${e.lastname} `
+          : "بدون نام",
     }));
+
     this.response({
       res,
       status: 200,
-      message: "لیست چالش های شما به صورت خلاصه",
-      data: newFormat,
+      data: {
+        data: formatted,
+        meta: {
+          total: count,
+          page: Number(page),
+          totalPages: Math.ceil(count / limit),
+        },
+      },
     });
   }
   async rejectedOptions(req, res) {

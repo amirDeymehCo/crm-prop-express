@@ -267,7 +267,10 @@ const Controller = class extends Controllers {
   async getPlansList(req, res) {
     const setting = await Setting.findByPk(1);
     const listTypes = await ChallengeType?.findAll({
-      include: [{ model: ChallengePlan, order: [["balance", "ASC"]] }],
+      include: [
+        { model: ChallengePlan, order: [["balance", "ASC"]], required: false },
+      ],
+      subQuery: false,
     });
 
     this.response({

@@ -12,6 +12,10 @@ router
   .get(
     "/find-rejected-user-ch/:user_challenge_id",
     asyncHandler(Controller.getRejectionReasonsByUserChallengeId),
+  )
+  .get(
+    "/get-analysis-data/:mt_login",
+    asyncHandler(Controller.getAnalysisData),
   );
 
 module.exports = router;

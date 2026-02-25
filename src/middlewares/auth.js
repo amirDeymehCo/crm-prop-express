@@ -7,8 +7,6 @@ const Setting = require("../models/Setting");
 async function authUser(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
-    console.log("req?.cookies=>>>>>>>");
-    console.log(req?.cookies);
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({ message: "توکن ارسال نشده" });

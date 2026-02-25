@@ -25,6 +25,9 @@ const { v4: uuid } = require("uuid");
 const {
   getCertificateHTMLPhase,
 } = require("../../../../utils/certificateTemplatePhase");
+const {
+  fetchFullAccountAnalysis,
+} = require("../../../..//services/AnalysisUser/accountAnalysisService");
 
 // اگر پسوردها رو جایی داری
 const generateMainPassword = require("../../../../services/BuyCh/CreatePassword"); // مسیرش رو درست کن
@@ -718,6 +721,24 @@ const Controller = class extends Controllers {
       console.error(error);
       this.response({ res, status: 200, data: null });
     }
+  }
+  async getAnalysisData(req, res) {
+    const mt_login = req?.params?.mt_login;
+    if (!mt_login)
+      return this.response({
+        res,
+        status: 400,
+        message: "ارسال شناسه لاگین اجباری است",
+      });
+
+    const dataAccount = await fetchFullAccountAnalysis(mt_login);
+
+    this.response({
+      res,
+      status: 200,
+      message: "اطلاعات اکانت شما",
+      data: { dataAccount },
+    });
   }
 };
 

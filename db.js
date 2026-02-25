@@ -11,10 +11,11 @@ const sequelize = new Sequelize(
     dialect: "mysql",
     port: process.env.DB_PORT || 3306,
     logging: false,
-  }
+  },
 );
 
-module.exports = sequelize;
+sequelize.options.logging = console.log;
 
+module.exports = sequelize;
 
 ////// /////
