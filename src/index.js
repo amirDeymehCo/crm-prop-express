@@ -6,45 +6,18 @@ const { globalLimiter } = require("./middlewares/rateLimit");
 const cleanQuery = require("./middlewares/cleanQuery");
 const initRbac = require("./configs/permissionsInit");
 const cookieParser = require("cookie-parser");
-const DBLog = require("./models/DbLog");
-const smartCache = require("./middlewares/smartCache");
+// const smartCache = require("./middlewares/smartCache");
 
 const app = express();
 const PORT = process.env.PORT || 8000;
 
-app.use(
-  smartCache({
-    ttl: 90,
-    keyPrefix: "api",
-  }),
-);
+// app.use(
+//   smartCache({
+//     ttl: 90,
+//     keyPrefix: "api",
+//   }),
+// );
 
-// require("./crons/UpdateDollarPrice");
-
-app.use((req, res, next) => {
-  try {
-    const start = Date.now();
-
-    res.on("finish", async () => {
-      const duration = Date.now() - start;
-
-      const log = await DBLog.create({
-        route: req.originalUrl,
-        method: req?.method,
-        time: duration,
-      });
-    });
-
-    next();
-  } catch (err) {
-    next();
-  }
-});
-
-// پشت پراکسی/داکر
-// app.set("trust proxy", 1);
-
-// بهتره cors قبل از limiter باشه (اختیاری)
 app.use(
   cors({
     origin: (origin, cb) => {
