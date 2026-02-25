@@ -126,7 +126,9 @@ const Controller = class extends Controllers {
     });
   }
   async find(req, res) {
-    const findTicket = await Ticket.findByPk(req?.params?.id);
+    const findTicket = await Ticket.findOne({
+      where: { id: req?.params?.id, user_id: req?.user?.id },
+    });
     if (!findTicket)
       return this.response({
         res,
@@ -148,7 +150,9 @@ const Controller = class extends Controllers {
     });
   }
   async sendMessage(req, res) {
-    const findTicket = await Ticket.findByPk(req?.params?.id);
+    const findTicket = await Ticket.findOne({
+      where: { id: req?.params?.id, user_id: req?.user?.id },
+    });
     if (!findTicket)
       return this.response({
         res,
@@ -157,7 +161,6 @@ const Controller = class extends Controllers {
       });
 
     const filesList = req?.files?.map((e) => e?.filename);
-    console.log("filesList=>", filesList);
     const newMessage = await Message.create({
       ticket_id: req?.params?.id,
       text: req?.body?.message,

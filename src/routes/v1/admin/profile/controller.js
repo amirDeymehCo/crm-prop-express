@@ -56,6 +56,7 @@ const Controller = class extends Controllers {
     const resFormat = {
       id: admin?.id,
       name: admin?.name,
+      avatar: admin?.avatar,
       is_super_admin: admin?.is_super_admin ?? false,
       mobile: admin?.mobile,
       permissions_codes,

@@ -12,6 +12,7 @@ const Call = require("../../../../models/Call/Call");
 const SmsMessage = require("../../../../models/SmsMessage");
 const ChallengeType = require("../../../../models/Challenge/ChallengeType");
 const Admin = require("../../../../models/Admin");
+const UserNote = require("../../../../models/UserNote");
 const founcList = require("../../../../utils/List");
 const sequelize = require("../../../../../db");
 const { Op, fn, col, literal } = require("sequelize");
@@ -163,6 +164,7 @@ const Controller = class extends Controllers {
           attributes: ["id", "name", "avatar"],
         },
       ],
+      order: [["createdAt", "DESC"]],
     });
 
     // 3. orders
@@ -338,7 +340,43 @@ const Controller = class extends Controllers {
       balance: Number(wallet?.balance) - Number(req?.body?.amount),
     });
 
+    const balance_before = Number(wallet?.balance);
+    const balance_after = Number(wallet?.balance) - Number(req?.body?.amount);
+
+    const newTransaction = await WalletTransaction.create({
+      type: "withdraw",
+      amount: Number(req?.body?.amount),
+      balance_before,
+      balance_after,
+      status: "completed",
+      actor_type: "admin",
+      admin_id: req?.admin?.id,
+      wallet_id: wallet?.id,
+    });
+
     this.response({ res, message: "موجودی ولت آپدیت شد" });
+  }
+  async createNote(req, res) {
+    const newNote = await UserNote.create({
+      note: req?.body?.note,
+      user_id: req?.body?.user_id,
+      admin_id: req?.admin?.id,
+    });
+
+    this.response({ res, status: 200, message: "یادداشت ساخته شد" });
+  }
+  async listNots(req, res) {
+    const nots = await UserNote.findAll({
+      where: { user_id: req?.params?.user_id },
+      include: [
+        {
+          model: Admin,
+          attributes: ["id", "name", "avatar"],
+        },
+      ],
+    });
+
+    this.response({ res, data: nots });
   }
 };
 

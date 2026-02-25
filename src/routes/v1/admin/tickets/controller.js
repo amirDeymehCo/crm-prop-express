@@ -210,6 +210,36 @@ const Controller = class extends Controllers {
 
     this.response({ res, message: "یادداشت ساخته شد" });
   }
+  async delteMessage(req, res) {
+    const msg = await AutoMessage.destroy({ where: { id: req?.body?.id } });
+
+    if (!msg)
+      return this.response({
+        res,
+        status: 400,
+        message: "پیام آماده پیدا نشد",
+      });
+
+    this.response({ res, status: 200, message: "پیام با موفقیت حذف شد " });
+  }
+  async updtaeAutoMessage(req, res) {
+    const msg = await AutoMessage.update(req?.body, {
+      where: { id: req?.body?.id },
+    });
+
+    if (!msg)
+      return this.response({
+        res,
+        status: 400,
+        message: "پیام آماده پیدا نشد",
+      });
+
+    this.response({
+      res,
+      status: 200,
+      message: "پیام با موفقیت ویرایش شد ",
+    });
+  }
 };
 
 module.exports = new Controller();

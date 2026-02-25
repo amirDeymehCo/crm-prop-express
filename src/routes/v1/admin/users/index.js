@@ -7,6 +7,7 @@ const can = require("../../../../middlewares/can");
 
 router
   .get("/", can("user.list"), asyncHandler(Controller.listUsers))
+  // posts
   .post(
     "/create",
     can("user.create"),
@@ -15,8 +16,13 @@ router
     asyncHandler(Controller.createUser),
   )
   .post("/update/:id", can("user.create"), asyncHandler(Controller.updateUser))
+  // wallet
   .post("/depositWallet", asyncHandler(Controller.depositWallet))
   .post("/withdrawWallet", asyncHandler(Controller.withdrawWallet))
-  .get("/:id", can("user.read"), asyncHandler(Controller.findUser));
+  // find user
+  .get("/:id", can("user.read"), asyncHandler(Controller.findUser))
+  // nots
+  .get("/nots/:user_id", can("user.read"), asyncHandler(Controller.listNots))
+  .post("/create-note", can("user.read"), asyncHandler(Controller.createNote));
 
 module.exports = router;

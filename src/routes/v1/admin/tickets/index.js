@@ -6,11 +6,16 @@ const { upload } = require("../../../../middlewares/upload");
 const validator = require("./validation");
 
 router
-  .get("/", asyncHandler(Controller.list))
+  // auto messgaes
   .get("/auto-messages-list", asyncHandler(Controller.autoMessages))
   .post("/create-auto-message", asyncHandler(Controller.createMessage))
+  .post("/update-auto-message", asyncHandler(Controller.updtaeAutoMessage))
+  .post("/delete-auto-message", asyncHandler(Controller.delteMessage))
+  // nots
   .post("/notes", asyncHandler(Controller.createNote))
   .get("/notes/:id", asyncHandler(Controller.notesList))
+  // ticket
+  .get("/", asyncHandler(Controller.list))
   .post(
     "/",
     upload.array("filesTicket", 5),
@@ -25,6 +30,7 @@ router
     asyncHandler(Controller.update),
   )
   .get("/:id", asyncHandler(Controller.find))
+  // send message
   .post(
     "/sendMessage/:id",
     upload.array("filesTicket", 5),
