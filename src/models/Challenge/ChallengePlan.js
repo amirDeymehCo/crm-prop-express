@@ -94,7 +94,11 @@ const ChallengePlan = sequelize.define(
     },
   },
   {
-    indexes: [{ fields: ["challenge_type_id"] }, { fields: ["balance"] }],
+    indexes: [
+      {
+        fields: ["challenge_type_id", "balance"],
+      },
+    ],
   },
 );
 
