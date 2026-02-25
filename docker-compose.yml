@@ -5,22 +5,20 @@ services:
     build: .
     container_name: props-app-crm
     ports:
-      - "8040:8000"
+      - "8040:${PORT}"
     env_file:
       - .env
     environment:
       NODE_ENV: development
-      PORT: 8000
-      DB_HOST: db
-      DB_PORT: 3306
+      PORT: ${PORT}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME}
       JWT_SECRET: ${JWT_SECRET}
-      REDIS_URL: redis://redis:6379
     depends_on:
       - db
-      - redis
     volumes:
       - .:/app
       - /app/node_modules
@@ -44,20 +42,8 @@ services:
     networks:
       - props-network-crm
 
-  redis:
-    image: redis:7-alpine
-    container_name: redis-crm
-    restart: unless-stopped
-    command: redis-server --appendonly yes
-    volumes:
-      - redis_data:/data
-    networks:
-      - props-network-crm
-    # ❌ نیازی به ports نیست (internal)
-
 volumes:
   crm_mysql_data:
-  redis_data:
   public_data:
 
 networks:
