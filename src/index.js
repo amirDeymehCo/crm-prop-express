@@ -7,9 +7,17 @@ const cleanQuery = require("./middlewares/cleanQuery");
 const initRbac = require("./configs/permissionsInit");
 const cookieParser = require("cookie-parser");
 const DBLog = require("./models/DbLog");
+const smartCache = require("./middlewares/smartCache");
 
 const app = express();
 const PORT = process.env.PORT || 8000;
+
+app.use(
+  smartCache({
+    ttl: 90,
+    keyPrefix: "api",
+  }),
+);
 
 // require("./crons/UpdateDollarPrice");
 
