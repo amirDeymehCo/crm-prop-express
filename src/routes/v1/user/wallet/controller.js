@@ -275,7 +275,6 @@ const Controller = class extends Controllers {
     });
   }
   async transactionsList(req, res) {
-    req.cache.enabled = false;
     const {
       query: { page = 1, limit = 5, type, status },
     } = req;
@@ -367,7 +366,6 @@ const Controller = class extends Controllers {
     });
   }
   async states(req, res) {
-    req.cache.enabled = false;
     const stats = await WalletTransaction.findAll({
       where: { wallet_id: req?.user?.wallet?.id },
       attributes: [

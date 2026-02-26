@@ -33,7 +33,7 @@ const Controller = class extends Controllers {
     const setting = await Setting.findByPk(1);
     const listTypes = await ChallengeType?.findAll({
       include: [{ model: ChallengePlan }],
-      order: [["balance", "ASC"]],
+      order: [[{ model: ChallengePlan }, "balance", "ASC"]],
     });
 
     this.response({

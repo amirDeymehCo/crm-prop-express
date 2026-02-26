@@ -10,6 +10,7 @@ const listFindsRouter = require("./listFinds");
 const adminsRouter = require("./admins");
 const profileRouter = require("./profile");
 const certificatesRouter = require("./certificates");
+const challengeSettingsRouter = require("./ChallengeSettings");
 
 router.use("/users", usersRouter);
 router.use("/customer", customerRouter);
@@ -21,5 +22,6 @@ router.use("/kyc", kycRouter);
 router.use("/admins", adminsRouter);
 router.use("/certificates", certificatesRouter);
 router.use("/profile", profileRouter);
+router.use("/challenge-settings", challengeSettingsRouter);
 
 module.exports = router;

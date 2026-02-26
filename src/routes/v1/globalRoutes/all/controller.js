@@ -267,9 +267,19 @@ const Controller = class extends Controllers {
   async getPlansList(req, res) {
     const setting = await Setting.findByPk(1);
     const listTypes = await ChallengeType?.findAll({
-      include: [{ model: ChallengePlan, required: false }],
-      subQuery: false,
-      order: [[{ model: ChallengePlan }, "balance", "ASC"]],
+      include: [
+        {
+          model: ChallengePlan,
+        },
+      ],
+    });
+
+    listTypes.forEach((type) => {
+      if (Array.isArray(type.ChallengePlans)) {
+        type.ChallengePlan.sort((a, b) => {
+          return a.balance - b.balance; // ASC
+        });
+      }
     });
 
     this.response({
