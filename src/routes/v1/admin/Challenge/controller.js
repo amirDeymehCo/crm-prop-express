@@ -548,6 +548,7 @@ const Controller = class extends Controllers {
         "price_usd",
         "floating_risk_enabled",
         "has_insurance",
+        "coupon_code_snapshot",
         "createdAt",
         "updatedAt",
       ],

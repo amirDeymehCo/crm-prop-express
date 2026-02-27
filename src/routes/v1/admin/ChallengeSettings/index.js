@@ -22,6 +22,10 @@ router
   )
   .post("/create-plan", asyncHandler(Controller.createPlan))
   .post("/update-plan/:id", asyncHandler(Controller.updatePlan))
-  .delete("/delete-plan/:id", asyncHandler(Controller.deletePlan));
+  .delete("/delete-plan/:id", asyncHandler(Controller.deletePlan))
+  .get("/phase-list/:plan_id", asyncHandler(Controller.phaseList))
+  .get("/find-phase/:id", asyncHandler(Controller.findPhase))
+  .post("/create-phase", asyncHandler(Controller.createPhase))
+  .delete("/phase-delete/:phase_id", asyncHandler(Controller.deletePhase));
 
 module.exports = router;

@@ -1,6 +1,7 @@
 const Controllers = require("../../../controllers");
 const ChallengeType = require("../../../../models/Challenge/ChallengeType");
 const ChallengePlan = require("../../../../models/Challenge/ChallengePlan");
+const ChallengePhase = require("../../../../models/Challenge/ChallengePhase");
 const founcList = require("../../../../utils/List");
 
 const Controller = class extends Controllers {
@@ -128,6 +129,77 @@ const Controller = class extends Controllers {
       res,
       status: 200,
       message: "پلن حذف شد",
+    });
+  }
+  async phaseList(req, res) {
+    const listPhase = await founcList(
+      ChallengePhase,
+      req,
+      {
+        challenge_plan_id: req?.params?.plan_id,
+      },
+      {
+        attributes: ["id", "name", "phase_index", "createdAt"],
+        include: [
+          {
+            model: ChallengePlan,
+            attributes: ["id", "title", "balance"],
+            include: [
+              {
+                model: ChallengeType,
+                attributes: ["id", "name"],
+              },
+            ],
+          },
+        ],
+      },
+    );
+
+    this.response({ res, status: 200, data: listPhase });
+  }
+  async deletePhase(req, res) {
+    const chDeleted = await ChallengePhase.destroy({
+      where: { id: req?.params?.phase_id },
+    });
+
+    if (!chDeleted)
+      return this.response({ res, status: 400, message: "مرحله یافت نشد" });
+
+    this.response({
+      res,
+      status: 200,
+      message: "مرحله با موفقیت حذف شد",
+    });
+  }
+  async findPhase(req, res) {
+    const findPh = await ChallengePhase.findByPk(req?.params?.id);
+
+    this.response({ res, status: 200, data: findPh });
+  }
+  async createPhase(req, res) {
+    const findPh = await ChallengePhase.findOne({
+      where: {
+        phase_index: req?.body?.phase_index,
+        challenge_plan_id: req?.body?.challenge_plan_id,
+      },
+    });
+
+    if (findPh)
+      return this.response({
+        res,
+        status: 400,
+        message: "قبلا برای این پلن مرحله ای با ایین شماره ساخته شده است",
+      });
+
+    const newPhase = await ChallengePhase.create(req?.body);
+
+    if (!newPhase)
+      return this.response({ res, status: 400, message: "مرحله ساخته نشد" });
+
+    this.response({
+      res,
+      status: 201,
+      message: "مرحله با موفقیت ساخته شد",
     });
   }
 };
