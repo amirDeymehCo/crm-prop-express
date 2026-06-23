@@ -57,7 +57,7 @@ const Controller = class extends Controllers {
     this.response({ res, data: singleType });
   }
   async createPlan(req, res) {
-    const newPlan = await ChallengePlan.create(req?.body);
+    const newPlan = await ChallengePlan.create({ ...req?.body, price_irr: 0 });
 
     this.response({ res, status: 201, message: "پلن با موفقیت اضافه شد" });
   }
