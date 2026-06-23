@@ -192,7 +192,7 @@ async function createPhaseCertificate({
 
   await page.setContent(html, { waitUntil: "load" });
 
-  const outputDir = path.join(process.cwd(), "images/certificates");
+  const outputDir = path.join(process.cwd(), "public/certificates");
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });
   }

@@ -79,7 +79,7 @@ const Controller = class extends Controllers {
 
       await page.setContent(html, { waitUntil: "load" });
 
-      const outputDir = path.join(process.cwd(), "images/certificates");
+      const outputDir = path.join(process.cwd(), "public/certificates");
 
       if (!fs.existsSync(outputDir)) {
         fs.mkdirSync(outputDir, { recursive: true });
@@ -111,7 +111,7 @@ const Controller = class extends Controllers {
         res,
         status: 400,
         data: {
-          url: path.join(process.cwd(), "images", "certificate-withdrawal.jpg"),
+          url: path.join(process.cwd(), "public", "certificate-withdrawal.jpg"),
           bsae: process.cwd(),
           err: err?.toString(),
         },
