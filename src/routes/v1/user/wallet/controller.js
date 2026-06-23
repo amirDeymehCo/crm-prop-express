@@ -21,7 +21,7 @@ const {
   sendCode,
 } = require("../../../../services/KavenegarService");
 const { Op } = require("sequelize");
-const bcrypt = require("bcryptjs");
+const bcrypt = require("bcrypt");
 
 const Controller = class extends Controllers {
   async depositIRR(req, res) {
