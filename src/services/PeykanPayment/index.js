@@ -4,7 +4,7 @@ const Payment = require("../../models/Payment");
 const Order = require("../../models/Order");
 const { getDollarPrice } = require("../UsdPrice");
 
-const PAYKAN_BASE = "https://pgw.paykan.ir";
+const PAYKAN_BASE = "https://pgw.paykan.app";
 
 async function getUsdToIrrRate() {
   const { price } = await getDollarPrice();
@@ -35,6 +35,7 @@ async function paykanService({
   });
 
   // ساخت رکورد Payment در حالت pending
+
   const payment = await Payment.create({
     order_id: orderId,
     user_id: userId,
@@ -55,9 +56,11 @@ async function paykanService({
     callback_method: "GET",
   };
 
+  console.log(body);
+
   try {
     const resp = await axios.post(
-      "https://pgw.paykan.ir/api/v1/withdraw/",
+      "https://pgw.paykan.app/api/v1/withdraw/",
       body,
     );
     if (resp.status !== 200 || !resp.data?.token) {
@@ -99,7 +102,7 @@ const verifyWithGateway = async ({
     }
 
     const resp = await axios.post(
-      "https://pgw.paykan.ir/api/v1/verify/",
+      "https://pgw.paykan.app/api/v1/verify/",
       body,
       { timeout: 10000 },
     );

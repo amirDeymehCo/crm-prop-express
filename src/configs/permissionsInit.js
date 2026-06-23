@@ -76,7 +76,7 @@ async function initRbac() {
   }
 
   /* ================== 4) Super Admin ================== */
-  await Admin.findOrCreate({
+  const admin = await Admin.findOrCreate({
     where: { mobile: "09358468124" },
     defaults: {
       name: "Super Admin",
@@ -86,6 +86,8 @@ async function initRbac() {
       is_super_admin: true,
     },
   });
+
+  console.log(admin);
 
   console.log("[RBAC] Done ✅");
 }

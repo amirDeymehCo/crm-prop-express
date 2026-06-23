@@ -275,8 +275,8 @@ const Controller = class extends Controllers {
     });
 
     listTypes.forEach((type) => {
-      if (Array.isArray(type.ChallengePlans)) {
-        type.ChallengePlan.sort((a, b) => {
+      if (Array.isArray(type?.ChallengePlans)) {
+        type?.ChallengePlan?.sort((a, b) => {
           return a.balance - b.balance; // ASC
         });
       }

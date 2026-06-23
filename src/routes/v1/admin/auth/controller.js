@@ -16,6 +16,9 @@ const Controller = class extends Controllers {
     }
 
     const passVerify = await admin.verifyPassword(password);
+
+    console.log(passVerify);
+
     if (!passVerify) {
       return res.status(400).json({ message: "ادمینی با این مشخصات یافت نشد" });
     }
