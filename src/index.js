@@ -99,3 +99,5 @@ async function waitForDb(sequelizeInstance, opts = {}) {
     process.exit(1);
   }
 })();
+
+// ..
