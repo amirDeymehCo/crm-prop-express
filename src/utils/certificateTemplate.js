@@ -10,7 +10,7 @@ module.exports.getCertificateHTML = ({
 }) => {
   const imagePath = path.join(
     process.cwd(),
-    "public",
+    "images",
     "certificate-withdrawal.jpg",
   );
   const imageBase64 = fs.readFileSync(imagePath, "base64");

@@ -23,6 +23,7 @@ services:
       - .:/app
       - /app/node_modules
       - public_data:/app/public
+      - public_data:/app/images
     command: npm start
     networks:
       - props-network-crm

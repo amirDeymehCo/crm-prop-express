@@ -10,7 +10,7 @@ module.exports.getCertificateHTMLPhase = ({
 }) => {
   const imagePath = path.join(
     process.cwd(),
-    "public",
+    "images",
     phase === 1 ? "certificate_phase_1.jpg" : "certificate_phase_2.jpg",
   );
 

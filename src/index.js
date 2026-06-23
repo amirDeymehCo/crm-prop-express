@@ -50,7 +50,7 @@ app.use(cleanQuery);
 app.use(express.json({ limit: "30mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-app.use(express.static("public"));
+app.use(express.static("images"));
 app.use("/api", router);
 
 // --------- ✅ DB WAIT / RETRY ----------
