@@ -21,6 +21,7 @@ const {
   sendCode,
 } = require("../../../../services/KavenegarService");
 const { Op } = require("sequelize");
+const bcrypt = require("bcryptjs");
 
 const Controller = class extends Controllers {
   async depositIRR(req, res) {
@@ -176,11 +177,23 @@ const Controller = class extends Controllers {
     return res.status(200).json({ success: true });
   }
   async createOtpWidhdraw(req, res) {
+    const mobile = String(req?.user?.mobile || "").trim();
+
+    if (!mobile) {
+      return this.response({
+        res,
+        status: 400,
+        message: "شماره موبایل کاربر معتبر نیست",
+      });
+    }
+
     const newCode = generateCode(4);
+
     const sent = await sendCode({
-      receptor: req?.user?.mobile,
+      receptor: mobile,
       token: newCode,
     });
+
     if (!sent) {
       return this.response({
         res,
@@ -189,13 +202,28 @@ const Controller = class extends Controllers {
       });
     }
 
+    const codeHash = await bcrypt.hash(String(newCode), 10);
+
+    await Otp.update(
+      { status: "expired" },
+      {
+        where: {
+          mobile,
+          status: "waiting",
+        },
+      },
+    );
+
     await Otp.create({
-      mobile: req?.user?.mobile,
-      code: newCode,
+      mobile,
+      code: null,
+      code_hash: codeHash,
+      attempts: 0,
+      expires_at: new Date(Date.now() + 2 * 60 * 1000),
       status: "waiting",
     });
 
-    this.response({
+    return this.response({
       res,
       status: 200,
       message: "کد تایید به تلفن همراه شما ارسال شد",
@@ -204,12 +232,23 @@ const Controller = class extends Controllers {
   async widthdrawRequest(req, res) {
     const { wallet_address, amount_usd } = req?.body;
 
-    const mobile = String(req.user.mobile).trim();
-    const code = String(req.body.code).trim();
+    const mobile = String(req?.user?.mobile || "").trim();
+    const code = String(req?.body?.code || "").trim();
+
+    if (!mobile || !code) {
+      return this.response({
+        res,
+        status: 400,
+        message: "کد تایید یا شماره موبایل معتبر نیست",
+      });
+    }
 
     const otp = await Otp.findOne({
-      where: { mobile, status: "waiting" },
-      order: [["createdAt", "DESC"]], // اگه چند تا OTP هست، آخریش
+      where: {
+        mobile,
+        status: "waiting",
+      },
+      order: [["createdAt", "DESC"]],
     });
 
     if (!otp) {
@@ -220,9 +259,7 @@ const Controller = class extends Controllers {
       });
     }
 
-    const pastTime = Date.now() - new Date(otp.createdAt).getTime();
-
-    if (pastTime >= 2 * 60 * 1000) {
+    if (otp.expires_at && new Date(otp.expires_at).getTime() <= Date.now()) {
       otp.status = "expired";
       await otp.save();
 
@@ -233,34 +270,61 @@ const Controller = class extends Controllers {
       });
     }
 
-    if (String(otp.code) !== code) {
+    if (otp.attempts >= 5) {
+      otp.status = "expired";
+      await otp.save();
+
+      return this.response({
+        res,
+        status: 400,
+        message: "تعداد تلاش‌های ناموفق بیش از حد مجاز است",
+      });
+    }
+
+    const isCodeValid = await bcrypt.compare(code, otp.code_hash);
+
+    if (!isCodeValid) {
+      otp.attempts += 1;
+      await otp.save();
+
       return this.response({
         res,
         status: 400,
         message: "کد ارسالی اشتباه است",
       });
-    } else {
-      otp.status = "verify";
-      await otp.save();
     }
 
+    otp.status = "verify";
+    await otp.save();
+
     const widthStatusWiaings = await WidthdrawRequest.findOne({
-      where: { status: "waiting", user_id: req?.user?.id },
+      where: {
+        status: "waiting",
+        user_id: req?.user?.id,
+      },
     });
-    if (widthStatusWiaings)
+
+    if (widthStatusWiaings) {
       return this.response({
         res,
         status: 400,
         message: "کاربر گرامی، شما یک درخواست برداشت قبلا ثبت کرده اید",
       });
+    }
 
-    const wallet = await Wallet.findOne({ where: { user_id: req?.user?.id } });
-    if (!wallet || parseFloat(wallet?.balance) < parseFloat(amount_usd))
+    const wallet = await Wallet.findOne({
+      where: {
+        user_id: req?.user?.id,
+      },
+    });
+
+    if (!wallet || parseFloat(wallet?.balance) < parseFloat(amount_usd)) {
       return this.response({
         res,
         status: 400,
-        message: "موچودی ولت شما کمتر از مقدار درخواستی هست",
+        message: "موجودی ولت شما کمتر از مقدار درخواستی است",
       });
+    }
 
     await WidthdrawRequest.create({
       wallet_address,
@@ -268,7 +332,8 @@ const Controller = class extends Controllers {
       status: "waiting",
       user_id: req?.user?.id,
     });
-    this.response({
+
+    return this.response({
       res,
       status: 200,
       message: "کاربر مای پراپ درخواست برداشت شما ثبت شد!",
