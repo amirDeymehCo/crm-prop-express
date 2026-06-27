@@ -20,7 +20,9 @@ const Controller = class extends Controllers {
     const { mobile } = req?.body;
     const findUser = await User.findOne({
       where: { mobile },
-      attributes: { exclude: ["password"] },
+      attributes: {
+        exclude: ["password", "refresh_token_expires_at", "refresh_token"],
+      },
     });
     if (!findUser)
       return this.response({

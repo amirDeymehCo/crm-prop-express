@@ -84,12 +84,12 @@ async function waitForDb(sequelizeInstance, opts = {}) {
     const shouldSync = process.env.DB_SYNC === "true";
     const syncAlter = process.env.DB_SYNC_ALTER === "true";
 
-    // if (shouldSync) {
-    //   await sequelize.sync();
-    //   console.log("✅ DB Sync done");
-    // }
+    if (shouldSync) {
+      await sequelize.sync({ alter: syncAlter });
+      console.log("✅ DB Sync done");
+    }
 
-    await initRbac();
+    // await initRbac();
 
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);

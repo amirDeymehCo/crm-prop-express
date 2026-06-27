@@ -21,6 +21,7 @@ router
   .post("/withdrawWallet", asyncHandler(Controller.withdrawWallet))
   // find user
   .get("/:id", can("user.read"), asyncHandler(Controller.findUser))
+  .get("/find-single-user/:id", asyncHandler(Controller.findUserDefaultData))
   // nots
   .get("/nots/:user_id", can("user.read"), asyncHandler(Controller.listNots))
   .post("/create-note", can("user.read"), asyncHandler(Controller.createNote));

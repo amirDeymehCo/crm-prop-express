@@ -83,9 +83,26 @@ const Controller = class extends Controllers {
     });
     this.response({ res, status: 201, message: "کاربر با موفقیت ساخته شد" });
   }
+  async findUserDefaultData(req, res) {
+    const user = await User.findByPk(req?.params?.id, {
+      attributes: {
+        exclude: ["password", "refresh_token", "refresh_token_expires_at"],
+      },
+    });
+    if (!user)
+      return this.response({
+        res,
+        status: 400,
+        message: "کاربری با این مشخصات پیدا نشد",
+      });
+
+    this.response({ res, message: "اطلاعات کاربر", data: user });
+  }
   async findUser(req, res) {
     const user = await User.findByPk(req?.params?.id, {
-      attributes: { exclude: ["password"] },
+      attributes: {
+        exclude: ["password", "refresh_token", "refresh_token_expires_at"],
+      },
     });
     if (!user)
       return this.response({

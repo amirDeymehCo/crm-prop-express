@@ -36,7 +36,14 @@ async function authUser(req, res, next) {
 
     const [userFind, walletFind, setting] = await Promise.all([
       User.findByPk(decoded.id, {
-        attributes: { exclude: ["password", "responsible_admin_id"] },
+        attributes: {
+          exclude: [
+            "password",
+            "refresh_token",
+            "refresh_token_expires_at",
+            "responsible_admin_id",
+          ],
+        },
       }),
       Wallet.findOne({ where: { user_id: decoded.id } }),
       Setting.findOne({ where: { id: 1 } }),
