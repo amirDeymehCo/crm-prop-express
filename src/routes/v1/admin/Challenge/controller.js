@@ -166,6 +166,9 @@ async function createPhaseCertificate({
   const fileName = `phase-${phase}-${certificateId}.png`;
 
   const qrData = await QRCode.toDataURL(fileName);
+
+  console.log("createPhaseCertificate=>");
+
   const html = getCertificateHTMLPhase({
     fullName: `${user.firstname} ${user.lastname}`,
     qrData,
@@ -264,14 +267,14 @@ const Controller = class extends Controllers {
         });
       }
 
-      if (String(userCh.status) === String(status)) {
-        await t.rollback();
-        return this.response({
-          res,
-          status: 400,
-          message: "وضعیت ارسالی با وضعیت فعلی چالش یکی هست",
-        });
-      }
+      // if (String(userCh.status) === String(status)) {
+      //   await t.rollback();
+      //   return this.response({
+      //     res,
+      //     status: 400,
+      //     message: "وضعیت ارسالی با وضعیت فعلی چالش یکی هست",
+      //   });
+      // }
 
       // 2) انتخاب تنظیمات هر وضعیت
       // نکته: اسم status ها را با سیستم خودت یکی کن
@@ -446,6 +449,7 @@ const Controller = class extends Controllers {
         t,
       });
 
+      // 07 ساخت گواهینامه
       const certificatePhase = getCertificatePhase(perPhaseIndex, phaseIndex);
       let certificatePayload;
       if (certificatePhase) {
