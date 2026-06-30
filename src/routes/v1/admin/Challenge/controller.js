@@ -264,14 +264,14 @@ const Controller = class extends Controllers {
         });
       }
 
-      // if (String(userCh.status) === String(status)) {
-      //   await t.rollback();
-      //   return this.response({
-      //     res,
-      //     status: 400,
-      //     message: "وضعیت ارسالی با وضعیت فعلی چالش یکی هست",
-      //   });
-      // }
+      if (String(userCh.status) === String(status)) {
+        await t.rollback();
+        return this.response({
+          res,
+          status: 400,
+          message: "وضعیت ارسالی با وضعیت فعلی چالش یکی هست",
+        });
+      }
 
       // 2) انتخاب تنظیمات هر وضعیت
       // نکته: اسم status ها را با سیستم خودت یکی کن
@@ -464,9 +464,6 @@ const Controller = class extends Controllers {
       }
 
       await t.commit();
-
-      console.log("certificatePhase=>", certificatePhase);
-      console.log("certificatePayload=>", certificatePayload);
 
       // ⬅️ مهم: بیرون از transaction
       if (certificatePayload) {

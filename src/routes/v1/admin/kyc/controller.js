@@ -171,6 +171,19 @@ const Controller = class extends Controllers {
       });
     }
 
+    // updated user kyc_status
+    const newStatus = {
+      ticket_open: "pending",
+      kvc_pending: "pending",
+      kyc_closed: "rejected",
+      kvc_approved: "approved",
+    };
+
+    await User.update(
+      { kyc_status: newStatus[req?.body?.stauts] },
+      { where: { id: findTicket?.user_id } },
+    );
+
     await findTicket.update({ status: req?.body?.status });
     this.response({ res, status: 200, message: "وضعیت احراز هویت اپدیت شد" });
   }
