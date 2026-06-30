@@ -4,6 +4,7 @@ const User = require("../../../../models/User");
 const Message = require("../../../../models/Message");
 const Admin = require("../../../../models/Admin");
 const founcList = require("../../../../utils/List");
+const sequelize = require("../../../../../db");
 
 const Controller = class extends Controllers {
   async list(req, res) {
@@ -152,8 +153,10 @@ const Controller = class extends Controllers {
     this.response({ res, status: 200, message: "پیام شما با موفقیت ارسال شد" });
   }
   async changeStauts(req, res) {
+    const { ticket_id, status } = req.body;
+
     const findTicket = await Ticket.findOne({
-      where: { id: req?.body?.ticket_id, type: "kyc" },
+      where: { id: ticket_id, type: "kyc" },
     });
 
     if (!findTicket)
@@ -163,7 +166,7 @@ const Controller = class extends Controllers {
         message: "احراز هویتی پیدا نشد",
       });
 
-    if (findTicket?.status === req?.body?.status) {
+    if (findTicket.status === status) {
       return this.response({
         res,
         status: 400,
@@ -171,21 +174,39 @@ const Controller = class extends Controllers {
       });
     }
 
-    // updated user kyc_status
-    const newStatus = {
-      ticket_open: "pending",
-      kvc_pending: "pending",
-      kyc_closed: "rejected",
-      kvc_approved: "approved",
+    const statusMap = {
+      pending: "pending",
+      rejected: "rejected",
+      approved: "approved",
     };
 
-    await User.update(
-      { kyc_status: newStatus[req?.body?.stauts] },
-      { where: { id: findTicket?.user_id } },
-    );
+    if (!statusMap[status]) {
+      return this.response({
+        res,
+        status: 400,
+        message: "وضعیت ارسالی نامعتبر است",
+      });
+    }
 
-    await findTicket.update({ status: req?.body?.status });
-    this.response({ res, status: 200, message: "وضعیت احراز هویت اپدیت شد" });
+    try {
+      await sequelize.transaction(async (t) => {
+        await User.update(
+          { kyc_status: statusMap[status] },
+          { where: { id: findTicket.user_id }, transaction: t },
+        );
+
+        await findTicket.update({ status: status }, { transaction: t });
+      });
+
+      this.response({ res, status: 200, message: "وضعیت احراز هویت اپدیت شد" });
+    } catch (error) {
+      console.error("KYC Update Error:", error);
+      this.response({
+        res,
+        status: 500,
+        message: "خطای سروری در بروزرسانی وضعیت",
+      });
+    }
   }
 };
 
