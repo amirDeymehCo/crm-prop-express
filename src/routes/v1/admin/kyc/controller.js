@@ -174,10 +174,12 @@ const Controller = class extends Controllers {
       });
     }
 
+    // updated user kyc_status
     const statusMap = {
-      pending: "pending",
-      rejected: "rejected",
-      approved: "approved",
+      ticket_open: "pending",
+      kvc_pending: "pending",
+      kyc_closed: "rejected",
+      kvc_approved: "approved",
     };
 
     if (!statusMap[status]) {
