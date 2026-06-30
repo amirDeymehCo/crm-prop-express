@@ -12,7 +12,7 @@ const bcrypt = require("bcrypt");
 
 function generateAccessToken(user) {
   return jwt.sign({ id: user.id, type_token: "user" }, process.env.JWT_SECRET, {
-    expiresIn: "1m",
+    expiresIn: "8h",
   });
 }
 function generateRefreshToken() {
@@ -331,7 +331,6 @@ const Controller = class extends Controllers {
       refresh_token_expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
 
-    // ✅ ست کوکی رفرش توکن
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       sameSite: "none",
