@@ -354,7 +354,7 @@ const Controller = class extends Controllers {
           attributes: ["id", "mobile", "name", "avatar"],
         },
       ],
-      order: [{ model: Call, as: "calls" }, "createdAt", "DESC"],
+      // order: [{ model: Call, as: "calls" }, "createdAt", "DESC"],
     });
 
     this.response({ res, data: smsMessage, message: "لیست پیامک‌ها" });

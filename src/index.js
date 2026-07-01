@@ -84,10 +84,10 @@ async function waitForDb(sequelizeInstance, opts = {}) {
     const shouldSync = process.env.DB_SYNC === "true";
     const syncAlter = process.env.DB_SYNC_ALTER === "true";
 
-    // if (shouldSync) {
-    //   await sequelize.sync({ alter: syncAlter });
-    //   console.log("✅ DB Sync done");
-    // }
+    if (true) {
+      await sequelize.sync({ alter: true });
+      console.log("✅ DB Sync done");
+    }
 
     // await initRbac();
 

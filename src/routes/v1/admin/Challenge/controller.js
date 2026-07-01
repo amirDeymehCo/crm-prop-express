@@ -167,8 +167,6 @@ async function createPhaseCertificate({
 
   const qrData = await QRCode.toDataURL(fileName);
 
-  console.log("createPhaseCertificate=>");
-
   const html = getCertificateHTMLPhase({
     fullName: `${user.firstname} ${user.lastname}`,
     qrData,

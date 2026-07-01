@@ -11,11 +11,6 @@ const WidthdrawRequest = sequelize.define("WidthdrawRequest", {
     type: DataTypes.STRING,
     allowNull: false,
   },
-  detail: {
-    type: DataTypes.TEXT("medium"),
-    allowNull: true,
-    defaultValue: "",
-  },
   status: {
     type: DataTypes.ENUM("waiting", "verify", "canceled"),
     allowNull: false,
