@@ -111,7 +111,11 @@ const Controller = class extends Controllers {
         res,
         status: 400,
         data: {
-          url: path.join(process.cwd(), "public", "certificate-withdrawal.jpg"),
+          url: path.join(
+            process.cwd(),
+            "public",
+            "certificate-withdrawal1.jpg",
+          ),
           bsae: process.cwd(),
           err: err?.toString(),
         },

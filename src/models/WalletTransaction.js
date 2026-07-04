@@ -48,6 +48,10 @@ const WalletTransaction = sequelize.define(
       type: DataTypes.JSON,
       allowNull: true,
     },
+    description: {
+      type: DataTypes.TEXT("medium"),
+      allowNull: true,
+    },
     actor_type: {
       type: DataTypes.ENUM("user", "admin", "system"),
       allowNull: false,

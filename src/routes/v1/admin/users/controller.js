@@ -173,6 +173,7 @@ const Controller = class extends Controllers {
         "status",
         "created_at",
         "admin_id",
+        "description",
         [sequelize.literal("'wallet'"), "source"],
       ],
       include: [
@@ -347,6 +348,7 @@ const Controller = class extends Controllers {
       actor_type: "admin",
       admin_id: req?.admin?.id,
       wallet_id: wallet?.id,
+      description: req?.body?.description,
     });
 
     this.response({ res, message: "موجودی افزایش پیدا کرد" });
@@ -369,6 +371,7 @@ const Controller = class extends Controllers {
       actor_type: "admin",
       admin_id: req?.admin?.id,
       wallet_id: wallet?.id,
+      description: req?.body?.description,
     });
 
     this.response({ res, message: "موجودی ولت آپدیت شد" });
