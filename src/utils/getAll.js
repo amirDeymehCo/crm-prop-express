@@ -51,8 +51,9 @@ const getAll = async ({
   }
 
   // مدیریت صفحه‌بندی
-  const page = query?.page ? parseInt(query.page) : 1;
-  const limit = query?.limit ? parseInt(query.limit) : 10;
+
+  const limit = Math.min(Number(req.query.limit) || 20, 100);
+  const page = Math.max(Number(req.query.page) || 1, 1);
   const offset = (page - 1) * limit;
 
   const result = await model.findAndCountAll({

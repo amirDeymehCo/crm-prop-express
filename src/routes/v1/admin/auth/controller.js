@@ -27,7 +27,7 @@ const Controller = class extends Controllers {
       { id: admin.id, type_token: "admin" },
       process.env.JWT_SECRET,
       {
-        expiresIn: "24h",
+        expiresIn: "8h",
       },
     );
 

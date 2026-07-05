@@ -1,0 +1,10 @@
+{"level":30,"time":1783233998353,"pid":18244,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1783234011722,"pid":18244,"hostname":"abi-computer","alter":true,"msg":"DB Sync done"}
+{"level":30,"time":1783234011724,"pid":18244,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1783234896126,"pid":17336,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1783234909602,"pid":17336,"hostname":"abi-computer","alter":true,"msg":"DB Sync done"}
+{"level":30,"time":1783234909604,"pid":17336,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1783234931037,"pid":22160,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1783234936919,"pid":11844,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1783234950884,"pid":11844,"hostname":"abi-computer","alter":true,"msg":"DB Sync done"}
+{"level":30,"time":1783234950887,"pid":11844,"hostname":"abi-computer","msg":"Server running on port 8000"}
