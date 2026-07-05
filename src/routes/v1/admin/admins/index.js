@@ -4,15 +4,30 @@ const asyncHandler = require("../../../../utils/asyncHandler");
 const Controller = require("./controller");
 const { upload } = require("../../../../middlewares/upload");
 const validator = require("./validation");
+const can = require("../../../../middlewares/can");
 
 router
-  .post("/", upload.single("avatar"), asyncHandler(Controller.create))
-  .get("/", asyncHandler(Controller.list))
-  .get("/permissions-list", asyncHandler(Controller.permissionsList))
+  .post(
+    "/",
+    upload.single("avatar"),
+    can("JUST_SUPER"),
+    asyncHandler(Controller.create),
+  )
+  .get("/", can("JUST_SUPER"), asyncHandler(Controller.list))
+  .get(
+    "/permissions-list",
+    can("JUST_SUPER"),
+    asyncHandler(Controller.permissionsList),
+  )
   .get(
     "/get-current-permission/:admin_id",
+    can("JUST_SUPER"),
     asyncHandler(Controller.getCurrenctPermissions),
   )
-  .post("/permission-set", asyncHandler(Controller.setPermission));
+  .post(
+    "/permission-set",
+    can("JUST_SUPER"),
+    asyncHandler(Controller.setPermission),
+  );
 
 module.exports = router;

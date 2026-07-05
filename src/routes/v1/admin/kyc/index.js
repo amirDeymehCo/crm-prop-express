@@ -2,12 +2,15 @@ const express = require("express");
 const router = express.Router();
 const asyncHandler = require("../../../../utils/asyncHandler");
 const Controller = require("./controller");
-const { upload } = require("../../../../middlewares/upload");
-const validator = require("./validation");
+const can = require("../../../../middlewares/can");
 
 router
-  .get("/", asyncHandler(Controller.list))
-  .get("/:id", asyncHandler(Controller.find))
-  .post("/change-stauts", asyncHandler(Controller.changeStauts));
+  .get("/", can("kyc.list"), asyncHandler(Controller.list))
+  .get("/:id", can("kyc.list"), asyncHandler(Controller.find))
+  .post(
+    "/change-stauts",
+    can("kyc.list"),
+    asyncHandler(Controller.changeStauts),
+  );
 
 module.exports = router;

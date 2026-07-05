@@ -37,6 +37,7 @@ const PERMISSIONS = [
 
   // Certificates - گواهینامه‌ها
   { code: "certificate.list", description: "لیست گواهینامه‌ها" },
+  { code: "certificate.create", description: "ساخت گواهینامه‌ها" },
 
   // Referral - رفرال
   { code: "referral.list", description: "لیست رفرال‌ها" },
@@ -102,7 +103,7 @@ const GROUPS = [
     code: "certificate",
     name: "گواهینامه‌ها",
     description: "دسترسی به گواهینامه‌ها",
-    permissions: ["certificate.list"],
+    permissions: ["certificate.list", "certificate.create"],
   },
   {
     code: "referral",

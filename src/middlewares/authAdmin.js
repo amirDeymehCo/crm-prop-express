@@ -1,44 +1,68 @@
 // middleware/auth.js
 const jwt = require("jsonwebtoken");
 const Admin = require("../models/Admin");
+const PermissionGroup = require("../models/PermissionGroup");
+const Permission = require("../models/Permission");
 
-const authAdmin = (req, res, next) => {
-  const token = req.headers["authorization"]?.split(" ")[1];
-  const authHeader = req.headers["authorization"];
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ message: "توکن معتبر نیست" });
-  }
+const authAdmin = async (req, res, next) => {
+  try {
+    const authHeader = req.headers["authorization"];
 
-  if (!token) {
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "توکن معتبر نیست" });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET || "fallback_secret",
+    );
+
+    if (decoded?.type_token !== "admin") {
+      return res.status(401).json({ message: "ادمین یافت نشد" });
+    }
+
+    // اینجا PermissionGroup + Permissions را لود می‌کنیم
+    const admin = await Admin.findByPk(decoded.id, {
+      attributes: { exclude: ["password"] },
+      include: [
+        {
+          model: PermissionGroup,
+          as: "PermissionGroups",
+          through: { attributes: [] },
+          include: [
+            {
+              model: Permission,
+              as: "Permissions",
+            },
+          ],
+        },
+      ],
+    });
+
+    if (!admin) {
+      return res.status(401).json({ message: "ادمین یافت نشد" });
+    }
+
+    // استخراج تمام permission code ها
+    const flatPermissions = [
+      ...new Set(
+        admin.PermissionGroups.flatMap(
+          (group) => group.Permissions?.map((p) => p.code) || [],
+        ),
+      ),
+    ];
+
+    req.admin = {
+      ...admin.toJSON(),
+      permissions: flatPermissions,
+    };
+
+    return next();
+  } catch (err) {
     return res.status(401).json({ message: "لطفا وارد سیستم شوید" });
   }
-
-  jwt.verify(
-    token,
-    process.env.JWT_SECRET || "dawdawfawf_adjaiwdhawihfmafa",
-    async (err, user) => {
-      if (err) {
-        return res.status(401).json({ message: "لطفا وارد سیستم شوید" });
-      }
-
-      console.log(user);
-
-      if (user?.type_token !== "admin") {
-        return res.status(401).json({ message: "ادمین یافت نشد" });
-      }
-
-      const userFind = await Admin.findByPk(user.id, {
-        attributes: { exclude: ["password"] },
-      });
-
-      if (!userFind?.dataValues) {
-        return res.status(401).json({ message: "ادمین یافت نشد" });
-      }
-
-      req.admin = userFind?.dataValues;
-      next();
-    },
-  );
 };
 
 module.exports = authAdmin;

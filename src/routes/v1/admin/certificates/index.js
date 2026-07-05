@@ -3,15 +3,21 @@ const router = express.Router();
 const Controller = require("./controller");
 const asyncHandler = require("../../../../utils/asyncHandler");
 const validation = require("./validation");
+const can = require("../../../../middlewares/can");
 
 router
-  .get("/", asyncHandler(Controller.listCarts))
+  .get("/", can("certificate.list"), asyncHandler(Controller.listCarts))
   .post(
     "/create",
+    can("certificate.create"),
     validation.createWitdrawCart(),
     Controller.validationBody,
     asyncHandler(Controller.createWithdrawalCertificate),
   )
-  .delete("/:id", asyncHandler(Controller.deleteCart));
+  .delete(
+    "/:id",
+    can("certificate.create"),
+    asyncHandler(Controller.deleteCart),
+  );
 
 module.exports = router;
