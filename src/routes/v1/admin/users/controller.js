@@ -27,6 +27,9 @@ const Controller = class extends Controllers {
     if (query?.lastname) {
       where.lastname = { [Op.like]: `%${query?.lastname}%` };
     }
+    if (query?.firstname) {
+      where.firstname = { [Op.like]: `%${query?.firstname}%` };
+    }
     if (query?.id) {
       where.id = { [Op.like]: `%${query?.id}%` };
     }
