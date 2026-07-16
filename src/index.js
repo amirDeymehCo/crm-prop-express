@@ -412,7 +412,7 @@ async function startServer() {
       }
 
       await sequelize.sync({
-        alter: !isProduction && syncAlter,
+        alter: false,
       });
 
       logger.info(
