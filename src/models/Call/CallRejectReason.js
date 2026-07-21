@@ -4,17 +4,18 @@ const Call = require("./Call");
 
 // models/CallRejectReason.js
 const CallRejectReason = sequelize.define(
-    "CallRejectReason",
-    {
-        title: {
-            type: DataTypes.STRING,
-            allowNull: false,
-        },
+  "CallRejectReason",
+  {
+    title: {
+      type: DataTypes.STRING,
+      allowNull: false,
     },
-    {
-        tableName: "call_reject_reasons",
-        underscored: true,
-    }
+  },
+  {
+    tableName: "call_reject_reasons",
+    // underscored: true,
+    // timestamps: false,
+  },
 );
 
-module.exports = CallRejectReason
+module.exports = CallRejectReason;

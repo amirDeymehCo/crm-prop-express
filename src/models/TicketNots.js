@@ -13,7 +13,8 @@ const TicketNots = sequelize.define(
   },
   {
     tableName: "ticket_nots",
-    underscored: true,
+    // underscored: true,
+    // timestamps: false,
   },
 );
 

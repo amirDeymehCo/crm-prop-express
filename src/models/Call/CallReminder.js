@@ -23,7 +23,8 @@ const CallReminder = sequelize.define(
   },
   {
     tableName: "call_reminder",
-    underscored: true,
+    // underscored: true,
+    // timestamps: false,
   },
 );
 

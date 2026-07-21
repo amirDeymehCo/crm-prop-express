@@ -74,7 +74,8 @@ const PhaseTransitionRequest = sequelize.define(
   },
   {
     tableName: "phase_transition_requests",
-    underscored: true,
+    // underscored: true,
+    // timestamps: false,
     indexes: [
       { fields: ["user_id"] },
       { fields: ["user_challenge_id"] },

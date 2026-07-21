@@ -43,12 +43,18 @@ async function lockUserChallengeWithPlan({ userChallengeId, t }) {
     transaction: t,
     lock: t.LOCK.UPDATE,
   });
+
   if (!userChallenge)
     throw Object.assign(new Error("چالش یافت نشد"), { status: 400 });
   return userChallenge;
 }
 
-async function getOrCreatePhase1AccountInstance({ userChallenge, t }) {
+async function getOrCreatePhase1AccountInstance({
+  userChallenge,
+  t,
+  platform,
+  email = null,
+}) {
   let acc = await AccountInstance.findOne({
     where: { user_challenge_id: userChallenge.id, phase_index: 1, cycle_no: 1 },
     transaction: t,
@@ -66,7 +72,8 @@ async function getOrCreatePhase1AccountInstance({ userChallenge, t }) {
       user_challenge_id: userChallenge.id,
       phase_index: 1,
       cycle_no: 1,
-      platform: "mt5",
+      platform,
+      email: email ? email : null,
       starting_balance_usd: startingBalance,
       display_balance_usd: startingBalance,
       status: "pending",
@@ -79,14 +86,24 @@ async function getOrCreatePhase1AccountInstance({ userChallenge, t }) {
   return acc;
 }
 
-async function createAndAttachMTAccount({ acc, plan, orderKey, group, t }) {
+async function createAndAttachMTAccount({
+  acc,
+  plan,
+  orderKey,
+  group,
+  t,
+  platform,
+  user,
+}) {
   // اگر قبلاً mt_login ثبت شده، دوباره نساز (idempotent)
   if (acc.mt_login) return acc;
 
   const inPassword = generateMainPassword();
   const mPassword = generateMainPassword();
 
-  const mt = await createMTUser({
+  console.log("group=>", group);
+
+  const mt = await createTradingAccount({
     order_id: orderKey,
     balance: Number(acc.starting_balance_usd),
     emailuser: 0,
@@ -103,18 +120,25 @@ async function createAndAttachMTAccount({ acc, plan, orderKey, group, t }) {
     mPassword,
     leverge: plan.leverage,
     groupch: group,
+    provider: platform,
+
+    email: user?.email,
+    first_name: user?.firstname,
+    last_name: user?.lastname,
   });
 
-  if (!mt?.Login)
+  if (!mt?.Login && !mt?.login)
     throw Object.assign(new Error("ساخت حساب متاتریدر ناموفق بود"), {
       status: 500,
     });
 
   await acc.update(
     {
-      mt_login: String(mt.Login),
+      mt_login: String(mt.Login || mt?.login),
       mt_server: group,
       mt_group: group,
+      email: user?.email,
+      platform: platform,
       status: "active",
       activated_at: new Date(),
       mt_password: mPassword,
@@ -127,6 +151,7 @@ async function createAndAttachMTAccount({ acc, plan, orderKey, group, t }) {
 }
 
 const { Op } = require("sequelize");
+const createTradingAccount = require("../BuyCh/CreateTrainingAccount");
 
 const handelRefralSet = async ({ user, order, t }) => {
   try {
@@ -255,6 +280,7 @@ async function finalizeChallengeAfterPaid({
   refNum = null,
   user,
   t,
+  platform = "ctrader",
 }) {
   // 1) lock payment + idempotency
   const payment = await lockPaymentByOrderId({ orderId, t });
@@ -297,7 +323,12 @@ async function finalizeChallengeAfterPaid({
   );
 
   // 5) ensure account instance exists (phase1)
-  const acc = await getOrCreatePhase1AccountInstance({ userChallenge, t });
+  const acc = await getOrCreatePhase1AccountInstance({
+    userChallenge,
+    t,
+    email: user?.email,
+    platform,
+  });
 
   // 6) update challenge status
   await userChallenge.update(
@@ -307,12 +338,15 @@ async function finalizeChallengeAfterPaid({
 
   // 7) create MT (idempotent)
   const orderKey = `${orderId}-${refNum || ""}`;
+
   await createAndAttachMTAccount({
     acc,
     plan: userChallenge.ChallengePlan,
     orderKey,
     t,
     group: userChallenge?.ChallengePhase?.group,
+    platform,
+    user: user,
   });
 
   // 8) set refral

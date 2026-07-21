@@ -27,8 +27,10 @@ const ChallengeType = sequelize.define(
     },
   },
   {
-    tableName: "challenge_types",
-    underscored: true,
+    tableName: "challengetypes",
+    // underscored: true,
+    // timestamps: false,
+
     indexes: [{ fields: ["name"] }, { fields: ["is_active"] }],
   },
 );

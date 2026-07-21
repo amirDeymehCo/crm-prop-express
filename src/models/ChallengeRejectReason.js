@@ -29,7 +29,8 @@ const ChallengeRejectReason = sequelize.define(
   },
   {
     tableName: "challenge_reject_reasons",
-    underscored: true,
+    // underscored: true,
+    // timestamps: false,
   },
 );
 

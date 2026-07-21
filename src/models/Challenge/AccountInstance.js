@@ -102,6 +102,12 @@ const AccountInstance = sequelize.define(
       allowNull: true,
     },
 
+    // ctrader email
+    email: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+
     starting_balance_usd: {
       type: DataTypes.DECIMAL(18, 2),
       allowNull: false,
@@ -145,7 +151,8 @@ const AccountInstance = sequelize.define(
   },
   {
     tableName: "account_instances",
-    underscored: true,
+    // underscored: true,
+    // timestamps: false,
     indexes: [
       { fields: ["user_id"] },
       { fields: ["user_challenge_id"] },

@@ -17,6 +17,7 @@ const initRbac = require("./configs/permissionsInit");
 
 const setupChallengeAssociations = require("./models/Challenge/setupAssociations");
 
+require("./crons/UpdateDollarPrice");
 // const smartCache = require("./middlewares/smartCache");
 
 const app = express();
@@ -414,9 +415,10 @@ async function startServer() {
         );
       }
 
-      await sequelize.sync({
-        alter: false,
-      });
+      // await sequelize.sync({
+      //   alter: false,
+      // });
+      await sequelize.sync({ alter: true });
 
       logger.info(
         {
@@ -430,10 +432,10 @@ async function startServer() {
      * اگر initRbac idempotent است، یعنی چند بار اجرا شود دیتای تکراری نمی‌سازد،
      * می‌توانی فعالش کنی.
      */
-    if (process.env.INIT_RBAC === "true") {
-      await initRbac();
-      logger.info("RBAC initialized");
-    }
+    // if (process.env.INIT_RBAC === "true") {
+    await initRbac();
+    logger.info("RBAC initialized");
+    // }
 
     server = app.listen(PORT, () => {
       logger.info(`Server running on port ${PORT}`);

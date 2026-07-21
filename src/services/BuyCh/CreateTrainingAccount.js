@@ -3,7 +3,7 @@ const createCTraider = require("./CreateCTraider");
 
 const providers = {
   mt5: createMTUser,
-  ctraider: createCTraider,
+  ctrader: createCTraider,
 };
 
 async function createTradingAccount({ provider, ...payload }) {

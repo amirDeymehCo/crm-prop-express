@@ -75,7 +75,8 @@ const Payment = sequelize.define(
   },
   {
     tableName: "payments_set",
-    underscored: true,
+    // underscored: true,
+    // timestamps: false,
   },
 );
 

@@ -293,8 +293,11 @@ const Controller = class extends Controllers {
     });
   }
   async getPhase(req, res) {
+    const where = { challenge_plan_id: req?.params?.planId };
+    if (req?.query?.platform) where.platform = req?.query?.platform;
+
     const details = await ChallengePhase?.findAll({
-      where: { challenge_plan_id: req?.params?.planId },
+      where,
     });
 
     this.response({

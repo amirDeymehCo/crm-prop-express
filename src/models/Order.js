@@ -79,7 +79,8 @@ const Order = sequelize.define(
   },
   {
     tableName: "orders",
-    underscored: true,
+    // underscored: true,
+    // timestamps: false,
   },
 );
 

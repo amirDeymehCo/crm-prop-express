@@ -17,7 +17,7 @@ const AdminPermissionGroup = sequelize.define(
   },
   {
     tableName: "admin_permissiongroups",
-    timestamps: false,
+    // timestamps: false,
   },
 );
 

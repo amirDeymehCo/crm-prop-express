@@ -29,15 +29,10 @@ const ChallengePhase = sequelize.define(
       allowNull: true,
     },
 
-    // multi-platform group mapping
-    // example:
-    // {
-    //   "mt5": "demo\\challenge-10k-phase1",
-    //   "ctrader": "ctrader-challenge-10k-phase1"
-    // }
-    platform_groups: {
-      type: DataTypes.JSON,
+    platform: {
+      type: DataTypes.ENUM("mt5", "ctrader"),
       allowNull: true,
+      defaultValue: "ctrader",
     },
 
     name: {
@@ -91,12 +86,13 @@ const ChallengePhase = sequelize.define(
     },
   },
   {
-    tableName: "challenge_phases",
-    underscored: true,
+    tableName: "challengephases",
+    // underscored: true,
+    // timestamps: false,
     indexes: [
       { fields: ["challenge_type_id"] },
       { fields: ["challenge_plan_id"] },
-      { unique: true, fields: ["challenge_plan_id", "phase_index"] },
+      { fields: ["challenge_plan_id", "phase_index"] },
     ],
   },
 );

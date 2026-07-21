@@ -16,7 +16,8 @@ const ChallengeRejection = sequelize.define(
   },
   {
     tableName: "challenge_rejections",
-    underscored: true,
+    // underscored: true,
+    // timestamps: false,
   },
 );
 

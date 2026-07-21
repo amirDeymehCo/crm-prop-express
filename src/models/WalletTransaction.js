@@ -68,7 +68,8 @@ const WalletTransaction = sequelize.define(
   },
   {
     tableName: "wallet_transactions",
-    underscored: true,
+    // underscored: true,
+    // timestamps: false,
   },
 );
 

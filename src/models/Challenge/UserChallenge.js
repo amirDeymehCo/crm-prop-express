@@ -138,10 +138,20 @@ const UserChallenge = sequelize.define(
       type: DataTypes.JSON,
       allowNull: true,
     },
+    createdAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      defaultValue: Date.now,
+    },
+    updatedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      defaultValue: Date.now,
+    },
   },
   {
     tableName: "user_challenges",
-    underscored: true,
+    // timestamps: false,
     indexes: [
       { fields: ["user_id"] },
       { fields: ["admin_id"] },

@@ -102,6 +102,8 @@ async function provisionMTAndAttach({
   mtGroup,
   orderKey,
   t,
+  platform,
+  findUser,
 }) {
   // اگر قبلاً ساخته شده، دوباره نساز
 
@@ -113,7 +115,7 @@ async function provisionMTAndAttach({
   const mPassword = generateMainPassword();
 
   const result = await createTradingAccount({
-    provider: "mt5",
+    provider: platform,
     order_id: orderKey,
     balance: Number(acc.starting_balance_usd),
     emailuser: 0,
@@ -126,9 +128,14 @@ async function provisionMTAndAttach({
     mPassword,
     leverge: plan.leverage,
     groupch: mtGroup,
+
+    // ctrader fileds
+    email: findUser?.email,
+    first_name: findUser?.firstname,
+    last_name: findUser?.lastname,
   });
-  if (!result?.Login) {
-    const err = new Error("ساخت حساب متاتریدر ناموفق بود");
+  if (!result?.Login && !result?.login) {
+    const err = new Error("ساخت حساب ناموفق بود");
     err.status = 500;
     throw err;
   }
@@ -138,6 +145,7 @@ async function provisionMTAndAttach({
       mt_login: String(result?.Login),
       mt_server: mtGroup,
       mt_group: mtGroup,
+      email: result?.email || null,
       status: "active",
       activated_at: new Date(),
       mt_password: mPassword,
@@ -236,7 +244,7 @@ const Controller = class extends Controllers {
         include: [
           {
             model: ChallengePlan,
-            as: "plan", // اضافه شد
+            // اضافه شد
             attributes: [
               "id",
               "leverage",
@@ -251,6 +259,10 @@ const Controller = class extends Controllers {
         ],
         transaction: t,
         lock: t.LOCK.UPDATE,
+      });
+      const user = await User.findByPk(userCh.user_id, {
+        attributes: ["id", "firstname", "lastname", "email"],
+        transaction: t,
       });
 
       if (!userCh) {
@@ -426,8 +438,9 @@ const Controller = class extends Controllers {
         phaseIndex,
         cycleNo: 1,
         t,
-        platform: "mt5",
+        platform: req?.body?.platform || "mt5",
         adminId: req?.admin?.id,
+        findUser: user,
       });
 
       // 5) اگر rules خاص فاز لازم داری از snapshot بخون (مثلاً تارگت سود)
@@ -442,17 +455,14 @@ const Controller = class extends Controllers {
         mtGroup: findGroup?.group,
         orderKey,
         t,
+        platform: req?.body?.platform || "mt5",
+        findUser: user,
       });
 
       // 07 ساخت گواهینامه
       const certificatePhase = getCertificatePhase(perPhaseIndex, phaseIndex);
       let certificatePayload;
       if (certificatePhase) {
-        const user = await User.findByPk(userCh.user_id, {
-          attributes: ["id", "firstname", "lastname"],
-          transaction: t,
-        });
-
         // اینجا فقط دیتا جمع می‌کنیم
         certificatePayload = {
           user,
@@ -505,7 +515,6 @@ const Controller = class extends Controllers {
       include: [
         {
           model: ChallengePlan,
-          as: "plan",
           attributes: [
             "id",
             "title",
@@ -516,13 +525,13 @@ const Controller = class extends Controllers {
           include: [
             {
               model: ChallengeType,
-              as: "type",
+              // as: "type",
             },
           ],
         },
         {
           model: AccountInstance,
-          as: "account_instances",
+          // as: "account_instances",
           attributes: [
             "id",
             "platform",
@@ -560,7 +569,6 @@ const Controller = class extends Controllers {
       include: [
         {
           model: ChallengePlan,
-          as: "plan",
           include: [ChallengeType, ChallengePhase],
         },
         {
@@ -576,7 +584,6 @@ const Controller = class extends Controllers {
         },
         {
           model: AccountInstance,
-          as: "account_instances",
           include: [
             {
               model: Admin,

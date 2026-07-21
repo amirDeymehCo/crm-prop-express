@@ -342,6 +342,7 @@ async function createUserChallengeRecord({
   floatingRiskEnabled,
   transaction,
   admin_id = null,
+  platform,
 }) {
   const startingBalance = Number(plan.balance);
 
@@ -359,6 +360,8 @@ async function createUserChallengeRecord({
     throw err;
   }
 
+  console.log("platform=>", platform);
+
   const userChallenge = await UserChallenge.create(
     {
       user_id: user.id,
@@ -367,6 +370,7 @@ async function createUserChallengeRecord({
       challenge_type_id: plan?.challenge_type_id,
       status: "pending_payment",
       current_phase_index: 1,
+      current_phase_id: phaseFind?.id,
 
       starting_balance_usd: startingBalance,
       display_balance_usd: startingBalance,
@@ -391,6 +395,8 @@ async function createUserChallengeRecord({
 
       // فاز جاری
       challenge_phase: phaseFind.id,
+
+      platform: platform || "ctrader",
 
       // snapshot مقدار ریسک از plan
       ...floatingRiskSnapshot,
@@ -549,6 +555,7 @@ async function purchaseChallenge(req, res, next) {
       floatingRiskEnabled: floatingEnabled,
       transaction: t,
       admin_id: req?.admin?.id,
+      platform: req?.body?.platform,
     });
 
     // 10) optional: create UserChallengeRisk row (history) from plan snapshot

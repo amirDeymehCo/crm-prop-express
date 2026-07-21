@@ -117,6 +117,7 @@ const Controller = class extends Controllers {
           trackingCode: `WALLET-${Date.now()}`,
           refNum: null,
           t,
+          platform: req?.body?.platform || "ctrader",
         });
 
         await t.commit();
@@ -315,6 +316,8 @@ const Controller = class extends Controllers {
             "phase_index",
             "mt_login",
             "mt_group",
+            "platform",
+            "email",
             "in_password",
             "mt_password",
             "starting_balance_usd",

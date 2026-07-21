@@ -16,7 +16,8 @@ const CallResult = sequelize.define(
   },
   {
     tableName: "call_results",
-    underscored: true,
+    // underscored: true,
+    // timestamps: false,
   },
 );
 

@@ -13,7 +13,8 @@ const UserNote = sequelize.define(
   },
   {
     tableName: "user_nots",
-    underscored: true,
+    // underscored: true,
+    // timestamps: false,
   },
 );
 

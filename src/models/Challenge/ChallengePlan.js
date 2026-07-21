@@ -115,8 +115,9 @@ const ChallengePlan = sequelize.define(
     },
   },
   {
-    tableName: "challenge_plans",
-    underscored: true,
+    tableName: "challengeplans",
+    // underscored: true,
+    // timestamps: false,
     indexes: [
       { fields: ["challenge_type_id"] },
       { fields: ["challenge_type_id", "balance"] },

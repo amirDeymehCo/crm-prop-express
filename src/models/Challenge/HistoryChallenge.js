@@ -22,7 +22,8 @@ const HistoryChallenge = sequelize.define(
   },
   {
     tableName: "history_challenge",
-    underscored: true,
+    // underscored: true,
+    // timestamps: false,
   },
 );
 
