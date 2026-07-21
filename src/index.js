@@ -418,7 +418,7 @@ async function startServer() {
       // await sequelize.sync({
       //   alter: false,
       // });
-      await sequelize.sync({ alter: true });
+      await sequelize.sync({ alter: false });
 
       logger.info(
         {
