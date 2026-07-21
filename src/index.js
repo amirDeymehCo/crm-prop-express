@@ -15,6 +15,8 @@ const { globalLimiter } = require("./middlewares/rateLimit");
 const cleanQuery = require("./middlewares/cleanQuery");
 const initRbac = require("./configs/permissionsInit");
 
+const setupChallengeAssociations = require("./models/Challenge/setupAssociations");
+
 // const smartCache = require("./middlewares/smartCache");
 
 const app = express();
@@ -392,6 +394,7 @@ let server;
 async function startServer() {
   try {
     await waitForDb(sequelize);
+    setupChallengeAssociations();
 
     /**
      * خیلی مهم:

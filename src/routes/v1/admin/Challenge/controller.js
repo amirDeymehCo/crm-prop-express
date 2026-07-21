@@ -13,7 +13,7 @@ const ChallengeRejectReason = require("../../../../models/ChallengeRejectReason"
 const ChallengeRejection = require("../../../../models/ChallengeRejection");
 const ChallengeRejectionItem = require("../../../../models/ChallengeRejectionItem");
 const sequelize = require("../../../../../db");
-const CreateMTUser = require("../../../../services/BuyCh/CreateMTUser");
+// const CreateMTUser = require("../../../../services/BuyCh/CreateMTUser");
 const founcList = require("../../../../utils/List");
 const createChFounc = require("../../../../services/BuyCh/CreateCh");
 const fs = require("fs");
@@ -32,6 +32,7 @@ const {
 // اگر پسوردها رو جایی داری
 const generateMainPassword = require("../../../../services/BuyCh/CreatePassword"); // مسیرش رو درست کن
 const { Op } = require("sequelize");
+const createTradingAccount = require("../../../../services/BuyCh/CreateTrainingAccount");
 
 const typesStatus = {
   payment_phase2: "در انتظار پرداخت چالش رایگان",
@@ -111,27 +112,22 @@ async function provisionMTAndAttach({
   const inPassword = generateMainPassword();
   const mPassword = generateMainPassword();
 
-  const mt = await CreateMTUser({
+  const result = await createTradingAccount({
+    provider: "mt5",
     order_id: orderKey,
     balance: Number(acc.starting_balance_usd),
     emailuser: 0,
-
-    // قوانین (مثال: همونی که تو callback نوشتی)
     eod_role: Number(plan.max_daily_drawdown_percent),
     start_balance_role: Number(plan.max_overall_drawdown_percent),
-
-    // ریسک شناور از روی پلن
     eod_relative: plan.has_floating_risk
       ? Number(plan.floating_risk_value || 0)
       : 0,
-
     inPassword,
     mPassword,
     leverge: plan.leverage,
     groupch: mtGroup,
   });
-
-  if (!mt?.Login) {
+  if (!result?.Login) {
     const err = new Error("ساخت حساب متاتریدر ناموفق بود");
     err.status = 500;
     throw err;
@@ -139,7 +135,7 @@ async function provisionMTAndAttach({
 
   await acc.update(
     {
-      mt_login: String(mt.Login),
+      mt_login: String(result?.Login),
       mt_server: mtGroup,
       mt_group: mtGroup,
       status: "active",
@@ -240,6 +236,7 @@ const Controller = class extends Controllers {
         include: [
           {
             model: ChallengePlan,
+            as: "plan", // اضافه شد
             attributes: [
               "id",
               "leverage",
@@ -508,6 +505,7 @@ const Controller = class extends Controllers {
       include: [
         {
           model: ChallengePlan,
+          as: "plan",
           attributes: [
             "id",
             "title",
@@ -518,11 +516,13 @@ const Controller = class extends Controllers {
           include: [
             {
               model: ChallengeType,
+              as: "type",
             },
           ],
         },
         {
           model: AccountInstance,
+          as: "account_instances",
           attributes: [
             "id",
             "platform",
@@ -560,6 +560,7 @@ const Controller = class extends Controllers {
       include: [
         {
           model: ChallengePlan,
+          as: "plan",
           include: [ChallengeType, ChallengePhase],
         },
         {
@@ -575,6 +576,7 @@ const Controller = class extends Controllers {
         },
         {
           model: AccountInstance,
+          as: "account_instances",
           include: [
             {
               model: Admin,
