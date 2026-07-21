@@ -93,7 +93,8 @@ async function createAccount({
       err?.response?.data || err.message,
     );
     throw new Error(
-      "Failed to create cTrader account " + err?.response?.data || err.message,
+      "Failed to create cTrader account " +
+        (err?.response?.data || err.message),
     );
   }
 }
