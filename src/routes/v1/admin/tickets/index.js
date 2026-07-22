@@ -32,7 +32,7 @@ router
     Controller.validationBody,
     asyncHandler(Controller.update),
   )
-  .get("/:id", can("support.ticket.read"), asyncHandler(Controller.find))
+  .get("/:id", can("support.report.read"), asyncHandler(Controller.find))
   // send message
   .post(
     "/sendMessage/:id",
