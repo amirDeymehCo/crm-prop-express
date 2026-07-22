@@ -77,6 +77,13 @@ async function paykanService({
 
     return { redirectUrl, payment };
   } catch (err) {
+    console.log(
+      "Paykan error data:",
+      JSON.stringify(err.response?.data, null, 2),
+    );
+    console.log("Paykan status:", err.response?.status);
+    console.log("Paykan request id:", err.response?.headers?.["x-request-id"]);
+
     throw err;
   }
 }

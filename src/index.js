@@ -13,7 +13,7 @@ const router = require("./routes");
 
 const { globalLimiter } = require("./middlewares/rateLimit");
 const cleanQuery = require("./middlewares/cleanQuery");
-const initRbac = require("./configs/permissionsInit");
+// const initRbac = require("./configs/permissionsInit");
 
 const setupChallengeAssociations = require("./models/Challenge/setupAssociations");
 
@@ -433,7 +433,7 @@ async function startServer() {
      * می‌توانی فعالش کنی.
      */
     // if (process.env.INIT_RBAC === "true") {
-    await initRbac();
+    // await initRbac();
     logger.info("RBAC initialized");
     // }
 

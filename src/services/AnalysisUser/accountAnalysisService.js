@@ -9,10 +9,11 @@ async function fetchFullAccountAnalysis(login) {
 
   const [stats, openPositions, closedPositions, perf, info] = await Promise.all(
     [
-      callMeta("/get_analysis.php", { login }, MAIN_KEY),
+      callMeta("/get_analysis_ctrader.php", { login }, MAIN_KEY),
       callMeta("/get_open_positions.php", { login }, MAIN_KEY),
+      callMeta("/ctrader_closed-positions-api.php", { login }, MAIN_KEY),
       callMeta(
-        "/get_positions.php",
+        "/ctrader-login-rights-api.php",
         { login, page: 1, per_page: 200 },
         MAIN_KEY,
       ),
