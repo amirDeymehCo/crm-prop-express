@@ -387,7 +387,7 @@ const Controller = class extends Controllers {
     // 3. orders (gateway only)
     const orderWhere = {
       user_id: req.user.id,
-      gateway: { [Op.ne]: "wallet" },
+      // gateway: { [Op.ne]: "wallet" },
     };
     if (status) orderWhere.status = status;
 

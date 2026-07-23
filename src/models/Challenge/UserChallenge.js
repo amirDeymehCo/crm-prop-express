@@ -148,6 +148,10 @@ const UserChallenge = sequelize.define(
       allowNull: true,
       defaultValue: Date.now,
     },
+    current_account_instance_id: {
+      type: DataTypes.BIGINT.UNSIGNED,
+      allowNull: true,
+    },
   },
   {
     tableName: "user_challenges",

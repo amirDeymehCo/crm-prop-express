@@ -63,6 +63,20 @@ const User = sequelize.define(
       type: DataTypes.DATE,
       allowNull: true,
     },
+
+    // system legacy data
+    legacy_user_id: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    referrer_legacy_user_id: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    source_system: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+    },
   },
   {
     hooks: {

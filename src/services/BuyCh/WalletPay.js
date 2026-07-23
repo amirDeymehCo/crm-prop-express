@@ -29,6 +29,7 @@ async function payWithWallet({ userId, orderId, amountUsd, t }) {
     {
       user_id: userId,
       type: "buy_ch",
+      status: "completed",
       amount: Number(amountUsd),
       balance_before: wallet?.balance,
       balance_after: Number(wallet?.balance) + Number(amountUsd),
@@ -43,10 +44,13 @@ async function payWithWallet({ userId, orderId, amountUsd, t }) {
     { where: { order_id: orderId }, transaction: t },
   );
 
-  await Order.update(
-    { gateway: "wallet" },
+  const order = await Order.update(
+    { gateway: "wallet", status: "paid", type: "challenge_purchase_wallet" },
     { where: { gateway_order_id: orderId }, transaction: t },
   );
+
+  console.log("order=>>>>>>>>>>>>>>>>>>");
+  console.log(order);
 
   return true;
 }

@@ -3,6 +3,6 @@ const router = express.Router();
 const Controller = require("./controller");
 const asyncHandler = require("../../../../utils/asyncHandler");
 
-router.post("/users", asyncHandler(Controller.importUsers));
+router.post("/users", asyncHandler(Controller.migrateUsersBatch));
 
 module.exports = router;

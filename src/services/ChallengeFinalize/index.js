@@ -300,7 +300,7 @@ async function finalizeChallengeAfterPaid({
   // 2) lock order
   const order = await lockOrderByGatewayOrderId({ orderId, t });
 
-  // 3) lock challenge+plan
+  // 3) lock challenge + plan
   const userChallenge = await lockUserChallengeWithPlan({
     userChallengeId: payment.UserChallenge, // همون فیلدی که خودت داری
     t,
