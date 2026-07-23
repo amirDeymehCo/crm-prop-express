@@ -1,234 +1,340 @@
-const sequelize = require("../../../../../db");
-const User = require("../../../../models/User");
-const Wallet = require("../../../../models/Wallet");
-const UserChallenge = require("../../../../models/Challenge/UserChallenge");
-const AccountInstance = require("../../../../models/Challenge/AccountInstance");
-const ChallengePhase = require("../../../../models/Challenge/ChallengePhase");
-const Controllers = require("../../controllers");
+const { runFullLegacyMigration } = require("./migrateLegacyUsers");
 
-const Controller = class extends Controllers {
-  async migrateUsersBatch(legacyUsers, sourceSystem = "legacy_crm") {
-    const transaction = await sequelize.transaction();
+/**
+ * این State فقط در حافظه همین Process نگهداری می‌شود.
+ *
+ * در صورت Restart شدن Node.js یا اجرای چند Replica،
+ * وضعیت از بین می‌رود یا بین Replicaها مشترک نخواهد بود.
+ */
+const migrationState = {
+  isRunning: false,
+  status: "idle",
 
-    try {
-      // ۱. آماده‌سازی و ساخت/بروزرسانی کاربران
-      const userPayloads = legacyUsers.map((u) => ({
-        legacy_user_id: String(u.legacy_user_id),
-        source_system: sourceSystem,
-        firstname: u.firstname,
-        lastname: u.lastname,
-        email: u.email ? u.email.trim().toLowerCase() : null,
-        mobile: u.mobile,
-        verify_mobile: u.verify_mobile ?? false,
-        password: "",
-        status: u.status || "approved",
-        kyc_status: u.kyc_status || "not_sended",
-        referral_code: "MP-L" + u.legacy_user_id, // کد معرف یکتا بر اساس شناسه قدیمی
-      }));
+  totalUsers: 0,
 
-      // درج یا بروزرسانی کاربران (بر اساس کلید یکتای ترکیبی legacy_user_id و source_system)
-      const importedUsers = await User.bulkCreate(userPayloads, {
-        transaction,
-        updateOnDuplicate: [
-          "firstname",
-          "lastname",
-          "email",
-          "mobile",
-          "verify_mobile",
-          "password",
-          "status",
-          "kyc_status",
-        ],
-        hooks: false, // غیرفعال کردن هوک رمزنگاری مجدد و ساخت تک‌تک والت‌ها
-      });
+  startedAt: null,
+  finishedAt: null,
 
-      // نگاشت شناسه قدیمی کاربر به شناسه دیتابیس جدید
-      const userMapping = {};
-      importedUsers.forEach((user) => {
-        userMapping[user.legacy_user_id] = user.id;
-      });
-
-      // ۲. ایجاد کیف پول برای کاربرانی که والت ندارند
-      const existingWallets = await Wallet.findAll({
-        where: { user_id: Object.values(userMapping) },
-        attributes: ["user_id"],
-        transaction,
-      });
-      const usersWithWallet = new Set(existingWallets.map((w) => w.user_id));
-
-      const walletPayloads = Object.values(userMapping)
-        .filter((userId) => !usersWithWallet.has(userId))
-        .map((userId) => ({
-          user_id: userId,
-          balance: 0,
-          currency: "USD",
-        }));
-
-      if (walletPayloads.length > 0) {
-        await Wallet.bulkCreate(walletPayloads, { transaction, hooks: false });
-      }
-
-      // ۳. جمع‌آوری داده‌های چالش‌ها و حساب‌ها
-      const challengesToInsert = [];
-      const accountsDataTemp = []; // موقتا نگهداری می‌کنیم تا چالش‌ها آیدی بگیرند
-
-      for (const u of legacyUsers) {
-        const dbUserId = userMapping[u.legacy_user_id];
-        if (!dbUserId || !u.challenges) continue;
-
-        for (const ch of u.challenges) {
-          // پیدا کردن فاز متناظر با چالش برای ثبت در current_phase_id
-          const phase = await ChallengePhase.findOne({
-            where: {
-              challenge_plan_id: ch.challenge_plan_id,
-              phase_index: ch.current_phase_index,
-            },
-            transaction,
-          });
-
-          challengesToInsert.push({
-            legacy_challenge_id: String(ch.legacy_challenge_id),
-            source_system: sourceSystem,
-            user_id: dbUserId,
-            challenge_type_id: ch.challenge_type_id,
-            challenge_plan_id: ch.challenge_plan_id,
-            current_phase_id: phase ? phase.id : null,
-            current_phase_index: ch.current_phase_index || 1,
-            platform: ch.platform || "mt5",
-            status: ch.status || "phase_1",
-            price_usd: ch.price_usd || 0,
-            discount_usd: ch.discount_usd || 0,
-            final_price_usd: ch.final_price_usd || 0,
-            started_at: ch.started_at,
-            rules_snapshot: ch.rules_snapshot || {},
-            accounts: ch.accounts || [], // برای پردازش گام بعدی
-          });
-        }
-      }
-
-      // ثبت یا بروزرسانی چالش‌ها
-      let importedChallenges = [];
-      if (challengesToInsert.length > 0) {
-        importedChallenges = await UserChallenge.bulkCreate(
-          challengesToInsert,
-          {
-            transaction,
-            updateOnDuplicate: [
-              "current_phase_id",
-              "current_phase_index",
-              "status",
-              "price_usd",
-              "discount_usd",
-              "final_price_usd",
-              "started_at",
-              "rules_snapshot",
-            ],
-          },
-        );
-      }
-
-      // نگاشت شناسه قدیمی چالش به شناسه دیتابیس جدید
-      const challengeMapping = {};
-      importedChallenges.forEach((ch) => {
-        challengeMapping[ch.legacy_challenge_id] = ch.id;
-      });
-
-      // ۴. ثبت یا بروزرسانی حساب‌های هر چالش (AccountInstances)
-      const accountPayloads = [];
-      for (const chInfo of challengesToInsert) {
-        const dbChallengeId = challengeMapping[chInfo.legacy_challenge_id];
-        if (!dbChallengeId) continue;
-
-        for (const acc of chInfo.accounts) {
-          accountPayloads.push({
-            legacy_account_id: String(acc.legacy_account_id),
-            source_system: sourceSystem,
-            user_id: chInfo.user_id,
-            user_challenge_id: dbChallengeId,
-            phase_index: acc.phase_index,
-            cycle_no: acc.cycle_no || 1,
-            platform: acc.platform || "mt5",
-            platform_login: acc.platform_login,
-            platform_server: acc.platform_server,
-            starting_balance_usd: acc.starting_balance_usd,
-            status: acc.status || "pending",
-            activated_at: acc.activated_at,
-            closed_at: acc.closed_at,
-          });
-        }
-      }
-
-      if (accountPayloads.length > 0) {
-        await AccountInstance.bulkCreate(accountPayloads, {
-          transaction,
-          updateOnDuplicate: [
-            "status",
-            "platform_login",
-            "platform_server",
-            "starting_balance_usd",
-            "activated_at",
-            "closed_at",
-          ],
-        });
-      }
-
-      // تایید نهایی تراکنش دیتابیس
-      await transaction.commit();
-      return {
-        success: true,
-        processedUsersCount: legacyUsers.length,
-        importedChallengesCount: importedChallenges.length,
-        importedAccountsCount: accountPayloads.length,
-      };
-    } catch (error) {
-      // در صورت بروز هرگونه خطا، کل دیتای این بچ رول‌بک می‌شود تا انسجام حفظ شود
-      await transaction.rollback();
-      console.error("Migration Batch failed: ", error);
-      throw error;
-    }
-  }
-
-  /**
-   * گام دوم (جداگانه اجرا شود): بازسازی ساختار رفرال‌ها پس از پایان ایمپورت کل کاربران
-   */
-  async rebuildReferralRelations(legacyUsers, sourceSystem = "legacy_crm") {
-    const transaction = await sequelize.transaction();
-    try {
-      for (const u of legacyUsers) {
-        if (u.referrer_legacy_user_id) {
-          // یافتن کاربر معرف در سیستم جدید
-          const referrer = await User.findOne({
-            where: {
-              legacy_user_id: String(u.referrer_legacy_user_id),
-              source_system: sourceSystem,
-            },
-            attributes: ["id"],
-            transaction,
-          });
-
-          if (referrer) {
-            // بروزرسانی فیلد referrer_id برای کاربر زیرمجموعه
-            await User.update(
-              { referrer_id: referrer.id },
-              {
-                where: {
-                  legacy_user_id: String(u.legacy_user_id),
-                  source_system: sourceSystem,
-                },
-                transaction,
-                hooks: false,
-              },
-            );
-          }
-        }
-      }
-      await transaction.commit();
-    } catch (error) {
-      await transaction.rollback();
-      console.error("Rebuilding referrals failed: ", error);
-      throw error;
-    }
-  }
+  options: null,
+  error: null,
+  report: null,
 };
 
-module.exports = new Controller();
+/**
+ * تبدیل خطا به یک ساختار قابل ذخیره و ارسال
+ */
+function serializeError(error) {
+  return {
+    name: error?.name || "Error",
+    message: error?.message || "Unknown migration error.",
+
+    details: error?.details || null,
+
+    stack: process.env.NODE_ENV === "development" ? error?.stack : undefined,
+  };
+}
+
+/**
+ * تنظیم State قبل از ارسال پاسخ 202
+ *
+ * این کار مهم است؛ چون اگر State را داخل setImmediate
+ * تغییر دهیم، ممکن است قبل از شروع Background Job،
+ * درخواست دوم هم پذیرفته شود.
+ */
+function reserveMigration({ totalUsers, options }) {
+  migrationState.isRunning = true;
+  migrationState.status = "accepted";
+
+  migrationState.totalUsers = totalUsers;
+
+  migrationState.startedAt = new Date().toISOString();
+
+  migrationState.finishedAt = null;
+
+  migrationState.options = options;
+  migrationState.error = null;
+  migrationState.report = null;
+}
+
+/**
+ * اجرای مستقیم Migration روی داده‌ای که از POST آمده است.
+ */
+async function executeLegacyUsersMigration(
+  legacyUsers,
+  {
+    batchSize = 500,
+    strictCatalogMapping = true,
+    sourceSystem = "legacy_crm",
+  } = {},
+) {
+  if (!Array.isArray(legacyUsers)) {
+    throw new TypeError("legacyUsers must be an array.");
+  }
+
+  if (legacyUsers.length === 0) {
+    throw new Error("legacyUsers array cannot be empty.");
+  }
+
+  console.log(
+    `[Legacy Migration] Received ${legacyUsers.length} users through API.`,
+  );
+
+  const report = await runFullLegacyMigration(legacyUsers, {
+    batchSize,
+    strictCatalogMapping,
+    sourceSystem,
+  });
+
+  return report;
+}
+
+/**
+ * اجرای Migration در Background
+ */
+async function runMigrationInBackground(legacyUsers, options) {
+  migrationState.status = "running";
+
+  try {
+    console.log("[Legacy Migration] Migration started.", {
+      totalUsers: legacyUsers.length,
+      options,
+    });
+
+    const report = await executeLegacyUsersMigration(legacyUsers, options);
+
+    migrationState.status = "completed";
+    migrationState.report = report;
+
+    console.log("[Legacy Migration] Migration completed successfully.", {
+      totalUsers: legacyUsers.length,
+
+      processedUsers: report?.processedUsers,
+
+      importedChallenges: report?.importedChallenges,
+
+      importedAccounts: report?.importedAccounts,
+
+      mappingErrors: report?.mappingErrors?.length || 0,
+
+      missingReferrals: report?.missingReferrals?.length || 0,
+    });
+  } catch (error) {
+    migrationState.status = "failed";
+    migrationState.error = serializeError(error);
+
+    console.error("[Legacy Migration] Migration failed.", {
+      name: error.name,
+      message: error.message,
+      details: error.details || null,
+      stack: error.stack,
+    });
+  } finally {
+    migrationState.isRunning = false;
+
+    migrationState.finishedAt = new Date().toISOString();
+  }
+}
+
+/**
+ * POST /api/internal/migrations/legacy-users/run
+ *
+ * Body:
+ * {
+ *   "users": [...],
+ *   "options": {
+ *     "batchSize": 500,
+ *     "strictCatalogMapping": true,
+ *     "sourceSystem": "legacy_crm"
+ *   }
+ * }
+ */
+async function startLegacyUsersMigration(req, res) {
+  try {
+    if (migrationState.isRunning) {
+      return res.status(409).json({
+        success: false,
+
+        message: "Legacy users migration is already running.",
+
+        migration: {
+          status: migrationState.status,
+
+          totalUsers: migrationState.totalUsers,
+
+          startedAt: migrationState.startedAt,
+        },
+      });
+    }
+
+    const legacyUsers = req.body?.users;
+    const requestOptions = req.body?.options || {};
+
+    /**
+     * اعتبارسنجی داده اصلی
+     */
+    if (!Array.isArray(legacyUsers)) {
+      return res.status(422).json({
+        success: false,
+
+        message: 'Request body must contain a "users" array.',
+
+        example: {
+          users: [],
+          options: {
+            batchSize: 500,
+            strictCatalogMapping: true,
+            sourceSystem: "legacy_crm",
+          },
+        },
+      });
+    }
+
+    if (legacyUsers.length === 0) {
+      return res.status(422).json({
+        success: false,
+        message: "The users array cannot be empty.",
+      });
+    }
+
+    /**
+     * توجه:
+     * استفاده از || برای boolean مناسب نیست؛
+     * چون false را نادیده می‌گیرد.
+     */
+    const rawBatchSize = requestOptions.batchSize ?? 500;
+
+    const batchSize = Number(rawBatchSize);
+
+    const strictCatalogMapping = requestOptions.strictCatalogMapping !== false;
+
+    const sourceSystem = String(
+      requestOptions.sourceSystem || "legacy_crm",
+    ).trim();
+
+    if (!Number.isInteger(batchSize) || batchSize < 1 || batchSize > 2000) {
+      return res.status(422).json({
+        success: false,
+
+        message: "options.batchSize must be an integer between 1 and 2000.",
+      });
+    }
+
+    if (!sourceSystem) {
+      return res.status(422).json({
+        success: false,
+
+        message: "options.sourceSystem cannot be empty.",
+      });
+    }
+
+    const options = {
+      batchSize,
+      strictCatalogMapping,
+      sourceSystem,
+    };
+
+    /**
+     * قبل از ارسال پاسخ، Migration را رزرو می‌کنیم
+     * تا درخواست هم‌زمان دوم پذیرفته نشود.
+     */
+    reserveMigration({
+      totalUsers: legacyUsers.length,
+      options,
+    });
+
+    /**
+     * بعد از آزاد شدن Event Loop،
+     * عملیات Migration اجرا می‌شود.
+     *
+     * legacyUsers از req.body گرفته شده و به‌صورت مستقیم
+     * به تابع Migration پاس داده می‌شود.
+     */
+    setImmediate(() => {
+      runMigrationInBackground(legacyUsers, options).catch((error) => {
+        /*
+         * خطاهای معمول داخل خود تابع مدیریت می‌شوند.
+         * این catch فقط یک لایه محافظتی نهایی است.
+         */
+        migrationState.isRunning = false;
+        migrationState.status = "failed";
+
+        migrationState.finishedAt = new Date().toISOString();
+
+        migrationState.error = serializeError(error);
+
+        console.error("[Legacy Migration] Unexpected background error:", error);
+      });
+    });
+
+    return res.status(202).json({
+      success: true,
+
+      message:
+        "Legacy users migration was accepted and will run in the background.",
+
+      migration: {
+        status: "accepted",
+        totalUsers: legacyUsers.length,
+        startedAt: migrationState.startedAt,
+        options,
+      },
+    });
+  } catch (error) {
+    /**
+     * اگر Migration قبل از setImmediate رزرو شده باشد
+     * ولی اجرای Controller خطا بخورد، قفل را آزاد می‌کنیم.
+     */
+    migrationState.isRunning = false;
+    migrationState.status = "failed";
+
+    migrationState.finishedAt = new Date().toISOString();
+
+    migrationState.error = serializeError(error);
+
+    console.error("[Legacy Migration] Could not start migration:", error);
+
+    return res.status(500).json({
+      success: false,
+
+      message: "Could not start legacy users migration.",
+
+      error:
+        process.env.NODE_ENV === "development"
+          ? serializeError(error)
+          : undefined,
+    });
+  }
+}
+
+/**
+ * GET /api/internal/migrations/legacy-users/status
+ */
+function getLegacyUsersMigrationStatus(req, res) {
+  return res.status(200).json({
+    success: true,
+
+    migration: {
+      isRunning: migrationState.isRunning,
+
+      status: migrationState.status,
+
+      totalUsers: migrationState.totalUsers,
+
+      options: migrationState.options,
+
+      startedAt: migrationState.startedAt,
+
+      finishedAt: migrationState.finishedAt,
+
+      error: migrationState.error,
+
+      report: migrationState.report,
+    },
+  });
+}
+
+module.exports = {
+  startLegacyUsersMigration,
+  getLegacyUsersMigrationStatus,
+  executeLegacyUsersMigration,
+};
