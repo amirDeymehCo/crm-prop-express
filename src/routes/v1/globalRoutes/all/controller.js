@@ -1,5 +1,6 @@
 const Controllers = require("../../../controllers");
 const Order = require("../.././../../models/Order");
+const User = require("../.././../../models/User");
 const Payment = require("../.././../../models/Payment");
 const WalletTransaction = require("../.././../../models/WalletTransaction");
 const Wallet = require("../.././../../models/Wallet");
@@ -205,13 +206,16 @@ const Controller = class extends Controllers {
         );
       }
 
+      const user = await User.findByPk(order?.user_id);
+
       /** ✅ تایید موفق => finalize چالش */
       const finalizeResult = await finalizeChallengeAfterPaid({
-        user: req?.user,
+        user: user,
         orderId,
         trackingCode,
         refNum,
         t,
+        platform: "ctrader",
       });
 
       /** بروزرسانی وضعیت پرداخت/سفارش */
