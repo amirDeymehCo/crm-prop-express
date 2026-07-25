@@ -1,14 +1,7 @@
 const express = require("express");
 const router = express.Router();
-const Controller = require("./migrateLegacyUsers");
-const asyncHandler = require("../../../../utils/asyncHandler");
-const {
-  startLegacyUsersMigration,
-  getLegacyUsersMigrationStatus,
-} = require("./controller");
+const { migrateUsersBatch } = require("./migrateLegacyUsers");
 
-router.post("/legacy-users/run", startLegacyUsersMigration);
-
-router.get("/legacy-users/status", getLegacyUsersMigrationStatus);
+router.post("/users", migrateUsersBatch);
 
 module.exports = router;
