@@ -5,7 +5,7 @@ services:
     build: .
     container_name: props-app-crm
     ports:
-      - "8040:${PORT}"
+      - "3002:${PORT}"
     env_file:
       - .env
     environment:
