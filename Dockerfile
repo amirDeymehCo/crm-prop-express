@@ -1,7 +1,11 @@
 # Dockerfile
 FROM node:20
 
-RUN apt-get update && apt-get install -y \
+RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.list.d/debian.sources \
+  && sed -i 's|http://security.debian.org|https://deb.debian.org/debian-security|g' /etc/apt/sources.list.d/debian.sources \
+  && printf 'Acquire::Retries "5";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\n' > /etc/apt/apt.conf.d/99retries
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
   ca-certificates \
   fonts-liberation \
   libasound2 \
@@ -20,8 +24,8 @@ RUN apt-get update && apt-get install -y \
   libxrandr2 \
   xdg-utils \
   wget \
-  --no-install-recommends \
   && rm -rf /var/lib/apt/lists/*
+
 
 WORKDIR /app
 
