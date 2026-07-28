@@ -23,7 +23,7 @@ function requireLegacySecret(req, res, next) {
  * این کار بهت اجازه می‌ده هم تک‌کاربر تست کنی، هم بعداً batch/bulk بفرستی.
  */
 
-router.post("/users-import-test", async (req, res) => {
+router.get("/users-import-test", async (req, res) => {
   res.status(200).json({
     success: true,
   });
