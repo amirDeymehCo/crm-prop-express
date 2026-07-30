@@ -34,12 +34,12 @@ const Controller = class extends Controllers {
       where.id = { [Op.like]: `%${query?.id}%` };
     }
     if (query.from || query.to) {
-      where.created_at = {};
+      where.createdAt = {};
       if (query.from) {
-        where.created_at[Op.gte] = new Date(query.from);
+        where.createdAt[Op.gte] = new Date(query.from);
       }
       if (query.to) {
-        where.created_at[Op.lte] = new Date(query.to);
+        where.createdAt[Op.lte] = new Date(query.to);
       }
     }
     if (query?.status) {
@@ -174,7 +174,7 @@ const Controller = class extends Controllers {
         "type",
         "amount",
         "status",
-        "created_at",
+        "createdAt",
         "admin_id",
         "description",
         [sequelize.literal("'wallet'"), "source"],
@@ -217,7 +217,7 @@ const Controller = class extends Controllers {
       type: o.type,
       amount: o.amount_usd,
       status: o.status,
-      created_at: o.created_at || o?.createdAt,
+      createdAt: o.created_at || o?.createdAt,
       meta: o.UserChallenge
         ? {
             challenge_id: o.UserChallenge.id,
@@ -233,7 +233,11 @@ const Controller = class extends Controllers {
     let items = [...walletTx, ...normalizedOrders];
 
     // 5. sort
-    items.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    items.sort(
+      (a, b) =>
+        new Date(b.created_at || b?.createdAt) -
+        new Date(a.created_at || a?.createdAt),
+    );
 
     // requestWidthdraw
     const requestWidthdraw = await Ticket.findAll({
