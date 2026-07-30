@@ -178,9 +178,16 @@ async function createSingleChallenge(userId, challengeData, transaction) {
         phase_index: current_phase_index,
         cycle_no: current_account.cycle_no || 1,
         platform: current_account.platform || platform || "mt5",
-        platform_login: current_account.platform_login || null,
         status: current_account.status || "active",
         starting_balance_usd: challengePlan.balance,
+
+        /// amir
+        platform_login: current_account.platform_login || null,
+        mt_login: current_account.platform_login || null,
+        mt_server: current_account.platform || null,
+        in_password: current_account.in_password || null,
+        mt_password: current_account.mt_password || null,
+        email: current_account.email || null,
       },
       { transaction },
     );
