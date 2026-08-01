@@ -1,0 +1,102 @@
+name: Deploy Express Crm
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: express-crm
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy To Server
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script_stop: true
+          script: |
+            set -e
+            APP_DIR="${{ secrets.APP_DIR }}"
+            # پورت مپ شده روی سرور (میزبان) که تراکنش‌ها به آن ارسال می‌شوند
+            APP_PORT=3001
+            
+            echo "==============================="
+            echo "🚀 Starting Deployment"
+            echo "==============================="
+            cd "$APP_DIR"
+            echo "Current Directory:"
+            pwd
+            echo
+            
+            echo "Updating repository..."
+            git fetch origin
+            LOCAL=$(git rev-parse HEAD)
+            REMOTE=$(git rev-parse origin/main)
+            if [ "$LOCAL" != "$REMOTE" ]; then
+              git reset --hard origin/main
+            else
+              echo "Repository already up-to-date."
+            fi
+            echo
+            
+            echo "Building Docker image..."
+            docker compose build --pull
+            echo
+            
+            echo "Restarting containers..."
+            docker compose up -d --remove-orphans
+            echo
+            
+            echo "Waiting for application..."
+            sleep 10
+            SUCCESS=false
+            
+            for i in {1..15}; do
+              # رفع مشکل ایجاد وضعیت 000000 با استفاده از true
+              STATUS=$(curl \
+                --silent \
+                --output /dev/null \
+                --write-out "%{http_code}" \
+                --connect-timeout 3 \
+                --max-time 5 \
+                http://127.0.0.1:${APP_PORT} || true)
+              
+              # اگر خروجی curl خالی یا با خطا بود مقدار پیش‌فرض را 000 قرار بده
+              STATUS=${STATUS:-000}
+              
+              echo "Attempt $i -> HTTP $STATUS"
+              
+              if [[ "$STATUS" =~ ^(200|201|204|301|302|307|308|401|403|404)$ ]]; then
+                SUCCESS=true
+                break
+              fi
+              sleep 5
+            done
+            
+            if [ "$SUCCESS" = false ]; then
+              echo
+              echo "Container Status"
+              docker compose ps
+              echo
+              echo "Application Logs"
+              docker compose logs --tail=200
+              exit 1
+            fi
+            echo
+            
+            echo "Cleaning Docker..."
+            docker image prune -af
+            echo
+            echo "==============================="
+            echo "✅ Deployment Successful"
+            echo "==============================="
