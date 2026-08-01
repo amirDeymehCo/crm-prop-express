@@ -19,6 +19,10 @@ services:
     depends_on:
       - db
 
+    # متصل کردن سرویس به شبکه اختصاصی با MTU اصلاح‌شده
+    networks:
+      - crm-net
+
   db:
     image: mysql:8.0
     container_name: mysql-db-crm
@@ -37,6 +41,9 @@ services:
     volumes:
       - crm_mysql_data:/var/lib/mysql
 
+    networks:
+      - crm-net
+
   phpmyadmin:
     image: phpmyadmin:latest
     container_name: phpmyadmin
@@ -47,6 +54,16 @@ services:
       PMA_ARBITRARY: 1
       UPLOAD_LIMIT: 256M
 
+    networks:
+      - crm-net
+
 volumes:
   crm_mysql_data:
   node_modules:
+
+# تعریف شبکه اختصاصی و تنظیم MTU روی 1400 جهت هماهنگی با کارت شبکه هاست (eno49)
+networks:
+  crm-net:
+    driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: "1400"
