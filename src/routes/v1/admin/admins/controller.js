@@ -59,7 +59,12 @@ const Controller = class extends Controllers {
     this.response({ res, status: 200, data: groups });
   }
   async setPermission(req, res) {
-    let { admin_id, fullGroupIds = [], customPermissions = {} } = req.body;
+    let {
+      admin_id,
+      fullGroupIds = [],
+      customPermissions = {},
+      role,
+    } = req.body;
 
     // ✅ normalize
     fullGroupIds = fullGroupIds.map(Number);
@@ -123,6 +128,7 @@ const Controller = class extends Controllers {
         }
 
         await admin.addPermissions(permissions, { transaction: t });
+        await admin.update({ role: role || admin?.role });
       }
 
       return res.json({
