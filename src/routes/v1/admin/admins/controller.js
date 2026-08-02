@@ -128,11 +128,16 @@ const Controller = class extends Controllers {
         }
 
         await admin.addPermissions(permissions, { transaction: t });
-        await admin.update({ role: role || admin?.role });
+      }
+
+      /* ========= 4️⃣ Update Role (همیشه اجرا می‌شود) ========= */
+      // ارسال آبجکت تراکنش برای حفظ یکپارچگی پایگاه داده الزامی است.
+      if (role !== undefined) {
+        await admin.update({ role: role }, { transaction: t });
       }
 
       return res.json({
-        message: " سطح دسترسی ادمین با موفقیت ذخیره شد",
+        message: "سطح دسترسی ادمین با موفقیت ذخیره شد",
       });
     });
   }
