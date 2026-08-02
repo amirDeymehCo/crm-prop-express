@@ -10,6 +10,11 @@ const Admin = sequelize.define(
   {
     id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
     avatar: DataTypes.STRING,
+    role: {
+      type: DataTypes.ENUM("default", "saler", "support"),
+      defaultValue: "default",
+      allowNull: true,
+    },
     name: DataTypes.STRING,
     mobile: { type: DataTypes.STRING },
     email: { type: DataTypes.STRING },
