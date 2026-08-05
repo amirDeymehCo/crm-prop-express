@@ -13,6 +13,7 @@ const profileRouter = require("./profile");
 const certificatesRouter = require("./certificates");
 const challengeSettingsRouter = require("./ChallengeSettings");
 const walletWithdrawRouter = require("./walletWithdraw");
+const analysisPanel = require("./analysisPanel");
 
 router.use("/analysis", analysisRouter);
 router.use("/users", usersRouter);
@@ -27,5 +28,6 @@ router.use("/certificates", certificatesRouter);
 router.use("/profile", profileRouter);
 router.use("/challenge-settings", challengeSettingsRouter);
 router.use("/wallet-withdraw", walletWithdrawRouter);
+router.use("/analysis-panel", analysisPanel);
 
 module.exports = router;
