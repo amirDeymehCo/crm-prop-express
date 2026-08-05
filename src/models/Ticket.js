@@ -83,6 +83,11 @@ const Ticket = sequelize.define(
       type: DataTypes.BOOLEAN,
       defaultValue: false,
     },
+
+    legacy_ticket_id: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
   },
   {
     tableName: "Tickets",
