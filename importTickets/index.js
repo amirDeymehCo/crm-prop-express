@@ -29,8 +29,15 @@ const statusMap = {
   open: "ticket_open",
   closed: "ticket_closed",
   answered: "ticket_answered",
+  finished: "ticket_closed",
+  canceled: "ticket_closed",
+  proccess: "ticket_in_review",
+  process: "ticket_in_review",
   pending: "ticket_in_review",
   review: "ticket_in_review",
+  waiting: "ticket_waiting_payout",
+  interview: "ticket_waiting_interview",
+  trash: "ticket_closed",
 };
 
 const priorityMap = {
@@ -41,18 +48,23 @@ const priorityMap = {
 
 function parseDate(value) {
   if (!value) return new Date();
+
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? new Date() : date;
 }
 
 function normalizeStatus(status) {
-  if (!status) return "ticket_open";
-  return statusMap[String(status).toLowerCase()] || "ticket_open";
+  const normalizedOldStatus = String(status || "")
+    .trim()
+    .toLowerCase();
+
+  return statusMap[normalizedOldStatus] || "ticket_open";
 }
 
 function normalizePriority(priority) {
   if (!priority) return "medium";
-  return priorityMap[String(priority).toLowerCase()] || "medium";
+
+  return priorityMap[String(priority).trim().toLowerCase()] || "medium";
 }
 
 function normalizeDepartment(departmentId) {
@@ -76,12 +88,15 @@ function extractTableData(exportJson, tableName) {
   return table.data;
 }
 
-// پیدا کردن شناسه کاربر قدیمی
 function getOldCustomerId(oldTicket) {
-  if (oldTicket.user_id) return Number(oldTicket.user_id);
+  if (oldTicket.user_id) {
+    return Number(oldTicket.user_id);
+  }
+
   if (Number(oldTicket.from_admin) !== 1 && oldTicket.creator_id) {
     return Number(oldTicket.creator_id);
   }
+
   return null;
 }
 
@@ -91,24 +106,50 @@ async function buildUserMap() {
     raw: true,
   });
 
-  const map = new Map();
+  const userMap = new Map();
+
   for (const user of users) {
     if (user.legacy_user_id != null) {
-      map.set(Number(user.legacy_user_id), Number(user.id));
+      userMap.set(Number(user.legacy_user_id), Number(user.id));
     }
   }
-  return map;
+
+  return userMap;
+}
+
+function groupRepliesByTicketId(replies) {
+  const repliesByTicketId = new Map();
+
+  for (const reply of replies) {
+    const oldTicketId = Number(reply.ticket_id);
+
+    if (!repliesByTicketId.has(oldTicketId)) {
+      repliesByTicketId.set(oldTicketId, []);
+    }
+
+    repliesByTicketId.get(oldTicketId).push(reply);
+  }
+
+  for (const ticketReplies of repliesByTicketId.values()) {
+    ticketReplies.sort(
+      (firstReply, secondReply) =>
+        parseDate(firstReply.create_date).getTime() -
+        parseDate(secondReply.create_date).getTime(),
+    );
+  }
+
+  return repliesByTicketId;
 }
 
 async function migrate() {
   const ticketsFilePath = path.join(
     __dirname,
-    "./3FvQc1oszX_wpast_tickets.json",
+    "./3FvQc1oszX_wpast_tickets_new.json",
   );
 
   const repliesFilePath = path.join(
     __dirname,
-    "./3FvQc1oszX_wpast_replies.json",
+    "./3FvQc1oszX_wpast_replies(6).json",
   );
 
   const ticketsExportJson = loadExportFile(ticketsFilePath);
@@ -125,6 +166,7 @@ async function migrate() {
   );
 
   const oldTickets = allOldTickets.slice(0, LIMIT);
+
   const allowedOldTicketIds = new Set(
     oldTickets.map((ticket) => Number(ticket.ID)),
   );
@@ -133,20 +175,9 @@ async function migrate() {
     allowedOldTicketIds.has(Number(reply.ticket_id)),
   );
 
-  // پاسخ‌ها را یک‌بار بر اساس شناسه تیکت گروه‌بندی می‌کنیم.
-  const repliesByTicketId = new Map();
+  const repliesByTicketId = groupRepliesByTicketId(oldReplies);
 
-  for (const reply of oldReplies) {
-    const oldTicketId = Number(reply.ticket_id);
-
-    if (!repliesByTicketId.has(oldTicketId)) {
-      repliesByTicketId.set(oldTicketId, []);
-    }
-
-    repliesByTicketId.get(oldTicketId).push(reply);
-  }
-
-  console.log(`شروع مهاجرت ${oldTickets.length} تیکت`);
+  console.log(`🚀 شروع مهاجرت ${oldTickets.length} تیکت`);
   console.log(`تعداد پاسخ‌های مرتبط: ${oldReplies.length}`);
   console.log(`اندازه هر batch: ${BATCH_SIZE}`);
 
@@ -168,13 +199,14 @@ async function migrate() {
     ) {
       const batchNumber = Math.floor(batchStart / BATCH_SIZE) + 1;
       const totalBatches = Math.ceil(oldTickets.length / BATCH_SIZE);
+
       const batchTickets = oldTickets.slice(
         batchStart,
         batchStart + BATCH_SIZE,
       );
 
       console.log(
-        `\n[Batch ${batchNumber}/${totalBatches}] شروع پردازش تیکت‌های ${
+        `\n[Batch ${batchNumber}/${totalBatches}] شروع تیکت‌های ${
           batchStart + 1
         } تا ${batchStart + batchTickets.length}`,
       );
@@ -185,6 +217,7 @@ async function migrate() {
 
       const batchTicketIdMap = new Map();
       let batchInsertedTicketsCount = 0;
+      let batchInsertedInitialMessagesCount = 0;
       let batchInsertedRepliesCount = 0;
 
       try {
@@ -197,32 +230,54 @@ async function migrate() {
 
           if (!newUserId) {
             unresolvedUsers.push({
-              oldTicketId: oldTicket.ID,
+              oldTicketId,
               oldCustomerId,
               title: oldTicket.title,
             });
-          } else {
-            const normalizedStatus = normalizeStatus(oldTicket.status);
+            continue;
+          }
 
-            const newTicket = await Ticket.create(
+          const normalizedStatus = normalizeStatus(oldTicket.status);
+
+          const newTicket = await Ticket.create(
+            {
+              user_id: newUserId,
+              type: "ticket",
+              title: oldTicket.title?.trim() || "بدون عنوان",
+              files: null,
+              departeman: normalizeDepartment(oldTicket.department_id),
+              priority: normalizePriority(oldTicket.priority),
+              status: normalizedStatus,
+              closed_at:
+                normalizedStatus === "ticket_closed"
+                  ? parseDate(oldTicket.reply_date || oldTicket.create_date)
+                  : null,
+              createdByAdmin: Number(oldTicket.from_admin) === 1,
+              createdAt: parseDate(oldTicket.create_date),
+              updatedAt: parseDate(
+                oldTicket.reply_date || oldTicket.create_date,
+              ),
+              legacy_ticket_id: oldTicket?.ID || oldTicket?.id,
+            },
+            {
+              transaction,
+              logging: false,
+            },
+          );
+
+          batchTicketIdMap.set(oldTicketId, newTicket.id);
+          batchInsertedTicketsCount++;
+
+          if (oldTicket.content?.trim()) {
+            await Message.create(
               {
-                user_id: newUserId,
-                type: "ticket",
-                title: oldTicket.title?.trim() || "بدون عنوان",
-                files: null,
-                departeman: normalizeDepartment(oldTicket.department_id),
-                priority: normalizePriority(oldTicket.priority),
-                status: normalizedStatus,
-                closed_at:
-                  normalizedStatus === "ticket_closed"
-                    ? parseDate(oldTicket.reply_date || oldTicket.create_date)
-                    : null,
-                createdByAdmin: Number(oldTicket.from_admin) === 1,
+                ticket_id: newTicket.id,
+                text: oldTicket.content.trim(),
+                senderType:
+                  Number(oldTicket.from_admin) === 1 ? "admin" : "user",
+                files: [],
                 createdAt: parseDate(oldTicket.create_date),
-                updatedAt: parseDate(
-                  oldTicket.reply_date || oldTicket.create_date,
-                ),
-                legacy_ticket_id: oldTicket?.ID,
+                updatedAt: parseDate(oldTicket.create_date),
               },
               {
                 transaction,
@@ -230,28 +285,7 @@ async function migrate() {
               },
             );
 
-            batchTicketIdMap.set(oldTicketId, newTicket.id);
-            batchInsertedTicketsCount++;
-
-            if (oldTicket.content?.trim()) {
-              await Message.create(
-                {
-                  ticket_id: newTicket.id,
-                  text: oldTicket.content.trim(),
-                  senderType:
-                    Number(oldTicket.from_admin) === 1 ? "admin" : "user",
-                  files: [],
-                  createdAt: parseDate(oldTicket.create_date),
-                  updatedAt: parseDate(oldTicket.create_date),
-                },
-                {
-                  transaction,
-                  logging: false,
-                },
-              );
-
-              insertedInitialMessagesCount++;
-            }
+            batchInsertedInitialMessagesCount++;
           }
 
           if (
@@ -259,21 +293,13 @@ async function migrate() {
             processedTicketsCount === oldTickets.length
           ) {
             console.log(
-              `[Tickets] بررسی‌شده: ${processedTicketsCount}/${oldTickets.length} | ثبت‌شده تا این batch: ${batchInsertedTicketsCount} | بدون کاربر: ${unresolvedUsers.length}`,
+              `[Tickets] بررسی: ${processedTicketsCount}/${oldTickets.length} | ثبت در batch: ${batchInsertedTicketsCount} | بدون کاربر: ${unresolvedUsers.length}`,
             );
           }
         }
 
-        // پاسخ‌های تیکت‌های موفق همین batch را داخل همان تراکنش ثبت می‌کنیم.
         for (const [oldTicketId, newTicketId] of batchTicketIdMap) {
           const ticketReplies = repliesByTicketId.get(oldTicketId) || [];
-
-          // ترتیب تاریخی پیام‌ها حفظ شود.
-          ticketReplies.sort(
-            (firstReply, secondReply) =>
-              parseDate(firstReply.create_date).getTime() -
-              parseDate(secondReply.create_date).getTime(),
-          );
 
           for (const oldReply of ticketReplies) {
             processedRepliesCount++;
@@ -306,9 +332,12 @@ async function migrate() {
 
             batchInsertedRepliesCount++;
 
-            if (processedRepliesCount % LOG_INTERVAL_REPLIES === 0) {
+            if (
+              processedRepliesCount % LOG_INTERVAL_REPLIES === 0 ||
+              processedRepliesCount === oldReplies.length
+            ) {
               console.log(
-                `[Replies] بررسی‌شده: ${processedRepliesCount}/${oldReplies.length}`,
+                `[Replies] بررسی: ${processedRepliesCount}/${oldReplies.length} | ثبت در batch: ${batchInsertedRepliesCount}`,
               );
             }
           }
@@ -317,28 +346,25 @@ async function migrate() {
         await transaction.commit();
 
         insertedTicketsCount += batchInsertedTicketsCount;
+        insertedInitialMessagesCount += batchInsertedInitialMessagesCount;
         insertedRepliesCount += batchInsertedRepliesCount;
         committedBatchesCount++;
 
         console.log(
-          `[Batch ${batchNumber}/${totalBatches}] کامیت شد | تیکت: ${batchInsertedTicketsCount} | پاسخ: ${batchInsertedRepliesCount}`,
-        );
-
-        console.log(
-          `[Total] تیکت ثبت‌شده: ${insertedTicketsCount} | پاسخ ثبت‌شده: ${insertedRepliesCount} | بدون کاربر: ${unresolvedUsers.length}`,
+          `✅ [Batch ${batchNumber}/${totalBatches}] کامیت شد | تیکت: ${batchInsertedTicketsCount} | پیام اولیه: ${batchInsertedInitialMessagesCount} | پاسخ: ${batchInsertedRepliesCount}`,
         );
       } catch (batchError) {
         await transaction.rollback();
 
         console.error(
-          `\nخطا در batch ${batchNumber}; تغییرات همین batch rollback شد.`,
+          `❌ Batch ${batchNumber} خطا خورد و فقط تغییرات همین batch rollback شد.`,
         );
 
         throw batchError;
       }
     }
 
-    console.log("\nمهاجرت با موفقیت به پایان رسید.");
+    console.log("\n✅ مهاجرت با موفقیت به پایان رسید.");
     console.log(`Batchهای کامیت‌شده: ${committedBatchesCount}`);
     console.log(`تیکت‌های بررسی‌شده: ${processedTicketsCount}`);
     console.log(`تیکت‌های منتقل‌شده: ${insertedTicketsCount}`);
@@ -347,11 +373,11 @@ async function migrate() {
     console.log(`تیکت‌های بدون کاربر متناظر: ${unresolvedUsers.length}`);
 
     if (unresolvedUsers.length > 0) {
-      console.log("\nنمونه تیکت‌های بدون کاربر متناظر:");
+      console.log("\n⚠️ نمونه تیکت‌های بدون کاربر متناظر:");
       console.log(unresolvedUsers.slice(0, 10));
     }
   } catch (error) {
-    console.error("\nمهاجرت متوقف شد:", error);
+    console.error("\n❌ مهاجرت متوقف شد:", error);
     console.log(`آخرین batch کامیت‌شده: ${committedBatchesCount}`);
     console.log(`تیکت‌های کامیت‌شده: ${insertedTicketsCount}`);
     console.log(`پاسخ‌های کامیت‌شده: ${insertedRepliesCount}`);

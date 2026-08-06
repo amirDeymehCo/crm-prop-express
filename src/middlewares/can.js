@@ -13,9 +13,6 @@ function can(permission) {
       return res.status(403).json({ message: "Permission denied" });
     }
 
-    console.log(permission);
-    console.log(req.admin.permissions);
-
     if (!req.admin.permissions || !req.admin.permissions.includes(permission)) {
       return res.status(403).json({ message: "Permission denied" });
     }

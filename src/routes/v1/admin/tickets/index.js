@@ -16,28 +16,25 @@ router
   .post("/notes", asyncHandler(Controller.createNote))
   .get("/notes/:id", asyncHandler(Controller.notesList))
   // ticket
-  .get("/", can("support.ticket.list"), asyncHandler(Controller.list))
+  .get("/", asyncHandler(Controller.list))
   .post(
     "/",
     upload.array("filesTicket", 5),
-    can("support.ticket.create"),
     validator.create(),
     Controller.validationBody,
     asyncHandler(Controller.create),
   )
   .post(
     "/:id",
-    can("support.ticket.create"),
     validator.update(),
     Controller.validationBody,
     asyncHandler(Controller.update),
   )
-  .get("/:id", can("support.report.read"), asyncHandler(Controller.find))
+  .get("/:id", asyncHandler(Controller.find))
   // send message
   .post(
     "/sendMessage/:id",
     upload.array("filesTicket", 5),
-    can("support.ticket.reply"),
     validator.sendMessage(),
     Controller.validationBody,
     asyncHandler(Controller.sendMessage),
