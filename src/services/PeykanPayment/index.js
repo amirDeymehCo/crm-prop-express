@@ -19,7 +19,7 @@ async function paykanService({
   userChallenge = null,
 }) {
   const rate = await getUsdToIrrRate();
-  const amountIrr = Math.round(Number(amountUsd) * Number(rate));
+  const amountIrr = Math.round(Number(amountUsd) * Number(rate)) * 10;
 
   const orderId = `dep-${userId}-${Date.now()}`; // یکتا
 

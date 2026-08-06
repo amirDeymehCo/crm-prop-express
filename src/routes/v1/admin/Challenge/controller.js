@@ -574,6 +574,7 @@ const Controller = class extends Controllers {
         "createdAt",
         "updatedAt",
       ],
+      order: [["createdAt", "DESC"]],
     });
 
     this.response({ res, data: list });
