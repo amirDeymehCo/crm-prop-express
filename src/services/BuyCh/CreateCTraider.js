@@ -42,10 +42,12 @@ async function createAccount({
       balance: toNumber(balance),
       group_name: groupch,
       leverage: toNumber(leverge),
-      daily_risk_percent,
-      overall_risk_percent,
-      floating_risk_percent,
+      daily_risk_percent: daily_risk_percent || 0,
+      overall_risk_percent: overall_risk_percent || 0,
+      floating_risk_percent: floating_risk_percent || 0,
     };
+
+    console.log(payload);
 
     const response = await axios.request({
       method: "GET",

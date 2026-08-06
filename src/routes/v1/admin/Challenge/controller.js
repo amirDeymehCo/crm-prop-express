@@ -137,8 +137,16 @@ async function provisionMTAndAttach({
     // risks params
     daily_risk_percent: plan?.max_daily_drawdown_percent,
     overall_risk_percent: plan?.max_overall_drawdown_percent,
-    floating_risk_percent: plan?.floating_risk_value || 0,
+    floating_risk_percent: plan?.floating_risk_value
+      ? plan?.floating_risk_value
+      : 0,
   });
+
+  console.log(plan?.floating_risk_value ? plan?.floating_risk_value : 0);
+  console.log(plan);
+
+  console.log(result);
+
   if (!result?.Login && !result?.login) {
     const err = new Error("ساخت حساب ناموفق بود");
     err.status = 500;
@@ -147,7 +155,7 @@ async function provisionMTAndAttach({
 
   await acc.update(
     {
-      mt_login: String(result?.Login),
+      mt_login: String(result?.Login || result?.login),
       mt_server: mtGroup,
       mt_group: mtGroup,
       email: result?.email || null,
@@ -257,6 +265,7 @@ const Controller = class extends Controllers {
               "has_floating_risk",
               "max_overall_drawdown_percent",
               "max_daily_drawdown_percent",
+              "floating_risk_value",
               "challenge_type_id",
             ],
           },
