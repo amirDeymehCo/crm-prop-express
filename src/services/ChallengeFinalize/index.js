@@ -125,6 +125,11 @@ async function createAndAttachMTAccount({
     email: user?.email,
     first_name: user?.firstname,
     last_name: user?.lastname,
+
+    // risks params
+    daily_risk_percent: plan?.max_daily_drawdown_percent,
+    overall_risk_percent: plan?.max_overall_drawdown_percent,
+    floating_risk_percent: plan?.floating_risk_value || 0,
   });
 
   if (!mt?.Login && !mt?.login)

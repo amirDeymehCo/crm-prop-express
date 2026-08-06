@@ -25,12 +25,10 @@ async function createAccount({
   balance,
   groupch,
   leverge,
-  // daily_risk_percent,
-  // overall_risk_percent,
-  // floating_risk_percent,
+  daily_risk_percent = 0,
+  overall_risk_percent = 0,
+  floating_risk_percent = 0,
 }) {
-  console.log("leverage=>>>", leverge);
-
   try {
     assertRequired(email, "email");
     assertRequired(first_name, "first_name");
@@ -44,9 +42,9 @@ async function createAccount({
       balance: toNumber(balance),
       group_name: groupch,
       leverage: toNumber(leverge),
-      daily_risk_percent: 0,
-      overall_risk_percent: 0,
-      floating_risk_percent: 0,
+      daily_risk_percent,
+      overall_risk_percent,
+      floating_risk_percent,
     };
 
     const response = await axios.request({

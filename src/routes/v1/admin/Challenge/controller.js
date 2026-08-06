@@ -133,6 +133,11 @@ async function provisionMTAndAttach({
     email: findUser?.email,
     first_name: findUser?.firstname,
     last_name: findUser?.lastname,
+
+    // risks params
+    daily_risk_percent: plan?.max_daily_drawdown_percent,
+    overall_risk_percent: plan?.max_overall_drawdown_percent,
+    floating_risk_percent: plan?.floating_risk_value || 0,
   });
   if (!result?.Login && !result?.login) {
     const err = new Error("ساخت حساب ناموفق بود");
