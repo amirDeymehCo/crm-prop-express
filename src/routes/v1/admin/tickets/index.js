@@ -38,6 +38,13 @@ router
     validator.sendMessage(),
     Controller.validationBody,
     asyncHandler(Controller.sendMessage),
+  )
+  .post(
+    "/update-message/:messageId",
+    upload.array("filesTicket", 5),
+    validator.sendMessage(),
+    Controller.validationBody,
+    asyncHandler(Controller.editMessage),
   );
 
 module.exports = router;

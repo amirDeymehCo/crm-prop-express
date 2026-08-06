@@ -165,6 +165,39 @@ const Controller = class extends Controllers {
 
     this.response({ res, status: 200, message: "پیام شما با موفقیت ارسال شد" });
   }
+  async editMessage(req, res) {
+    const { messageId } = req.params; // فرض بر این است که شناسه پیام در Route پاس داده می‌شود: /tickets/messages/:messageId
+
+    const findMessage = await Message.findByPk(messageId);
+    if (!findMessage) {
+      return this.response({
+        res,
+        status: 404,
+        message: "پیام مورد نظر یافت نشد",
+      });
+    }
+
+    let filesList = findMessage.files;
+    if (req.files && req.files.length > 0) {
+      filesList = req.files.map((e) => e.filename);
+    }
+
+    await Message.update(
+      {
+        text: req.body.message || findMessage.text,
+        files: filesList,
+      },
+      {
+        where: { id: messageId },
+      },
+    );
+
+    this.response({
+      res,
+      status: 200,
+      message: "پیام شما با موفقیت ویرایش شد",
+    });
+  }
   async autoMessages(req, res) {
     const list = await AutoMessage.findAll();
 
