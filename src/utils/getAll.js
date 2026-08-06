@@ -52,7 +52,7 @@ const getAll = async ({
 
   // مدیریت صفحه‌بندی
 
-  const limit = Math.min(Number(req.query.limit) || 20, 100);
+  const limit = Number(req.query.limit) || 25;
   const page = Math.max(Number(req.query.page) || 1, 1);
   const offset = (page - 1) * limit;
 

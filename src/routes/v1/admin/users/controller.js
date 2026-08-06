@@ -16,6 +16,7 @@ const UserNote = require("../../../../models/UserNote");
 const founcList = require("../../../../utils/List");
 const sequelize = require("../../../../../db");
 const { Op, fn, col, literal } = require("sequelize");
+const bcrypt = require("bcrypt");
 
 const Controller = class extends Controllers {
   async listUsers(req, res) {
@@ -104,7 +105,7 @@ const Controller = class extends Controllers {
   async findUser(req, res) {
     const user = await User.findByPk(req?.params?.id, {
       attributes: {
-        exclude: ["password", "refresh_token", "refresh_token_expires_at"],
+        exclude: ["refresh_token", "refresh_token_expires_at"],
       },
     });
     if (!user)
@@ -337,6 +338,39 @@ const Controller = class extends Controllers {
       });
 
     this.response({ res, message: "اطلاعات کاربر ذخیره شد" });
+  }
+  async changePassword(req, res) {
+    if (!req?.body?.newPassword)
+      return this.response({
+        res,
+        status: 400,
+        message: "ارسال رمز عبور اجباری است",
+      });
+
+    const salt = await bcrypt.genSalt(10);
+    const newPasswordHash = await bcrypt.hash(req?.body?.newPassword, salt);
+
+    const user = await User.update(
+      { password: newPasswordHash },
+      {
+        where: { id: req?.body?.user_id },
+      },
+    );
+
+    if (!user)
+      return this.response({
+        res,
+        status: 400,
+        message: "کاربری با این مشخصات پیدا نشد",
+      });
+
+    await UserNote.create({
+      note: `تغییر رمز عبور توسط ادمین`,
+      user_id: req?.body?.user_id,
+      admin_id: req?.admin?.id,
+    });
+
+    this.response({ res, message: "رمز عبور کاربر ویرایش شد" });
   }
   async depositWallet(req, res) {
     const wallet = await Wallet.findByPk(req?.body?.wallet_id);

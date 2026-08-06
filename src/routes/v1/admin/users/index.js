@@ -24,6 +24,12 @@ router
   .get("/find-single-user/:id", asyncHandler(Controller.findUserDefaultData))
   // nots
   .get("/nots/:user_id", can("user.read"), asyncHandler(Controller.listNots))
-  .post("/create-note", can("user.read"), asyncHandler(Controller.createNote));
+  .post("/create-note", can("user.read"), asyncHandler(Controller.createNote))
+  // change password
+  .post(
+    "/change-password",
+    can("user.read"),
+    asyncHandler(Controller.changePassword),
+  );
 
 module.exports = router;
