@@ -348,74 +348,100 @@ const Controller = class extends Controllers {
     });
   }
   async forgotPassword(req, res) {
-    const userFind = await User.findOne({
-      where: { mobile: req?.body?.mobile },
-    });
+    try {
+      const mobile = String(req?.body?.mobile || "").trim();
 
-    if (!userFind) {
-      return this.response({
-        status: 400,
-        message: "نام کاربری یا رمز عبور اشتباه است",
+      const userFind = await User.findOne({
+        where: { mobile },
       });
-    }
 
-    const newCode = generateCode(4);
-    const sent = await sendCode({
-      receptor: req?.body?.mobile,
-      token: newCode,
-    });
-    if (!sent) {
+      if (!userFind) {
+        return this.response({
+          res,
+          status: 400,
+          message: "نام کاربری یا رمز عبور اشتباه است",
+        });
+      }
+
+      const { code } = await createOtp({ mobile });
+
+      const sent = await sendCode({
+        receptor: mobile,
+        token: code,
+      });
+
+      if (!sent) {
+        return this.response({
+          res,
+          status: 500,
+          message: "در ارسال کد تایید مشکلی پیش آمده است، بعدا امتحان کنید",
+        });
+      }
+
+      return this.response({
+        res,
+        status: 200,
+        message: "کد تایید شماره موبایل به تلفن شما ارسال شد",
+      });
+    } catch (err) {
+      console.error("forgotPassword error:", err);
       return this.response({
         res,
         status: 500,
-        message: "در ارسال کد تایید مشکلی پیش آمده است، بعدا امتحان کنید",
+        message: "خطای سرور رخ داده است",
       });
     }
-
-    await createOtp({ mobile: req?.body?.mobile });
-
-    this.response({
-      res,
-      status: 200,
-      message: "کد تایید شماره موبایل به تلفن شما ارسال شد",
-    });
   }
   async sendOtp(req, res) {
-    const userFind = await User.findOne({
-      where: { mobile: req?.body?.mobile },
-    });
+    try {
+      const mobile = String(req?.body?.mobile || "").trim();
 
-    if (!userFind) {
-      return this.response({
-        status: 400,
-        message: "نام کاربری یا رمز عبور اشتباه است",
+      const userFind = await User.findOne({
+        where: { mobile },
       });
-    }
 
-    const newCode = generateCode(4);
-    const sent = await sendCode({
-      receptor: req?.body?.mobile,
-      token: newCode,
-    });
-    if (!sent) {
+      if (!userFind) {
+        return this.response({
+          res,
+          status: 400,
+          message: "نام کاربری یا رمز عبور اشتباه است",
+        });
+      }
+
+      const { code } = await createOtp({ mobile });
+
+      const sent = await sendCode({
+        receptor: mobile,
+        token: code,
+      });
+
+      if (!sent) {
+        return this.response({
+          res,
+          status: 500,
+          message: "در ارسال کد تایید مشکلی پیش آمده است، بعدا امتحان کنید",
+        });
+      }
+
+      return this.response({
+        res,
+        status: 200,
+        message: "کد تایید ارسال شد",
+      });
+    } catch (err) {
+      console.error("sendOtp error:", err);
       return this.response({
         res,
         status: 500,
-        message: "در ارسال کد تایید مشکلی پیش آمده است، بعدا امتحان کنید",
+        message: "خطای سرور رخ داده است",
       });
     }
-
-    await createOtp({ mobile: req?.body?.mobile });
-
-    this.response({
-      res,
-      status: 200,
-      message: "کد تایید ارسال شد",
-    });
   }
   async changePassword(req, res) {
     try {
-      const { mobile, code, password } = req.body;
+      const mobile = String(req.body.mobile || "").trim();
+      const code = String(req.body.code || "").trim();
+      const password = String(req.body.password || "");
 
       if (!mobile || !code || !password) {
         return this.response({
@@ -425,7 +451,6 @@ const Controller = class extends Controllers {
         });
       }
 
-      // 1️⃣ بررسی OTP به‌صورت امن
       const otpResult = await verifyOtpCode({ mobile, code });
 
       if (!otpResult.success) {
@@ -436,7 +461,6 @@ const Controller = class extends Controllers {
         });
       }
 
-      // 2️⃣ پیدا کردن کاربر
       const user = await User.findOne({ where: { mobile } });
 
       if (!user) {
@@ -447,7 +471,6 @@ const Controller = class extends Controllers {
         });
       }
 
-      // 3️⃣ هش کردن رمز عبور جدید
       const salt = await bcrypt.genSalt(12);
       const hashedPassword = await bcrypt.hash(password, salt);
 
@@ -467,6 +490,7 @@ const Controller = class extends Controllers {
       });
     }
   }
+
   async loginCode(req, res) {
     const findUserByMobile = await User.findOne({
       where: { mobile: req.body.mobile, verify_mobile: true },
