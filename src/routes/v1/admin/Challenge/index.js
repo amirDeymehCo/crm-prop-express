@@ -15,6 +15,11 @@ router
     can("order.create"),
     asyncHandler(Controller.changeStatus),
   )
+  .post(
+    "/change-detail-account",
+    can("order.create"),
+    asyncHandler(Controller.changeDetailAccount),
+  )
   .get("/list", can("order.list"), asyncHandler(Controller.userChallenges))
   .get("/find/:id", can("order.read"), asyncHandler(Controller.singleChallenge))
   .get(

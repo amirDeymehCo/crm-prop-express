@@ -763,6 +763,21 @@ const Controller = class extends Controllers {
       data: { dataAccount },
     });
   }
+  async changeDetailAccount(req, res) {
+    const accountInstanceFind = await AccountInstance.findByPk(
+      req?.body?.account_instance_id,
+    );
+    if (!accountInstanceFind)
+      return this.response({ res, status: 400, message: "اکانتی یافت نشد" });
+
+    await accountInstanceFind.update({
+      mt_login: req?.body?.mt_login || accountInstanceFind?.mt_login,
+      mt_password: req?.body?.mt_password || accountInstanceFind?.mt_password,
+      in_password: req?.body?.in_password || accountInstanceFind?.in_password,
+    });
+
+    this.response({ res, message: "اطلاعات اکانت با موفقیت ویرایش شد" });
+  }
 };
 
 module.exports = new Controller();
