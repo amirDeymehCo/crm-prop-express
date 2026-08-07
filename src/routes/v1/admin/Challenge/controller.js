@@ -779,6 +779,28 @@ const Controller = class extends Controllers {
 
     this.response({ res, message: "اطلاعات اکانت با موفقیت ویرایش شد" });
   }
+  async ordersList(req, res) {
+    const ordersList = await founcList(
+      Order,
+      req,
+      {},
+      {
+        include: [
+          {
+            model: UserChallenge,
+            attributes: ["id"],
+          },
+          {
+            model: User,
+            attributes: ["id", "firstname", "lastname"],
+          },
+        ],
+        order: [["createdAt", "DESC"]],
+      },
+    );
+
+    this.response({ res, status: 200, data: ordersList });
+  }
 };
 
 module.exports = new Controller();

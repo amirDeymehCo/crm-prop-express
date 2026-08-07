@@ -36,6 +36,7 @@ router
     "/get-analysis-data/:mt_login",
     can("order.read"),
     asyncHandler(Controller.getAnalysisData),
-  );
+  )
+  .get("/orders", can("order.read"), asyncHandler(Controller.ordersList));
 
 module.exports = router;

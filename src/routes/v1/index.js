@@ -8,7 +8,6 @@ const authAdminRouter = require("./admin/auth");
 const authUser = require("../../middlewares/auth");
 const { authLimiter } = require("../../middlewares/rateLimit");
 const authAdmin = require("../../middlewares/authAdmin");
-const loadAdminPermissions = require("../../middlewares/loadAdminPermissions");
 
 router.use("/auth", authLimiter, authRouter);
 router.use("/authAdmin", authAdminRouter);
