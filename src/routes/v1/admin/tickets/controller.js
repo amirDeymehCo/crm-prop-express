@@ -16,10 +16,21 @@ const Controller = class extends Controllers {
     if (req?.query?.admin_id) whare.admin_id = req?.query?.admin_id;
     if (req?.query?.status) whare.status = req?.query?.status;
     if (req?.query?.priority) whare.priority = req?.query?.priority;
-    if (req?.query?.type) whare.type = req?.query?.type;
     if (req?.query?.id) whare.id = req?.query?.id;
     if (req?.query?.title)
       whare.title = { [Op.like]: `%${req?.query?.title}%` };
+
+    console.log(req?.admin?.permissions?.includes("profit.list"));
+    // request_widthdraw
+
+    const hasProfitAccess = req?.admin?.permissions?.includes("profit.list");
+
+    if (!hasProfitAccess) {
+      whare.type = {
+        ...whare.departeman,
+        [Op.ne]: "request_withdraw",
+      };
+    }
 
     const tickets = await founcList(Ticket, req, whare, {
       include: [
@@ -32,9 +43,7 @@ const Controller = class extends Controllers {
           attributes: ["id", "avatar", "name"],
         },
       ],
-      order: [
-        ["updatedAt", "DESC"], // بعدش جدیدترین‌ها
-      ],
+      order: [["updatedAt", "DESC"]],
     });
 
     this.response({
@@ -113,6 +122,18 @@ const Controller = class extends Controllers {
         status: 400,
         message: "شناسه تیکت اشتباه است",
       });
+
+    if (
+      findTicket?.departeman === "request_widthdraw" &&
+      !req?.admin?.permissions?.includes("profit.list")
+    ) {
+      return this.response({
+        res,
+        status: 400,
+        message: "شما دسترسی به مشاهده تیکت برداشت سود ندارید",
+      });
+    }
+
     const listChats = await Message.findAll({
       where: { ticket_id: findTicket?.id },
     });
@@ -138,12 +159,24 @@ const Controller = class extends Controllers {
         message: "شناسه تیکت اشتباه است",
       });
 
+    if (
+      findTicket?.departeman === "request_widthdraw" &&
+      !req?.admin?.permissions?.includes("profit.list")
+    ) {
+      return this.response({
+        res,
+        status: 400,
+        message: "شما دسترسی به مشاهده تیکت برداشت سود ندارید",
+      });
+    }
+
     const filesList = req?.files?.map((e) => e?.filename);
     const newMessage = await Message.create({
       ticket_id: req?.params?.id,
       text: req?.body?.message,
       senderType: "admin",
       files: filesList,
+      admin_id: req?.admin?.id,
     });
 
     if (findTicket?.status === "ticket_open") {

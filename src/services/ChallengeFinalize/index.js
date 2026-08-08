@@ -323,6 +323,7 @@ async function finalizeChallengeAfterPaid({
       gateway_order_id: trackingCode || orderId,
       gateway_payment_id: refNum || null,
       paid_at: new Date(),
+      meta: JSON.stringify({ trackingCode, refNum, orderId }),
     },
     { transaction: t },
   );

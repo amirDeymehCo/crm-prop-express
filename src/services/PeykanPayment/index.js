@@ -17,6 +17,7 @@ async function paykanService({
   amountUsd,
   callback_url = "https://api.myprop.trade/api/v1/web/show-data-getway",
   userChallenge = null,
+  type = "wallet_deposit",
 }) {
   const rate = await getUsdToIrrRate();
   const amountIrr = Math.round(Number(amountUsd) * Number(rate)) * 10;
@@ -31,7 +32,8 @@ async function paykanService({
     currency: "IRR",
     gateway: "peykan",
     status: "pending",
-    type: "wallet_deposit",
+    type,
+    user_challenge_id: userChallenge,
   });
 
   // ساخت رکورد Payment در حالت pending

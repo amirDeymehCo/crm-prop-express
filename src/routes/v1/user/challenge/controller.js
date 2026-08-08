@@ -145,6 +145,7 @@ const Controller = class extends Controllers {
           userChallenge: ch_data?.userChallenge?.id,
           callback_url:
             "https://api-crm.myprop.trade/api/v1/global/callback-peykan-challenge",
+          type: "challenge_purchase",
         });
 
         return this.response({
@@ -673,6 +674,7 @@ const Controller = class extends Controllers {
           userChallenge: userChallenge.id,
           callback_url:
             "https://api-crm.myprop.trade/api/v1/global/callback-peykan-challenge",
+          type: "challenge_purchase",
         });
 
         return this.response({

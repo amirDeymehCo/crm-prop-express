@@ -525,6 +525,12 @@ const Controller = class extends Controllers {
     if (req?.query?.status) where.status = req?.query?.status;
     if (req?.query?.id) where.id = { [Op.like]: `%${req?.query?.id}%` };
 
+    const accountInstanceWhere = {};
+    if (req?.query?.mt_login) {
+      // accountInstanceWhere.mt_login = req.query.mt_login;
+      accountInstanceWhere.mt_login = { [Op.like]: `%${req.query.mt_login}%` };
+    }
+
     const list = await founcList(UserChallenge, req, where, {
       include: [
         {
@@ -557,6 +563,11 @@ const Controller = class extends Controllers {
             "starting_balance_usd",
             "status",
           ],
+          where:
+            Object.keys(accountInstanceWhere).length > 0
+              ? accountInstanceWhere
+              : null,
+          required: Object.keys(accountInstanceWhere).length > 0,
         },
         {
           model: User,

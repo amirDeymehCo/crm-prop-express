@@ -49,9 +49,6 @@ async function payWithWallet({ userId, orderId, amountUsd, t }) {
     { where: { gateway_order_id: orderId }, transaction: t },
   );
 
-  console.log("order=>>>>>>>>>>>>>>>>>>");
-  console.log(order);
-
   return true;
 }
 

@@ -470,6 +470,7 @@ async function createOrderRecord({
       provider: prices.final_price_usd === 0 ? "coupon_free" : provider,
       order_id: orderId,
       user_id: user.id,
+      amount_irr: prices.final_price_usd * setting?.dollar_price,
       amount_usd: prices.final_price_usd,
       status: prices.final_price_usd === 0 ? "confirmed_free" : "pending",
       pay_currency: "usd",
