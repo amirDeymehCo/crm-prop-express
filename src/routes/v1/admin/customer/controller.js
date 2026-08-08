@@ -67,19 +67,12 @@ const Controller = class extends Controllers {
 
       // 2️⃣ تعیین مسئول در صورت نیاز
       if (body?.responsible) {
-        if (findUser?.responsible_admin_id) {
-          await t.rollback();
-          return this.response({
-            res,
-            status: 400,
-            message: "مدیریت این کاربر قبلا انتخاب شده است",
-          });
+        if (!findUser?.responsible_admin_id) {
+          await User.update(
+            { responsible_admin_id: admin?.id },
+            { where: { id: body?.user_id }, transaction: t },
+          );
         }
-
-        await User.update(
-          { responsible_admin_id: admin?.id },
-          { where: { id: body?.user_id }, transaction: t },
-        );
       }
 
       // 3️⃣ اعتبارسنجی دلیل رد تماس
@@ -123,12 +116,21 @@ const Controller = class extends Controllers {
 
       // 6️⃣ ساخت یادآور
       if (body?.reminder) {
+        if (!body.reminder_at || !body.reminderDescription) {
+          await t.rollback();
+          return this.response({
+            res,
+            status: 400,
+            message: "تاریخ یادآوری و توضیحات آن الزامی است",
+          });
+        }
+
         await CallReminder.create(
           {
             call_id: newCall.id,
             user_id: findUser.id,
-            description: body?.reminderDescription,
-            remind_at: body?.reminder_at,
+            description: body.reminderDescription,
+            remind_at: body.reminder_at,
             status: "pending",
             admin_id: admin?.id,
           },
@@ -145,13 +147,14 @@ const Controller = class extends Controllers {
         message: "تماس با موفقیت ساخته شد",
       });
     } catch (error) {
-      await t.rollback();
-      console.error("Create Call Error:", error);
+      if (!t.finished) {
+        await t.rollback();
+      }
 
       return this.response({
         res,
         status: 500,
-        message: "خطا در ثبت تماس",
+        message: error?.message || "خطا در ثبت تماس",
       });
     }
   }

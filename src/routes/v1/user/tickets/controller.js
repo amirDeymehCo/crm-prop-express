@@ -161,12 +161,13 @@ const Controller = class extends Controllers {
       });
 
     const filesList = req?.files?.map((e) => e?.filename);
-    const newMessage = await Message.create({
+    await Message.create({
       ticket_id: req?.params?.id,
       text: req?.body?.message,
       senderType: "user",
       files: filesList,
     });
+    await findTicket.update({ updatedAt: new Date(), status: "ticket_open" });
 
     this.response({ res, status: 200, message: "پیام شما با موفقیت ارسال شد" });
   }

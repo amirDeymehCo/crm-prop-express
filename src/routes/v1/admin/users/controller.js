@@ -62,6 +62,7 @@ const Controller = class extends Controllers {
         "kyc_steep",
         "kyc_status",
       ],
+      order: [["id", "ASC"]],
     });
 
     this.response({ res, message: "لیست کاربران", data: list });

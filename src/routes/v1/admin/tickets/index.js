@@ -15,6 +15,7 @@ router
   // nots
   .post("/notes", asyncHandler(Controller.createNote))
   .get("/notes/:id", asyncHandler(Controller.notesList))
+  .get("/admin-lists", asyncHandler(Controller.adminLists))
   // ticket
   .get("/", asyncHandler(Controller.list))
   .post(

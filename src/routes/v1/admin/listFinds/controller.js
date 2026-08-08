@@ -7,21 +7,22 @@ const CallRejectReason = require("../../../../models/Call/CallRejectReason");
 const CallResultOption = require("../../../../models/Call/CallResultOption");
 const ReferralCommission = require("../../../../models/ReferralCommission");
 const Admin = require("../../../../models/Admin");
-const { fn, col, Op, literal } = require("sequelize");
+const { fn, col, Op, literal, Sequelize } = require("sequelize");
 
 const Controller = class extends Controllers {
   async users(req, res) {
     const { search = "", page = 1, limit = 20 } = req.query;
-
     const offset = (page - 1) * limit;
 
     const where = {};
 
-    if (search) {
+    if (search.trim()) {
+      const cleanSearch = search.trim();
+
       where[Op.or] = [
-        { firstname: { [Op.like]: `%${search}%` } },
-        { lastname: { [Op.like]: `%${search}%` } },
-        { mobile: { [Op.like]: `%${search}%` } },
+        { username: { [Op.like]: `%${cleanSearch}%` } },
+        { email: { [Op.like]: `%${cleanSearch}%` } },
+        { mobile: { [Op.like]: `%${cleanSearch}%` } },
       ];
     }
 

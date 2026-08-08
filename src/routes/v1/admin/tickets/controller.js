@@ -7,6 +7,7 @@ const AutoMessage = require("../../../../models/AutoMessage");
 const TicketNots = require("../../../../models/TicketNots");
 const founcList = require("../../../../utils/List");
 const { sendCustomMessage } = require("../../../../services/KavenegarService");
+const { Op } = require("sequelize");
 
 const Controller = class extends Controllers {
   async list(req, res) {
@@ -16,6 +17,9 @@ const Controller = class extends Controllers {
     if (req?.query?.status) whare.status = req?.query?.status;
     if (req?.query?.priority) whare.priority = req?.query?.priority;
     if (req?.query?.type) whare.type = req?.query?.type;
+    if (req?.query?.id) whare.id = req?.query?.id;
+    if (req?.query?.title)
+      whare.title = { [Op.like]: `%${req?.query?.title}%` };
 
     const tickets = await founcList(Ticket, req, whare, {
       include: [
@@ -154,14 +158,14 @@ const Controller = class extends Controllers {
       );
     }
 
-    try {
-      const sendSms = await sendCustomMessage({
-        receptor: findTicket?.User?.mobile,
-        message: `کاربر مای پراپ، پاسخی برای تیکت ${findTicket?.id} شما ثبت شد.`,
-      });
-    } catch (err) {
-      console.log(err);
-    }
+    // try {
+    //   const sendSms = await sendCustomMessage({
+    //     receptor: findTicket?.User?.mobile,
+    //     message: `کاربر مای پراپ، پاسخی برای تیکت ${findTicket?.id} شما ثبت شد.`,
+    //   });
+    // } catch (err) {
+    //   console.log(err);
+    // }
 
     this.response({ res, status: 200, message: "پیام شما با موفقیت ارسال شد" });
   }
@@ -272,6 +276,14 @@ const Controller = class extends Controllers {
       status: 200,
       message: "پیام با موفقیت ویرایش شد ",
     });
+  }
+  async adminLists(req, res) {
+    const list = await Admin.findAll({
+      attributes: ["id", "name", "mobile"],
+      // where: { role: "support" },
+    });
+
+    this.response({ res, data: list });
   }
 };
 

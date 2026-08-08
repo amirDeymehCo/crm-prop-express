@@ -34,6 +34,7 @@ const Coupon = require("../../models/Coupon");
 const CouponUsage = require("../../models/CouponUsage");
 const Order = require("../../models/Order");
 const Payment = require("../../models/Payment");
+const Setting = require("../../models/Setting");
 
 // ===================== helpers اصلی ===================== //
 
@@ -444,11 +445,14 @@ async function createOrderRecord({
 }) {
   const orderId = `buyCh-${user?.id}-${Date.now()}`;
 
+  const setting = await Setting.findOne({ where: { id: 1 } });
+
   const order = await Order.create(
     {
       user_id: user.id,
       user_challenge_id: userChallenge.id,
       amount_usd: prices.final_price_usd,
+      amount_irr: prices.final_price_usd * setting?.dollar_price,
       gateway: prices.final_price_usd === 0 ? "coupon_free" : gateway,
       status: prices.final_price_usd === 0 ? "paid" : "pending",
       gateway_order_id: orderId,

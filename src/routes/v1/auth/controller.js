@@ -190,6 +190,7 @@ const Controller = class extends Controllers {
         user = await User.create({
           firstname,
           lastname,
+          username: firstname + " " + lastname,
           mobile,
           email,
           password, // حتماً هش شود
