@@ -257,8 +257,14 @@ const Controller = class extends Controllers {
     const password = String(req.body.password);
 
     const user = await User.findOne({
-      where: { mobile, verify_mobile: true },
+      where: { mobile },
     });
+
+    if (!user)
+      return res.status(400).json({ message: "کاربری با این مشخصات یافت نشد" });
+
+    if (!user?.verify_mobile)
+      return "کاربر گرامی شماره تلفن شما تایید نشده است، لطفا دوباره اقدام به ثبت نام بفرمایید";
 
     if (!user || !(await user.verifyPassword(password))) {
       return res.status(400).json({ message: "کاربری با این مشخصات یافت نشد" });
@@ -494,7 +500,7 @@ const Controller = class extends Controllers {
 
   async loginCode(req, res) {
     const findUserByMobile = await User.findOne({
-      where: { mobile: req.body.mobile, verify_mobile: true },
+      where: { mobile: req.body.mobile },
     });
     if (!findUserByMobile)
       return this.response({
@@ -502,6 +508,9 @@ const Controller = class extends Controllers {
         status: 400,
         message: "کاربری با این شماره موبایل پیدا نشد",
       });
+
+    if (!findUserByMobile?.verify_mobile)
+      return "کاربر گرامی شماره تلفن شما تایید نشده است، لطفا دوباره اقدام به ثبت نام بفرمایید";
 
     const { code } = await createOtp({ mobile: req?.body?.mobile });
 
