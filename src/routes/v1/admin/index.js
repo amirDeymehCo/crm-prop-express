@@ -14,6 +14,7 @@ const certificatesRouter = require("./certificates");
 const challengeSettingsRouter = require("./ChallengeSettings");
 const walletWithdrawRouter = require("./walletWithdraw");
 const analysisPanel = require("./analysisPanel");
+const customerLists = require("./customerLists");
 
 router.use("/analysis", analysisRouter);
 router.use("/users", usersRouter);
@@ -29,5 +30,6 @@ router.use("/profile", profileRouter);
 router.use("/challenge-settings", challengeSettingsRouter);
 router.use("/wallet-withdraw", walletWithdrawRouter);
 router.use("/analysis-panel", analysisPanel);
+router.use("/customer-lists", customerLists);
 
 module.exports = router;
