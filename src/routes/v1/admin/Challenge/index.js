@@ -37,6 +37,12 @@ router
     can("order.read"),
     asyncHandler(Controller.getAnalysisData),
   )
+  .post("/create-note", can("order.read"), asyncHandler(Controller.createNote))
+  .get(
+    "/nots/:user_challenge_id",
+    can("order.read"),
+    asyncHandler(Controller.notsList),
+  )
   .get("/orders", can("order.read"), asyncHandler(Controller.ordersList));
 
 module.exports = router;

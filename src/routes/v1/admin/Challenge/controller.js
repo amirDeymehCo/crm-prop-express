@@ -12,6 +12,7 @@ const Certificates = require("../../../../models/Certificates");
 const ChallengeRejectReason = require("../../../../models/ChallengeRejectReason");
 const ChallengeRejection = require("../../../../models/ChallengeRejection");
 const ChallengeRejectionItem = require("../../../../models/ChallengeRejectionItem");
+const ChallengeNote = require("../../../../models/ChallengeNote");
 const sequelize = require("../../../../../db");
 // const CreateMTUser = require("../../../../services/BuyCh/CreateMTUser");
 const founcList = require("../../../../utils/List");
@@ -688,6 +689,14 @@ const Controller = class extends Controllers {
       // 2) ساخت چالش + order + payment
       const chData = await createChFounc(fakeReq, res, next, t);
 
+      if (req?.body?.note) {
+        await ChallengeNote.create({
+          note: req?.body?.note,
+          admin_id: req?.admin?.id,
+          user_challenge_id: chData?.userChallenge.id,
+        });
+      }
+
       await t.commit();
       return this.response({
         res,
@@ -813,6 +822,26 @@ const Controller = class extends Controllers {
     });
 
     this.response({ res, status: 200, data: ordersList });
+  }
+  async createNote(req, res) {
+    await ChallengeNote.create({
+      note: req?.body?.note,
+      admin_id: req?.admin?.id,
+      user_challenge_id: req?.body?.user_challenge_id,
+    });
+
+    this.response({
+      res,
+      status: 201,
+      message: "یادداشت شما با موفقیت ساخته شد",
+    });
+  }
+  async notsList(req, res) {
+    const notsList = await ChallengeNote.findAll({
+      where: { user_challenge_id: req?.params?.user_challenge_id },
+    });
+
+    this.response({ res, data: notsList });
   }
 };
 
