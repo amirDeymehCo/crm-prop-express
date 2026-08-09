@@ -23,7 +23,12 @@ const Controller = class extends Controllers {
       where.title = { [Op.like]: `%${req?.query?.title}%` };
     }
 
-    if (req?.query?.type !== "widthdraw") {
+    if (req?.query?.type === "widthdraw") {
+      where[Op.or] = [
+        { departeman: "request_widthdraw" },
+        { type: "widthdraw" },
+      ];
+    } else {
       where.departeman = { [Op.ne]: "request_widthdraw" };
       where.type = { [Op.ne]: "widthdraw" };
     }
