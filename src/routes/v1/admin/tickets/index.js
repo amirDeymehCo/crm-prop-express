@@ -4,7 +4,6 @@ const asyncHandler = require("../../../../utils/asyncHandler");
 const Controller = require("./controller");
 const { upload } = require("../../../../middlewares/upload");
 const validator = require("./validation");
-const can = require("../../../../middlewares/can");
 
 router
   // auto messgaes
@@ -25,12 +24,7 @@ router
     Controller.validationBody,
     asyncHandler(Controller.create),
   )
-  .post(
-    "/:id",
-    validator.update(),
-    Controller.validationBody,
-    asyncHandler(Controller.update),
-  )
+  .post("/:id", asyncHandler(Controller.update))
   .get("/:id", asyncHandler(Controller.find))
   // send message
   .post(

@@ -11,46 +11,51 @@ const { Op } = require("sequelize");
 
 const Controller = class extends Controllers {
   async list(req, res) {
-    const whare = {};
-    if (req?.query?.user_id) whare.user_id = req?.query?.user_id;
-    if (req?.query?.admin_id) whare.admin_id = req?.query?.admin_id;
-    if (req?.query?.status) whare.status = req?.query?.status;
-    if (req?.query?.priority) whare.priority = req?.query?.priority;
-    if (req?.query?.id) whare.id = req?.query?.id;
-    if (req?.query?.title)
-      whare.title = { [Op.like]: `%${req?.query?.title}%` };
+    const where = {};
 
-    console.log(req?.admin?.permissions?.includes("profit.list"));
-    // request_widthdraw
+    if (req?.query?.user_id) where.user_id = req?.query?.user_id;
+    if (req?.query?.admin_id) where.admin_id = req?.query?.admin_id;
+    if (req?.query?.status) where.status = req?.query?.status;
+    if (req?.query?.priority) where.priority = req?.query?.priority;
+    if (req?.query?.id) where.id = req?.query?.id;
 
-    const hasProfitAccess = req?.admin?.permissions?.includes("profit.list");
-
-    if (!hasProfitAccess) {
-      whare.type = {
-        ...whare.departeman,
-        [Op.ne]: "request_withdraw",
-      };
+    if (req?.query?.title) {
+      where.title = { [Op.like]: `%${req?.query?.title}%` };
     }
 
-    const tickets = await founcList(Ticket, req, whare, {
-      include: [
-        {
-          model: User,
-          attributes: ["id", "avatar", "firstname", "lastname"],
-        },
-        {
-          model: Admin,
-          attributes: ["id", "avatar", "name"],
-        },
-      ],
-      order: [["updatedAt", "DESC"]],
-    });
+    if (req?.query?.type !== "widthdraw") {
+      where.departeman = { [Op.ne]: "request_widthdraw" };
+      where.type = { [Op.ne]: "widthdraw" };
+    }
 
-    this.response({
-      res,
-      status: 200,
-      data: tickets,
-    });
+    try {
+      const tickets = await founcList(Ticket, req, where, {
+        include: [
+          {
+            model: User,
+            attributes: ["id", "avatar", "firstname", "lastname"],
+          },
+          {
+            model: Admin,
+            attributes: ["id", "avatar", "name"],
+          },
+        ],
+        order: [["updatedAt", "DESC"]],
+      });
+
+      return this.response({
+        res,
+        status: 200,
+        data: tickets,
+      });
+    } catch (error) {
+      return this.response({
+        res,
+        status: 500,
+        message: "Internal Server Error",
+        data: error.message,
+      });
+    }
   }
   async create(req, res) {
     const files = req?.files?.map((e, i) => e?.filename);
@@ -90,6 +95,8 @@ const Controller = class extends Controllers {
       createdByAdmin: true,
     };
 
+    if (req?.body?.departeman === "request_widthdraw")
+      newData.type = "widthdraw";
     if (req?.body?.status) newData.status = req?.body?.status;
 
     const newTicket = await Ticket.update(newData, {

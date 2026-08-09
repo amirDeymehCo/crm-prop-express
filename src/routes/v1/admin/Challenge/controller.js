@@ -791,24 +791,26 @@ const Controller = class extends Controllers {
     this.response({ res, message: "اطلاعات اکانت با موفقیت ویرایش شد" });
   }
   async ordersList(req, res) {
-    const ordersList = await founcList(
-      Order,
-      req,
-      {},
-      {
-        include: [
-          {
-            model: UserChallenge,
-            attributes: ["id"],
-          },
-          {
-            model: User,
-            attributes: ["id", "firstname", "lastname"],
-          },
-        ],
-        order: [["createdAt", "DESC"]],
-      },
-    );
+    const where = {};
+
+    if (req?.query?.gateway) where.gateway = req?.query?.gateway;
+    if (req?.query?.type) where.type = req?.query?.type;
+    if (req?.query?.user_id) where.user_id = req?.query?.user_id;
+    if (req?.query?.status) where.status = req?.query?.status;
+
+    const ordersList = await founcList(Order, req, where, {
+      include: [
+        {
+          model: UserChallenge,
+          attributes: ["id"],
+        },
+        {
+          model: User,
+          attributes: ["id", "firstname", "lastname"],
+        },
+      ],
+      order: [["createdAt", "DESC"]],
+    });
 
     this.response({ res, status: 200, data: ordersList });
   }
