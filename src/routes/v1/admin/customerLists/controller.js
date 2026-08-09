@@ -68,21 +68,20 @@ const Controller = class extends Controllers {
         ],
         [
           literal(`(
-            SELECT CONCAT(a.name)
-            FROM call_history AS c
-            INNER JOIN admins AS a ON c.admin_id = a.id
-            WHERE c.user_id = User.id
-            ORDER BY c.date_create_call DESC, c.id DESC
-            LIMIT 1
-          )`),
+    SELECT a.name 
+    FROM call_history AS c 
+    INNER JOIN Admins AS a ON c.admin_id = a.id 
+    WHERE c.user_id = User.id 
+    ORDER BY c.id DESC LIMIT 1
+  )`),
           "last_call_admin_name",
         ],
         [
           literal(`(
-            SELECT CONCAT(a.name)
-            FROM admins AS a
-            WHERE a.id = User.responsible_admin_id
-          )`),
+    SELECT a.name 
+    FROM Admins AS a 
+    WHERE a.id = User.responsible_admin_id
+  )`),
           "responsible_admin",
         ],
       ],
@@ -139,20 +138,20 @@ const Controller = class extends Controllers {
         ],
         [
           literal(`(
-                    SELECT CONCAT(a.name) 
-                    FROM call_history AS c 
-                    INNER JOIN admins AS a ON c.admin_id = a.id 
-                    WHERE c.user_id = User.id 
-                    ORDER BY c.id DESC LIMIT 1
-                )`),
+    SELECT a.name 
+    FROM call_history AS c 
+    INNER JOIN Admins AS a ON c.admin_id = a.id 
+    WHERE c.user_id = User.id 
+    ORDER BY c.id DESC LIMIT 1
+  )`),
           "last_call_admin_name",
         ],
         [
           literal(`(
-                    SELECT CONCAT(a.name) 
-                    FROM admins AS a 
-                    WHERE a.id = User.responsible_admin_id
-                )`),
+    SELECT a.name 
+    FROM Admins AS a 
+    WHERE a.id = User.responsible_admin_id
+  )`),
           "responsible_admin",
         ],
       ],
