@@ -890,6 +890,7 @@ const Controller = class extends Controllers {
           <tr>
             <td class="center">${index + 1}</td>
             <td>${item.id ?? "-"}</td>
+            <td>${item.gateway_order_id ?? "-"}</td>
             <td>${getUserFullName(item)}</td>
             <td>${item.gateway || "-"}</td>
             <td>${item.type || "-"}</td>
@@ -1091,6 +1092,7 @@ const Controller = class extends Controllers {
                 <tr>
                   <th style="width: 40px;">#</th>
                   <th style="width: 70px;">ID</th>
+                  <th style="width: 70px;">شماره سفارش</th>
                   <th style="width: 140px;">نام کاربر</th>
                   <th style="width: 90px;">درگاه</th>
                   <th style="width: 90px;">نوع</th>
@@ -1167,6 +1169,287 @@ const Controller = class extends Controllers {
       return res.status(500).json({
         message: error.message,
         stack: error.stack,
+      });
+    }
+  }
+  async resetAccountPhase(req, res) {
+    const {
+      user_challenge_id,
+      phase_index,
+      cycle_no,
+      reason,
+      platform = "ctrader",
+    } = req.body;
+
+    const adminId = req.admin?.id;
+
+    if (!user_challenge_id || phase_index === undefined) {
+      return this.response({
+        res,
+        status: 400,
+        message: "user_challenge_id و phase_index الزامی هستند",
+      });
+    }
+
+    let accountId;
+    let oldAccount;
+    let userChallenge;
+    let oldStatus;
+
+    try {
+      await sequelize.transaction(async (t) => {
+        userChallenge = await UserChallenge.findByPk(user_challenge_id, {
+          include: [
+            {
+              model: ChallengePlan,
+              required: true,
+            },
+            {
+              model: User,
+              required: false,
+              attributes: ["id", "firstname", "lastname", "email"],
+            },
+          ],
+          transaction: t,
+          lock: t.LOCK.UPDATE,
+        });
+
+        if (!userChallenge) {
+          const error = new Error("چالش کاربر پیدا نشد");
+          error.status = 404;
+          throw error;
+        }
+
+        const accountWhere = {
+          user_challenge_id,
+          phase_index: Number(phase_index),
+        };
+
+        if (cycle_no !== undefined && cycle_no !== null) {
+          accountWhere.cycle_no = Number(cycle_no);
+        }
+
+        const account = await AccountInstance.findOne({
+          where: accountWhere,
+          transaction: t,
+          lock: t.LOCK.UPDATE,
+          order: [["cycle_no", "DESC"]],
+        });
+
+        if (!account) {
+          const error = new Error("اکانت مرحله موردنظر پیدا نشد");
+          error.status = 404;
+          throw error;
+        }
+
+        accountId = account.id;
+        oldStatus = account.status;
+
+        oldAccount = {
+          mt_login: account.mt_login,
+          mt_group: account.mt_group,
+          mt_server: account.mt_server,
+          starting_balance_usd: Number(account.starting_balance_usd),
+          phase_index: account.phase_index,
+          cycle_no: account.cycle_no,
+        };
+      });
+    } catch (error) {
+      return this.response({
+        res,
+        status: error.status || 500,
+        message: error.message || "خطا در آماده‌سازی ریست اکانت",
+      });
+    }
+
+    /**
+     * مرحله دوم:
+     * ساخت حساب جدید در MT5 / cTrader
+     */
+    let mtResult;
+    let inPassword;
+    let mPassword;
+
+    try {
+      const plan = userChallenge.ChallengePlan;
+      const findUser = userChallenge.User;
+
+      const mtGroup = oldAccount.mt_group || oldAccount.mt_server;
+
+      if (!mtGroup) {
+        throw new Error("گروه معاملاتی اکانت مشخص نیست");
+      }
+
+      inPassword = generateMainPassword();
+      mPassword = generateMainPassword();
+
+      mtResult = await createTradingAccount({
+        provider: platform,
+
+        order_id: `reset-${accountId}-${Date.now()}`,
+
+        balance: oldAccount.starting_balance_usd,
+        emailuser: 0,
+
+        eod_role: Number(plan.max_daily_drawdown_percent),
+        start_balance_role: Number(plan.max_overall_drawdown_percent),
+        eod_relative: plan.has_floating_risk
+          ? Number(plan.floating_risk_value || 0)
+          : 0,
+
+        inPassword,
+        mPassword,
+        leverge: plan.leverage,
+        groupch: mtGroup,
+
+        // cTrader fields
+        email: findUser?.email,
+        first_name: findUser?.firstname,
+        last_name: findUser?.lastname,
+
+        // Risk params
+        daily_risk_percent: Number(plan.max_daily_drawdown_percent),
+        overall_risk_percent: Number(plan.max_overall_drawdown_percent),
+        floating_risk_percent: Number(plan.floating_risk_value || 0),
+      });
+
+      const newMtLogin = mtResult?.Login || mtResult?.login;
+
+      if (!newMtLogin) {
+        throw new Error("ساخت حساب معاملاتی جدید ناموفق بود");
+      }
+    } catch (error) {
+      /**
+       * ساخت MT ناموفق بوده؛ وضعیت اکانت را به وضعیت قبلی برمی‌گردانیم.
+       */
+      await sequelize.transaction(async (t) => {
+        const account = await AccountInstance.findByPk(accountId, {
+          transaction: t,
+          lock: t.LOCK.UPDATE,
+        });
+
+        if (account) {
+          await account.update(
+            {
+              status: oldStatus || "active",
+            },
+            { transaction: t },
+          );
+        }
+
+        await ChallengeNote.create(
+          {
+            user_challenge_id,
+            admin_id: adminId,
+            note:
+              `❌ تلاش برای ریست حساب ناموفق بود | ` +
+              `Phase: ${oldAccount.phase_index} | ` +
+              `Cycle: ${oldAccount.cycle_no} | ` +
+              `MT Login قبلی: ${oldAccount.mt_login} | ` +
+              `خطا: ${error.message}`,
+          },
+          { transaction: t },
+        );
+      });
+
+      return this.response({
+        res,
+        status: 500,
+        message: error.message || "ساخت حساب جدید ناموفق بود",
+      });
+    }
+
+    /**
+     * مرحله سوم:
+     * اتصال MT جدید به AccountInstance و ثبت Note
+     */
+    try {
+      const newMtLogin = String(mtResult?.Login || mtResult?.login);
+      const newMtGroup = oldAccount.mt_group || oldAccount.mt_server;
+
+      await sequelize.transaction(async (t) => {
+        const account = await AccountInstance.findByPk(accountId, {
+          transaction: t,
+          lock: t.LOCK.UPDATE,
+        });
+
+        if (!account) {
+          const error = new Error("رکورد اکانت پس از ساخت MT پیدا نشد");
+          error.status = 404;
+          throw error;
+        }
+
+        await account.update(
+          {
+            // اطلاعات MT جدید
+            mt_login: newMtLogin,
+            mt_server: newMtGroup,
+            mt_group: newMtGroup,
+            email: mtResult?.email || userChallenge.User?.email || null,
+
+            // رمزهای جدید
+            // پیشنهاد: قبل از ذخیره Encrypt شوند
+            mt_password: mPassword,
+            in_password: inPassword,
+
+            // وضعیت جدید
+            status: "active",
+            activated_at: new Date(),
+
+            /**
+             * فیلدهای زیر را فقط اگر در مدل AccountInstance داری نگه دار.
+             * نام‌ها را با مدل خودت هماهنگ کن.
+             */
+            current_balance_usd: Number(account.starting_balance_usd),
+            equity_usd: Number(account.starting_balance_usd),
+            profit_usd: 0,
+            total_trades: 0,
+            total_lots: 0,
+            max_drawdown_usd: 0,
+            max_daily_drawdown_usd: 0,
+            failed_at: null,
+            completed_at: null,
+          },
+          { transaction: t },
+        );
+
+        await ChallengeNote.create(
+          {
+            user_challenge_id,
+            admin_id: adminId,
+            note:
+              `🔄 حساب مرحله با موفقیت ریست شد | ` +
+              `Phase: ${oldAccount.phase_index} | ` +
+              `Cycle: ${oldAccount.cycle_no} | ` +
+              `MT قبلی: ${oldAccount.mt_login} | ` +
+              `MT جدید: ${newMtLogin} | ` +
+              `Group: ${newMtGroup}` +
+              (reason ? ` | دلیل: ${reason}` : ""),
+          },
+          { transaction: t },
+        );
+      });
+
+      return this.response({
+        res,
+        status: 200,
+        message: "اکانت مرحله با موفقیت ریست شد",
+        data: {
+          account_instance_id: accountId,
+          phase_index: oldAccount.phase_index,
+          cycle_no: oldAccount.cycle_no,
+          old_mt_login: oldAccount.mt_login,
+          new_mt_login: newMtLogin,
+          mt_group: newMtGroup,
+        },
+      });
+    } catch (error) {
+      return this.response({
+        res,
+        status: error.status || 500,
+        message:
+          error.message ||
+          "اکانت MT ساخته شد، اما ذخیره‌سازی اطلاعات آن ناموفق بود",
       });
     }
   }

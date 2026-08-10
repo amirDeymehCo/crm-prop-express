@@ -44,10 +44,11 @@ router
     asyncHandler(Controller.notsList),
   )
   .get("/orders", can("order.read"), asyncHandler(Controller.ordersList))
-  .get(
-    "/orders/pdf",
-    can("order.read"),
-    asyncHandler(Controller.ordersListPdf),
+  .get("/orders/pdf", can("order.read"), asyncHandler(Controller.ordersListPdf))
+  .post(
+    "/reset-account",
+    can("order.create"),
+    asyncHandler(Controller.resetAccountPhase),
   );
 
 module.exports = router;
