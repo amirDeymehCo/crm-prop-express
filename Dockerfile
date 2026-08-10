@@ -1,18 +1,29 @@
-FROM node:20
+FROM node:20-bookworm-slim
+
+# نصب مرورگر کرومیوم و فونت‌های فارسی/عربی برای نمایش درست PDF
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    chromium \
+    fonts-noto-core \
+    fonts-freefont-ttf \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
+# جلوگیری از دانلود کروم توسط خودِ پاپتیر (چون بالا نصب کردیم)
 ENV PUPPETEER_SKIP_DOWNLOAD=true
+# آدرس مرورگر برای استفاده در کد Node.js
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 ENV NODE_ENV=production
 
 COPY package*.json ./
 
-RUN npx puppeteer browsers install chrome
-RUN npm install -g nodemon
-RUN npm install
+# استفاده از npm ci برای نصب دقیق طبق lockfile
+RUN npm ci --only=production
 
 COPY . .
 
 EXPOSE 8000
 
-CMD ["npm", "start"]
+# اجرای مستقیم با node (بهینه‌تر از nodemon برای داکر پروادکشن)
+CMD ["node", "src/index.js"]
