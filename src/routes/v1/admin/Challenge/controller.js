@@ -1242,13 +1242,44 @@ const Controller = class extends Controllers {
           throw error;
         }
 
+        const challengeTypeId = userChallenge.challenge_type_id;
+        const challengePlanId = userChallenge.challenge_plan_id;
+
+        const phaseAccount = await ChallengePhase.findOne({
+          where: {
+            challenge_type_id: challengeTypeId,
+            challenge_plan_id: challengePlanId,
+            phase_index: account.phase_index,
+            platform: platform,
+          },
+          attributes: ["id", "group"],
+          transaction: t,
+        });
+
+        console.log({
+          challenge_type_id: challengeTypeId,
+          challenge_plan_id: challengePlanId,
+          phase_index: account.phase_index,
+          platform: platform,
+        });
+
+        console.log("Phase found:", phaseAccount?.toJSON());
+
+        if (!phaseAccount || !phaseAccount.group) {
+          const error = new Error(
+            `گروه معاملاتی برای این مرحله تعریف نشده است (Phase: ${account.phase_index})`,
+          );
+          error.status = 400;
+          throw error;
+        }
+
         accountId = account.id;
         oldStatus = account.status;
 
         oldAccount = {
           mt_login: account.mt_login,
-          mt_group: account.mt_group,
-          mt_server: account.mt_server,
+          mt_group: phaseAccount.group,
+          mt_server: phaseAccount.group,
           starting_balance_usd: Number(account.starting_balance_usd),
           phase_index: account.phase_index,
           cycle_no: account.cycle_no,
