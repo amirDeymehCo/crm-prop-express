@@ -43,6 +43,11 @@ router
     can("order.read"),
     asyncHandler(Controller.notsList),
   )
-  .get("/orders", can("order.read"), asyncHandler(Controller.ordersList));
+  .get("/orders", can("order.read"), asyncHandler(Controller.ordersList))
+  .get(
+    "/orders/pdf",
+    can("order.read"),
+    asyncHandler(Controller.ordersListPdf),
+  );
 
 module.exports = router;

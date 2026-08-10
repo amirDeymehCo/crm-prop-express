@@ -658,13 +658,6 @@ const Controller = class extends Controllers {
   async createChallenge(req, res, next) {
     const t = await sequelize.transaction();
     try {
-      /**
-       * ورودی‌های لازم:
-       * req.body.user_id
-       * req.body.challenge_plan_id
-       * بقیه چیزهایی که createChFounc نیاز داره
-       */
-
       // 1) fake user برای reuse منطق
       const targetUser = await User.findByPk(req.body.user_id);
       if (!targetUser) {
@@ -808,14 +801,18 @@ const Controller = class extends Controllers {
     if (req?.query?.status) where.status = req?.query?.status;
 
     const ordersList = await founcList(Order, req, where, {
+      distinct: true,
+      subQuery: false,
       include: [
         {
           model: UserChallenge,
           attributes: ["id"],
+          required: false,
         },
         {
           model: User,
           attributes: ["id", "firstname", "lastname"],
+          required: false,
         },
       ],
       order: [["createdAt", "DESC"]],
@@ -842,6 +839,107 @@ const Controller = class extends Controllers {
     });
 
     this.response({ res, data: notsList });
+  }
+  async ordersListPdf(req, res, next) {
+    try {
+      const where = {};
+
+      if (req?.query?.gateway) where.gateway = req.query.gateway;
+      if (req?.query?.type) where.type = req.query.type;
+      if (req?.query?.user_id) where.user_id = req.query.user_id;
+      if (req?.query?.status) where.status = req.query.status;
+
+      const orders = await Order.findAll({
+        where,
+        include: [
+          {
+            model: UserChallenge,
+            attributes: ["id"],
+          },
+          {
+            model: User,
+            attributes: ["id", "firstname", "lastname"],
+          },
+        ],
+        order: [["createdAt", "DESC"]],
+      });
+
+      const formatPrice = (value) =>
+        new Intl.NumberFormat("fa-IR").format(Number(value || 0));
+
+      const formatDate = (value) =>
+        new Intl.DateTimeFormat("fa-IR", {
+          dateStyle: "short",
+          timeStyle: "short",
+        }).format(new Date(value));
+
+      const rows = orders
+        .map(
+          (item, index) => `
+          <tr>
+            <td>${index + 1}</td>
+            <td>${item.id ?? "-"}</td>
+            <td>${item.User ? `${item.User.firstname || ""} ${item.User.lastname || ""}`.trim() || "-" : "-"}</td>
+            <td>${item.gateway || "-"}</td>
+            <td>${item.type || "-"}</td>
+            <td>${item.status || "-"}</td>
+            <td>${formatPrice(item.amount_usd)}</td>
+            <td>${formatPrice(item.amount_irr ? item?.amount_irr : item?.amount_usd * 1800000)}</td>
+            <td>${item.UserChallenge?.id || "-"}</td>
+            <td>${formatDate(item.createdAt)}</td>
+          </tr>
+        `,
+        )
+        .join("");
+
+      const html = `
+      <!DOCTYPE html>
+      <html lang="fa" dir="rtl">
+        <head>
+          <meta charset="UTF-8" />
+        </head>
+        <body>
+          <table border="1">
+            <tbody>
+              ${rows || `<tr><td colspan="10">داده‌ای یافت نشد</td></tr>`}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+      const browser = await puppeteer.launch({
+        headless: true,
+        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      });
+
+      try {
+        const page = await browser.newPage();
+        await page.setContent(html, { waitUntil: "networkidle0" });
+
+        const pdfBuffer = await page.pdf({
+          format: "A4",
+          landscape: true,
+          printBackground: true,
+        });
+
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader(
+          "Content-Disposition",
+          `attachment; filename=orders-${Date.now()}.pdf`,
+        );
+
+        return res.end(pdfBuffer);
+      } finally {
+        await browser.close();
+      }
+    } catch (error) {
+      console.error("PDF ERROR:", error);
+      return res.status(500).json({
+        message: error.message,
+        stack: error.stack,
+      });
+    }
   }
 };
 

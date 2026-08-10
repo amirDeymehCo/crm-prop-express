@@ -76,14 +76,15 @@ const Controller = class extends Controllers {
       }
 
       // 3️⃣ اعتبارسنجی دلیل رد تماس
-      if (body?.is_answer === false && !body?.reject_reason_id) {
-        await t.rollback();
-        return this.response({
-          res,
-          status: 400,
-          message: "باید دلیل پاسخ ندادن انتخاب شود",
-        });
-      }
+      if (body?.direction !== "inbound")
+        if (body?.is_answer === false && !body?.reject_reason_id) {
+          await t.rollback();
+          return this.response({
+            res,
+            status: 400,
+            message: "باید دلیل پاسخ ندادن انتخاب شود",
+          });
+        }
 
       // 4️⃣ ساخت تماس
       const newCall = await Call.create(
@@ -97,7 +98,7 @@ const Controller = class extends Controllers {
       );
 
       // 5️⃣ ثبت نتایج تماس
-      if (body?.is_answer === true) {
+      if (body?.is_answer === true && body?.direction !== "inbound") {
         const result_option_ids = Array.isArray(body?.result_option_ids)
           ? body.result_option_ids
           : [];

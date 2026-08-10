@@ -52,7 +52,8 @@ const Controller = class extends Controllers {
       priority: req?.body?.priority,
       status: status[req?.body?.stauts],
       type: req?.body?.type || "ticket",
-      userChallenge: req?.body?.userChallenge || null,
+      userChallenge:
+        req?.body?.userChallenge == "null" ? null : req?.body?.userChallenge,
       files: [],
     });
     await Message.create({
