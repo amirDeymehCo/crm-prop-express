@@ -7,6 +7,7 @@ ENV NODE_ENV=production
 
 COPY package*.json ./
 
+RUN npx puppeteer browsers install chrome
 RUN npm install -g nodemon
 RUN npm install
 
