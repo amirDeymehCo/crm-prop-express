@@ -846,7 +846,7 @@ const Controller = class extends Controllers {
 
       if (req?.query?.gateway) where.gateway = req.query.gateway;
       if (req?.query?.type) where.type = req.query.type;
-      if (req?.query?.user_id) where.user_id = req.query.user_id;
+      if (req?.query?.user_id) where.user_id = Number(req.query.user_id);
       if (req?.query?.status) where.status = req.query.status;
 
       const orders = await Order.findAll({
@@ -855,10 +855,12 @@ const Controller = class extends Controllers {
           {
             model: UserChallenge,
             attributes: ["id"],
+            required: false,
           },
           {
             model: User,
             attributes: ["id", "firstname", "lastname"],
+            required: false,
           },
         ],
         order: [["createdAt", "DESC"]],
@@ -868,25 +870,38 @@ const Controller = class extends Controllers {
         new Intl.NumberFormat("fa-IR").format(Number(value || 0));
 
       const formatDate = (value) =>
-        new Intl.DateTimeFormat("fa-IR", {
-          dateStyle: "short",
-          timeStyle: "short",
-        }).format(new Date(value));
+        value
+          ? new Intl.DateTimeFormat("fa-IR", {
+              dateStyle: "short",
+              timeStyle: "short",
+            }).format(new Date(value))
+          : "-";
+
+      const getUserFullName = (item) => {
+        const firstname = item?.User?.firstname || "";
+        const lastname = item?.User?.lastname || "";
+        const fullName = `${firstname} ${lastname}`.trim();
+        return fullName || "-";
+      };
 
       const rows = orders
         .map(
           (item, index) => `
           <tr>
-            <td>${index + 1}</td>
+            <td class="center">${index + 1}</td>
             <td>${item.id ?? "-"}</td>
-            <td>${item.User ? `${item.User.firstname || ""} ${item.User.lastname || ""}`.trim() || "-" : "-"}</td>
+            <td>${getUserFullName(item)}</td>
             <td>${item.gateway || "-"}</td>
             <td>${item.type || "-"}</td>
-            <td>${item.status || "-"}</td>
-            <td>${formatPrice(item.amount_usd)}</td>
-            <td>${formatPrice(item.amount_irr ? item?.amount_irr : item?.amount_usd * 1800000)}</td>
-            <td>${item.UserChallenge?.id || "-"}</td>
-            <td>${formatDate(item.createdAt)}</td>
+            <td>
+              <span class="badge badge-${item.status || "default"}">
+                ${item.status || "-"}
+              </span>
+            </td>
+            <td class="num">${formatPrice(item.amount_usd)}</td>
+            <td class="num">${formatPrice(item.amount_irr ?? Number(item.amount_usd || 0) * 1800000)}</td>
+            <td class="center">${item.UserChallenge?.id || "-"}</td>
+            <td class="nowrap">${formatDate(item.createdAt)}</td>
           </tr>
         `,
         )
@@ -897,30 +912,244 @@ const Controller = class extends Controllers {
       <html lang="fa" dir="rtl">
         <head>
           <meta charset="UTF-8" />
+          <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <style>
+            @page {
+              size: A4 landscape;
+              margin: 18px;
+            }
+
+            * {
+              box-sizing: border-box;
+            }
+
+            html, body {
+              direction: rtl;
+              margin: 0;
+              padding: 0;
+              font-family: Tahoma, Arial, "Noto Sans Arabic", "Noto Sans", sans-serif;
+              font-size: 12px;
+              color: #111827;
+              background: #ffffff;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+
+            .wrapper {
+              width: 100%;
+              padding: 8px;
+            }
+
+            .header {
+              margin-bottom: 16px;
+              padding-bottom: 12px;
+              border-bottom: 2px solid #e5e7eb;
+            }
+
+            .title {
+              margin: 0 0 8px 0;
+              font-size: 18px;
+              font-weight: 700;
+              color: #111827;
+            }
+
+            .meta {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 12px;
+              font-size: 11px;
+              color: #4b5563;
+            }
+
+            .meta span {
+              background: #f9fafb;
+              border: 1px solid #e5e7eb;
+              padding: 6px 10px;
+              border-radius: 8px;
+            }
+
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              table-layout: fixed;
+              background: #fff;
+            }
+
+            thead {
+              display: table-header-group;
+            }
+
+            th, td {
+              border: 1px solid #d1d5db;
+              padding: 8px 6px;
+              text-align: center;
+              vertical-align: middle;
+              word-break: break-word;
+            }
+
+            th {
+              background: #1f2937;
+              color: #fff;
+              font-size: 11px;
+              font-weight: 700;
+              white-space: nowrap;
+            }
+
+            tbody tr:nth-child(even) {
+              background: #f9fafb;
+            }
+
+            tbody tr:hover {
+              background: #f3f4f6;
+            }
+
+            .center {
+              text-align: center;
+            }
+
+            .num {
+              text-align: left;
+              direction: ltr;
+              unicode-bidi: plaintext;
+              white-space: nowrap;
+            }
+
+            .nowrap {
+              white-space: nowrap;
+              direction: ltr;
+              unicode-bidi: plaintext;
+            }
+
+            .badge {
+              display: inline-block;
+              padding: 4px 8px;
+              border-radius: 999px;
+              font-size: 10px;
+              font-weight: 700;
+              line-height: 1.2;
+              white-space: nowrap;
+            }
+
+            .badge-success {
+              background: #dcfce7;
+              color: #166534;
+            }
+
+            .badge-failed, .badge-fail {
+              background: #fee2e2;
+              color: #991b1b;
+            }
+
+            .badge-pending {
+              background: #fef3c7;
+              color: #92400e;
+            }
+
+            .badge-canceled, .badge-cancelled {
+              background: #e5e7eb;
+              color: #374151;
+            }
+
+            .badge-default {
+              background: #e0e7ff;
+              color: #3730a3;
+            }
+
+            .empty {
+              text-align: center;
+              padding: 24px;
+              color: #6b7280;
+            }
+
+            .footer {
+              margin-top: 14px;
+              font-size: 10px;
+              color: #6b7280;
+              text-align: left;
+              direction: ltr;
+              unicode-bidi: plaintext;
+            }
+          </style>
         </head>
         <body>
-          <table border="1">
-            <tbody>
-              ${rows || `<tr><td colspan="10">داده‌ای یافت نشد</td></tr>`}
-            </tbody>
-          </table>
+          <div class="wrapper">
+            <div class="header">
+              <h1 class="title">گزارش تراکنش‌ها</h1>
+              <div class="meta">
+                <span>تعداد کل: ${formatPrice(orders.length)}</span>
+                <span>تاریخ تولید: ${formatDate(new Date())}</span>
+                ${req?.query?.gateway ? `<span>درگاه: ${req.query.gateway}</span>` : ""}
+                ${req?.query?.type ? `<span>نوع: ${req.query.type}</span>` : ""}
+                ${req?.query?.status ? `<span>وضعیت: ${req.query.status}</span>` : ""}
+                ${req?.query?.user_id ? `<span>کاربر: ${req.query.user_id}</span>` : ""}
+              </div>
+            </div>
+
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 40px;">#</th>
+                  <th style="width: 70px;">ID</th>
+                  <th style="width: 140px;">نام کاربر</th>
+                  <th style="width: 90px;">درگاه</th>
+                  <th style="width: 90px;">نوع</th>
+                  <th style="width: 90px;">وضعیت</th>
+                  <th style="width: 95px;">مبلغ دلاری</th>
+                  <th style="width: 110px;">مبلغ ریالی</th>
+                  <th style="width: 85px;">Challenge</th>
+                  <th style="width: 120px;">تاریخ</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${
+                  rows ||
+                  `<tr><td class="empty" colspan="10">داده‌ای یافت نشد</td></tr>`
+                }
+              </tbody>
+            </table>
+
+            <div class="footer">
+              Generated by MyProp • ${new Date().toISOString()}
+            </div>
+          </div>
         </body>
       </html>
     `;
 
       const browser = await puppeteer.launch({
         headless: true,
-        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+        args: [
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-dev-shm-usage",
+          "--font-render-hinting=medium",
+        ],
       });
 
       try {
         const page = await browser.newPage();
-        await page.setContent(html, { waitUntil: "networkidle0" });
+
+        await page.setViewport({
+          width: 1600,
+          height: 900,
+          deviceScaleFactor: 1,
+        });
+
+        await page.setContent(html, { waitUntil: "load" });
+        await page.emulateMediaType("screen");
 
         const pdfBuffer = await page.pdf({
           format: "A4",
           landscape: true,
           printBackground: true,
+          preferCSSPageSize: true,
+          margin: {
+            top: "18px",
+            right: "18px",
+            bottom: "18px",
+            left: "18px",
+          },
         });
 
         res.setHeader("Content-Type", "application/pdf");
