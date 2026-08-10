@@ -7,7 +7,7 @@ const ChallengeNote = sequelize.define(
   "ChallengeNote",
   {
     note: {
-      type: DataTypes.STRING,
+      type: DataTypes.TEXT,
       allowNull: false,
     },
   },

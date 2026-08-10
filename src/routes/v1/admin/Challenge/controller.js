@@ -1423,7 +1423,6 @@ const Controller = class extends Controllers {
               `Cycle: ${oldAccount.cycle_no} | ` +
               `MT قبلی: ${oldAccount.mt_login} | ` +
               `MT جدید: ${newMtLogin} | ` +
-              `Group: ${newMtGroup}` +
               (reason ? ` | دلیل: ${reason}` : ""),
           },
           { transaction: t },
