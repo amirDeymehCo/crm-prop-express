@@ -1,9 +1,7 @@
 // services/trading/providers/ctrader.js
 const axios = require("axios");
 
-const CTRADER_CREATE_URL =
-  process.env.CTRADER_CREATE_URL ||
-  "http://23.88.5.228/ctrader-create-account-api.php";
+const CTRADER_CREATE_URL = `${process.env.META_ANALYSIS_BASE_URL}/ctrader-create-account-api.php`;
 const CTRADER_API_KEY =
   process.env.CTRADER_API_KEY || "Mylafjdto#@hreogfh436t3458Prop";
 
@@ -57,7 +55,7 @@ async function createAccount({
         "X-API-Key": CTRADER_API_KEY,
       },
       data: payload,
-      timeout: 30000,
+      timeout: 60000,
       maxRedirects: 10,
       validateStatus: () => true,
     });
