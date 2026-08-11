@@ -737,6 +737,23 @@ const Controller = class extends Controllers {
     if (req?.query?.user_id) where.user_id = req?.query?.user_id;
     if (req?.query?.status) where.status = req?.query?.status;
 
+    if (req?.query?.from || req?.query?.to) {
+      where.createdAt = {};
+
+      if (req?.query?.from) {
+        const from = new Date(req.query.from);
+        from.setHours(0, 0, 0, 0);
+
+        where.createdAt[Op.gte] = from;
+      }
+
+      if (req?.query?.to) {
+        const to = new Date(req.query.to);
+        to.setHours(23, 59, 59, 999);
+
+        where.createdAt[Op.lte] = to;
+      }
+    }
     const ordersList = await founcList(Order, req, where, {
       distinct: true,
       subQuery: false,

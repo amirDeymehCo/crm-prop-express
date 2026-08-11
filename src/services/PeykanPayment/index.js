@@ -56,6 +56,11 @@ async function paykanService({
     amount: amountIrr,
     callback_url,
     callback_method: "GET",
+
+    // description
+    // name
+
+    description: `شناسه سفارش: ${userChallenge}`,
   };
 
   console.log(body);

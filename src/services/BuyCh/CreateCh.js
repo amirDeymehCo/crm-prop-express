@@ -442,37 +442,57 @@ async function createOrderRecord({
   prices,
   transaction,
   admin_id = null,
+  coupon,
 }) {
   const orderId = `buyCh-${user?.id}-${Date.now()}`;
 
   const setting = await Setting.findOne({ where: { id: 1 } });
+  const dollarPrice = Number(setting?.dollar_price || 0);
+
+  const basePrice = Number(prices.base_price_usd);
+  const discount = Number(prices.discount_usd || 0);
+  const finalPrice = Number(prices.final_price_usd);
 
   const order = await Order.create(
     {
       user_id: user.id,
       user_challenge_id: userChallenge.id,
-      amount_usd: prices.final_price_usd,
-      amount_irr: prices.final_price_usd * setting?.dollar_price,
-      gateway: prices.final_price_usd === 0 ? "coupon_free" : gateway,
-      status: prices.final_price_usd === 0 ? "paid" : "pending",
+
+      // ---------- USD ----------
+      amount_usd: basePrice,
+      discount_usd: discount,
+      final_amount_usd: finalPrice,
+
+      // ---------- IRR ----------
+      amount_irr: basePrice * dollarPrice,
+      discount_irr: discount * dollarPrice,
+      final_amount_irr: finalPrice * dollarPrice,
+
+      // ---------- درگاه / وضعیت ----------
+      gateway: finalPrice === 0 ? "coupon_free" : gateway,
+      status: finalPrice === 0 ? "paid" : "pending",
       gateway_order_id: orderId,
       type:
         gateway === "wallet"
           ? "challenge_purchase_wallet"
           : "challenge_purchase",
       admin_id: admin_id ?? null,
+
+      // ---------- snapshot کوپن ⬅️ NEW ----------
+      coupon_id: coupon?.id ?? null,
+      coupon_code_snapshot: coupon?.code ?? null,
     },
     { transaction },
   );
 
   await Payment.create(
     {
-      provider: prices.final_price_usd === 0 ? "coupon_free" : provider,
+      provider: finalPrice === 0 ? "coupon_free" : provider,
       order_id: orderId,
       user_id: user.id,
-      amount_irr: prices.final_price_usd * setting?.dollar_price,
-      amount_usd: prices.final_price_usd,
-      status: prices.final_price_usd === 0 ? "confirmed_free" : "pending",
+      amount_irr: finalPrice * dollarPrice,
+      amount_usd: finalPrice,
+      status: finalPrice === 0 ? "confirmed_free" : "pending",
       pay_currency: "usd",
       UserChallenge: userChallenge.id,
     },
@@ -595,6 +615,7 @@ async function purchaseChallenge(req, res, next) {
       prices,
       transaction: t,
       admin_id: req?.admin?.id,
+      coupon,
     });
 
     await t.commit();

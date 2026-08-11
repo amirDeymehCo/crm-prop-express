@@ -5,6 +5,7 @@ const sequelize = require("../../db");
 const User = require("./User");
 const UserChallenge = require("./Challenge/UserChallenge");
 const Admin = require("./Admin");
+const Coupon = require("./Coupon");
 
 const Order = sequelize.define(
   "Order",
@@ -76,6 +77,33 @@ const Order = sequelize.define(
       type: DataTypes.JSON,
       allowNull: true,
     },
+
+    discount_usd: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: true,
+      defaultValue: 0,
+    },
+    final_amount_usd: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: false,
+    },
+    discount_irr: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: true,
+      defaultValue: 0,
+    },
+    final_amount_irr: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: false,
+    },
+    coupon_code_snapshot: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    coupon_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
   },
   {
     tableName: "orders",
@@ -95,5 +123,8 @@ Order.belongsTo(Admin, { foreignKey: "admin_id" });
 // یک چالش می‌تونه چند Order داشته باشد (کاربر چند بار تلاش برای پرداخت کند)
 UserChallenge.hasMany(Order, { foreignKey: "user_challenge_id" });
 Order.belongsTo(UserChallenge, { foreignKey: "user_challenge_id" });
+
+Coupon.hasMany(Order, { foreignKey: "coupon_id", as: "orders" });
+Order.belongsTo(Coupon, { foreignKey: "coupon_id", as: "coupon" });
 
 module.exports = Order;

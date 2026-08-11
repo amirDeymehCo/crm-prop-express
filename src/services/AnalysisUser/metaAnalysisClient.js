@@ -3,7 +3,7 @@ const axiosRetry = require("axios-retry").default;
 
 const client = axios.create({
   baseURL: process.env.META_ANALYSIS_BASE_URL,
-  timeout: 10000,
+  timeout: 60000,
   headers: {
     "Content-Type": "application/json",
   },
@@ -31,6 +31,7 @@ async function callMeta(endpoint, payload, apiKey) {
 
     return data;
   } catch (err) {
+    console.log(err);
     return null;
   }
 }

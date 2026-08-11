@@ -13,6 +13,22 @@ const Controller = class extends Controllers {
   async create(req, res) {
     const files = req?.files?.map((e, i) => e?.filename);
 
+    const openTicketCount = await Ticket.count({
+      where: {
+        user_id: req?.user?.id,
+        status: "ticket_open",
+      },
+    });
+
+    if (openTicketCount >= 2) {
+      return this.response({
+        res,
+        status: 400,
+        message:
+          "کاربر مای پراپ، شما در حال حاضر دو تیکت باز دارید. لطفاً پس از پاسخ پشتیبان و بسته‌شدن تیکت‌ها مجدداً اقدام کنید",
+      });
+    }
+
     const status = {
       ticket: "ticket_open",
       widthdraw: "widthdraw_requsted",
