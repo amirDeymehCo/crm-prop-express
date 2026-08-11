@@ -411,27 +411,27 @@ const Controller = class extends Controllers {
       });
 
       // 07 ساخت گواهینامه
-      const certificatePhase = getCertificatePhase(perPhaseIndex, phaseIndex);
-      let certificatePayload;
-      if (certificatePhase) {
-        // اینجا فقط دیتا جمع می‌کنیم
-        certificatePayload = {
-          user_id: user?.id,
-          fullName: user?.firstname + " " + user?.lastname,
-          phase: certificatePhase,
-          total_profit: 0,
-          withdraw_profit: 0,
-        };
-      }
+      // const certificatePhase = getCertificatePhase(perPhaseIndex, phaseIndex);
+      // let certificatePayload;
+      // if (certificatePhase) {
+      //   // اینجا فقط دیتا جمع می‌کنیم
+      //   certificatePayload = {
+      //     user_id: user?.id,
+      //     fullName: user?.firstname + " " + user?.lastname,
+      //     phase: certificatePhase,
+      //     total_profit: 0,
+      //     withdraw_profit: 0,
+      //   };
+      // }
 
       await t.commit();
 
       // ⬅️ مهم: بیرون از transaction
-      if (certificatePayload) {
-        createPhaseCertificate(certificatePayload).catch((err) =>
-          console.error("CERTIFICATE ERROR:", err),
-        );
-      }
+      // if (certificatePayload) {
+      //   createPhaseCertificate(certificatePayload).catch((err) =>
+      //     console.error("CERTIFICATE ERROR:", err),
+      //   );
+      // }
 
       return this.response({
         res,
