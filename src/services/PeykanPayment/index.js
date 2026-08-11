@@ -2,14 +2,16 @@
 const axios = require("axios");
 const Payment = require("../../models/Payment");
 const Order = require("../../models/Order");
-const { getDollarPrice } = require("../UsdPrice");
+const Setting = require("../../models/Setting");
 
 const PAYKAN_BASE = "https://pgw.paykan.app";
 
 async function getUsdToIrrRate() {
-  const { price } = await getDollarPrice();
+  const setting = await Setting.findOne({ where: { id: 1 } });
+  const dollarPrice = Number(setting?.dollar_price || 0);
 
-  return price + 2500;
+  // اگر خواستی حاشیه امن هم اضافه کنی
+  return dollarPrice + 2500;
 }
 
 async function paykanService({
@@ -18,71 +20,104 @@ async function paykanService({
   callback_url = "https://api.myprop.trade/api/v1/web/show-data-getway",
   userChallenge = null,
   type = "wallet_deposit",
+  discountUsd = 0,
 }) {
-  const rate = await getUsdToIrrRate();
-  const amountIrr = Math.round(Number(amountUsd) * Number(rate)) * 10;
+  const orderId = `buyCh-${userId}-${Date.now()}`;
 
-  const orderId = `dep-${userId}-${Date.now()}`; // یکتا
+  const setting = await Setting.findOne({ where: { id: 1 } });
+  const dollarPrice = Number(setting?.dollar_price || 0);
 
-  await Order.create({
+  const amountUsdValue = Number(amountUsd || 0);
+  const discountUsdValue = Number(discountUsd || 0);
+  const finalAmountUsdValue = Math.max(amountUsdValue - discountUsdValue, 0);
+
+  const amountIrr = Math.round(amountUsdValue * dollarPrice);
+  const discountIrr = Math.round(discountUsdValue * dollarPrice);
+  const finalAmountIrr = Math.round(finalAmountUsdValue * dollarPrice);
+
+  const userChallengeId =
+    typeof userChallenge === "object" && userChallenge !== null
+      ? userChallenge.id
+      : userChallenge;
+
+  // 1) ساخت Order
+  const order = await Order.create({
     gateway_order_id: orderId,
     user_id: userId,
+    user_challenge_id: userChallengeId,
+
+    amount_usd: amountUsdValue,
+    discount_usd: discountUsdValue,
+    final_amount_usd: finalAmountUsdValue,
+
     amount_irr: amountIrr,
-    amount_usd: amountUsd,
-    currency: "IRR",
-    gateway: "peykan",
-    status: "pending",
+    discount_irr: discountIrr,
+    final_amount_irr: finalAmountIrr,
+
+    gateway: finalAmountUsdValue === 0 ? "coupon_free" : "peykan",
+    status: finalAmountUsdValue === 0 ? "paid" : "pending",
     type,
-    user_challenge_id: userChallenge,
   });
 
-  // ساخت رکورد Payment در حالت pending
+  // 2) اگر مبلغ نهایی صفره، نیازی به درگاه نیست
+  if (finalAmountUsdValue === 0) {
+    const payment = await Payment.create({
+      order_id: orderId,
+      user_id: userId,
+      amount_irr: 0,
+      amount_usd: 0,
+      rate_irr_per_usd: dollarPrice,
+      status: "paid",
+      provider: "coupon_free",
+      raw_callback: callback_url,
+      user_challenge_id: userChallengeId,
+    });
 
+    return {
+      order,
+      payment,
+      redirectUrl: null,
+      free: true,
+    };
+  }
+
+  // 3) ساخت رکورد Payment در حالت pending
   const payment = await Payment.create({
     order_id: orderId,
     user_id: userId,
-    amount_irr: amountIrr,
-    amount_usd: amountUsd,
-    rate_irr_per_usd: rate,
+    amount_irr: finalAmountIrr,
+    amount_usd: finalAmountUsdValue,
+    rate_irr_per_usd: dollarPrice,
     status: "pending",
     provider: "peykan",
     raw_callback: callback_url,
-    UserChallenge: userChallenge,
+    user_challenge_id: userChallengeId,
   });
 
   const body = {
     merchant_id: process.env.PAYKAN_MERCHANT_ID,
     order_id: orderId,
-    amount: amountIrr,
+    amount: finalAmountIrr,
     callback_url,
     callback_method: "GET",
-
-    // description
-    // name
-
-    description: `شناسه سفارش: ${userChallenge}`,
+    description: `شناسه سفارش: ${userChallengeId ?? orderId}`,
   };
 
-  console.log(body);
-
   try {
-    const resp = await axios.post(
-      "https://pgw.paykan.app/api/v1/withdraw/",
-      body,
-    );
+    const resp = await axios.post(`${PAYKAN_BASE}/api/v1/withdraw/`, body);
+
     if (resp.status !== 200 || !resp.data?.token) {
-      throw new Error("ساخت پیکان مشکلی پیش اومده است");
+      throw new Error("ساخت توکن پیکان با مشکل مواجه شد");
     }
 
     const { token, ref_num } = resp.data;
 
-    // ref_num برگشتی در create رو هم ذخیره کن
-    payment.ref_num = ref_num;
+    payment.ref_num = ref_num || null;
     await payment.save();
 
     const redirectUrl = `${PAYKAN_BASE}/pgw/pay/${token}`;
 
-    return { redirectUrl, payment };
+    return { redirectUrl, payment, order };
   } catch (err) {
     console.log(
       "Paykan error data:",
@@ -106,7 +141,7 @@ const verifyWithGateway = async ({
     const body = {
       merchant_id: process.env.PAYKAN_MERCHANT_ID,
       order_id: orderId,
-      amount: amount,
+      amount,
       tracking_code: trackingCode,
       ref_num: refNum,
     };
@@ -115,24 +150,22 @@ const verifyWithGateway = async ({
       body.card_no = cardNo;
     }
 
-    const resp = await axios.post(
-      "https://pgw.paykan.app/api/v1/verify/",
-      body,
-      { timeout: 10000 },
-    );
+    const resp = await axios.post(`${PAYKAN_BASE}/api/v1/verify/`, body, {
+      timeout: 10000,
+    });
 
     if (resp.status !== 200) {
       throw new Error("پاسخ نامعتبر از درگاه پیکان");
     }
 
-    const { status, message, data } = resp.data;
+    const { status, data } = resp.data;
 
     return {
       success: status === "CONFIRMED",
-      refNum: data.ref_num,
-      amount: data.amount,
-      cardNumber: data.card_number,
-      status: status,
+      refNum: data?.ref_num ?? null,
+      amount: data?.amount ?? null,
+      cardNumber: data?.card_number ?? null,
+      status,
     };
   } catch (err) {
     return {
@@ -140,7 +173,7 @@ const verifyWithGateway = async ({
       refNum: null,
       amount: null,
       cardNumber: null,
-      status: "FALED",
+      status: "FAILED",
     };
   }
 };

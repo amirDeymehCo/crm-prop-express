@@ -62,11 +62,15 @@ const Controller = class extends Controllers {
     const t = await sequelize.transaction();
     try {
       // 1) ساخت چالش + ساخت order + payment (همون createChFounc خودت)
+      console.log("STEPPP =>> 1");
       const ch_data = await createChFounc(req, res, next, t);
 
       const orderId = ch_data?.order?.gateway_order_id;
       const amountUsd = Number(ch_data?.order?.amount_usd || 0);
       // const amountUsd = 0.1
+      console.log(ch_data?.order);
+
+      console.log("STEPPP =>> 2");
 
       if (!orderId) {
         await t.rollback();
@@ -76,6 +80,8 @@ const Controller = class extends Controllers {
           message: "شناسه سفارش ساخته نشد",
         });
       }
+
+      console.log("STEPPP =>> 3");
 
       // ✅ 2) اگر چالش رایگان است (final_price = 0) -> هیچ درگاهی نرو
       if (amountUsd === 0) {
@@ -146,6 +152,7 @@ const Controller = class extends Controllers {
           callback_url:
             "https://api-crm.myprop.trade/api/v1/global/callback-peykan-challenge",
           type: "challenge_purchase",
+          discountUsd: ch_data?.userChallenge?.order?.discount_usd,
         });
 
         return this.response({
