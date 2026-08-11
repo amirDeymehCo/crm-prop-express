@@ -15,7 +15,6 @@ module.exports.getCertificateHTMLPhase = ({
   );
 
   const imageBase64 = fs.readFileSync(imagePath, "base64");
-
   const bgImage = `data:image/jpeg;base64,${imageBase64}`;
 
   return `
@@ -24,9 +23,25 @@ module.exports.getCertificateHTMLPhase = ({
 <head>
   <meta charset="UTF-8" />
   <style>
+    @font-face {
+      font-family: "IRANYekan";
+      src: url("https://myprop.trade/fonts/IRANYekan/IRANYekanX-Medium.woff") format("woff");
+      font-weight: 500;
+      font-style: normal;
+    }
+
+    @font-face {
+      font-family: "IRANYekan";
+      src: url("https://myprop.trade/fonts/IRANYekan/IRANYekanX-Black.woff") format("woff");
+      font-weight: 900; /* Black معمولا وزن ۹۰۰ است */
+      font-style: normal;
+    }
+
     body {
       margin: 0;
+      font-family: "IRANYekan", sans-serif !important;
     }
+
     .certificate {
       width: 1123px;
       height: 794px;
@@ -34,7 +49,6 @@ module.exports.getCertificateHTMLPhase = ({
       background-size: cover;
       background-position: center;
       position: relative;
-      font-family: Arial, sans-serif;
       color: white;
     }
 
@@ -44,17 +58,21 @@ module.exports.getCertificateHTMLPhase = ({
       width: 100%;
       text-align: center;
       font-size: 42px;
-      font-weight: 500;
+      font-weight: 900; /* اینجا از وزن ۹۰۰ (Black) استفاده کردیم */
       color: #1c1c1c;
+      font-family: "IRANYekan", sans-serif;
+      direction: rtl; /* برای فارسی حتما لازم است */
     }
+
     .date {
       position: absolute;
       bottom: 95px;
       text-align: center;
       font-size: 18px;
-      font-weight: 500;
+      font-weight: 500; /* اینجا از وزن ۵۰۰ (Medium) استفاده کردیم */
       color: #1c1c1c;
       left: 350px;
+      font-family: "IRANYekan", sans-serif;
     }
 
     .qr {
@@ -62,7 +80,6 @@ module.exports.getCertificateHTMLPhase = ({
       bottom: 30px;
       left: 75px;
     }
-
   </style>
 </head>
 
@@ -70,12 +87,9 @@ module.exports.getCertificateHTMLPhase = ({
   <div class="certificate">
     <div class="name">${fullName}</div>
     <div class="date">${formattedDate}</div>
-
     <div class="qr">
       <img src="${qrData}" width="130" />
     </div>
-
-
   </div>
 </body>
 </html>

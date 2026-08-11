@@ -35,6 +35,8 @@ const generateMainPassword = require("../../../../services/BuyCh/CreatePassword"
 const { Op } = require("sequelize");
 const createTradingAccount = require("../../../../services/BuyCh/CreateTrainingAccount");
 
+const createPhaseCertificate = require("../../../../utils/CreateCt");
+
 const typesStatus = {
   payment_phase2: "در انتظار پرداخت چالش رایگان",
   closed: "بسته شده",
@@ -169,72 +171,6 @@ async function provisionMTAndAttach({
   );
 
   return acc;
-}
-
-async function createPhaseCertificate({
-  user,
-  phase,
-  total_profit,
-  withdraw_profit = 0,
-}) {
-  const date = new Date();
-  const certificateId = uuid();
-  const formattedDate = dayjs(date).format("DD MMMM YYYY");
-
-  const fileName = `phase-${phase}-${certificateId}.png`;
-
-  const qrData = await QRCode.toDataURL(fileName);
-
-  const html = getCertificateHTMLPhase({
-    fullName: `${user.firstname} ${user.lastname}`,
-    qrData,
-    formattedDate,
-    phase,
-  });
-
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-gpu",
-    ],
-  });
-  const page = await browser.newPage();
-
-  await page.setViewport({
-    width: 1123,
-    height: 794,
-    deviceScaleFactor: 2,
-  });
-
-  await page.setContent(html, { waitUntil: "load" });
-
-  const outputDir = path.join(process.cwd(), "public/certificates");
-  if (!fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir, { recursive: true });
-  }
-
-  const filePath = path.join(outputDir, fileName);
-
-  await page.screenshot({
-    path: filePath,
-    type: "png",
-    fullPage: false,
-  });
-
-  await browser.close();
-
-  return Certificates.create({
-    type: `steep${phase}`,
-    url_file: `certificates/${fileName}`,
-    fullname: `${user.firstname} ${user.lastname}`,
-    date,
-    total_profit,
-    withdraw_profit,
-    user_id: user.id,
-  });
 }
 
 function getCertificatePhase(prevPhase, newPhase) {
@@ -480,7 +416,8 @@ const Controller = class extends Controllers {
       if (certificatePhase) {
         // اینجا فقط دیتا جمع می‌کنیم
         certificatePayload = {
-          user,
+          user_id: user?.id,
+          fullName: user?.firstname + " " + user?.lastname,
           phase: certificatePhase,
           total_profit: 0,
           withdraw_profit: 0,
