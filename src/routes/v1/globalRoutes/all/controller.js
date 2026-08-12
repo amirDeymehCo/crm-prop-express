@@ -124,16 +124,15 @@ const Controller = class extends Controllers {
     return res.redirect(baseSite + `/account/wallet?status=${verify?.status}`);
   }
   async callbackBuyCh(req, res) {
-    const t = await sequelize.transaction();
     try {
       const data = Object.keys(req.body || {}).length ? req.body : req.query;
+
       const orderId = data?.order_id;
       const statusRaw = data?.status;
       const trackingCode = data?.tracking_code || null;
       const refNum = data?.ref_num || null;
 
       if (!orderId) {
-        await t.rollback();
         return this.response({
           res,
           status: 400,
@@ -141,28 +140,47 @@ const Controller = class extends Controllers {
         });
       }
 
-      /** 🧩 پیدا کردن order و payment بر اساس درگاه */
+      // ==========================================
+      // 1. پیدا کردن Order - بدون transaction
+      // ==========================================
+
       const order = await Order.findOne({
-        where: { gateway_order_id: orderId },
-        transaction: t,
+        where: {
+          gateway_order_id: orderId,
+        },
       });
+
       if (!order) {
-        await t.rollback();
-        return this.response({ res, status: 400, message: "سفارشی یافت نشد" });
+        return this.response({
+          res,
+          status: 400,
+          message: "سفارشی یافت نشد",
+        });
       }
+
+      // ==========================================
+      // 2. پیدا کردن Payment - بدون transaction
+      // ==========================================
 
       const payment = await Payment.findOne({
-        where: { order_id: data?.order_id },
-        transaction: t,
+        where: {
+          order_id: orderId,
+        },
       });
+
       if (!payment) {
-        await t.rollback();
-        return this.response({ res, status: 400, message: "پرداختی یافت نشد" });
+        return this.response({
+          res,
+          status: 400,
+          message: "پرداختی یافت نشد",
+        });
       }
 
-      /** 🧠 اگر قبلاً تأیید شده بود */
-      if (order?.status === "paid" || payment?.status === "paid") {
-        await t.commit();
+      // ==========================================
+      // 3. اگر قبلاً پرداخت شده
+      // ==========================================
+
+      if (order.status === "paid" || payment.status === "paid") {
         return this.response({
           res,
           status: 200,
@@ -170,97 +188,198 @@ const Controller = class extends Controllers {
         });
       }
 
-      /** ✅ تایید واقعی از سمت درگاه */
+      // ==========================================
+      // 4. Verify درگاه
+      // بدون transaction
+      // ==========================================
+
       const verify = await verifyWithGateway({
-        amount: order?.amount_irr,
+        amount: order.amount_irr,
         cardNo: data?.card_no,
-        orderId: data?.order_id,
-        refNum: refNum,
-        trackingCode: trackingCode,
+        orderId,
+        refNum,
+        trackingCode,
       });
 
       const normalizedStatus = normalizeGatewayStatus(
         verify?.status || statusRaw,
       );
 
-      // اگر پرداخت تایید نشده
-      if (normalizedStatus !== "confirmed") {
-        await payment.update(
-          {
-            status: "failed",
-            meta: JSON.stringify({ data, verify }),
-          },
-          { transaction: t },
-        );
-        await order.update(
-          {
-            status: "failed",
-            meta: JSON.stringify({ data, verify }),
-          },
-          { transaction: t },
-        );
+      // ==========================================
+      // 5. پرداخت ناموفق
+      // ==========================================
 
-        await t.commit();
+      if (normalizedStatus !== "confirmed") {
+        await sequelize.transaction(async (t) => {
+          await Payment.update(
+            {
+              status: "failed",
+              meta: JSON.stringify({
+                data,
+                verify,
+              }),
+            },
+            {
+              where: {
+                id: payment.id,
+              },
+              transaction: t,
+            },
+          );
+
+          await Order.update(
+            {
+              status: "failed",
+              meta: JSON.stringify({
+                data,
+                verify,
+              }),
+            },
+            {
+              where: {
+                id: order.id,
+              },
+              transaction: t,
+            },
+          );
+        });
+
         return res.redirect(
           baseSite + `/account/challenges?status=${verify?.status}`,
         );
       }
 
-      const user = await User.findByPk(order?.user_id);
+      // ==========================================
+      // 6. پرداخت موفق
+      // فقط اینجا transaction
+      // ==========================================
 
-      /** ✅ تایید موفق => finalize چالش */
-      const finalizeResult = await finalizeChallengeAfterPaid({
-        user: user,
-        orderId,
-        trackingCode,
-        refNum,
-        t,
-        platform: "ctrader",
-      });
-
-      /** بروزرسانی وضعیت پرداخت/سفارش */
-      await payment.update(
+      await sequelize.transaction(
         {
-          status: "paid",
-          provider_payment_id: trackingCode,
-          paid_at: new Date(),
-          meta: JSON.stringify({ data, verify }),
+          isolationLevel: sequelize.Transaction.ISOLATION_LEVELS.READ_COMMITTED,
         },
-        { transaction: t },
+        async (t) => {
+          // --------------------------------------
+          // Lock Order
+          // --------------------------------------
+
+          const lockedOrder = await Order.findOne({
+            where: {
+              id: order.id,
+            },
+            transaction: t,
+            lock: t.LOCK.UPDATE,
+          });
+
+          if (!lockedOrder) {
+            const err = new Error("سفارش یافت نشد");
+            err.status = 400;
+            throw err;
+          }
+
+          // --------------------------------------
+          // دوباره بررسی کن
+          // چون ممکنه callback همزمان آمده باشد
+          // --------------------------------------
+
+          if (lockedOrder.status === "paid") {
+            return;
+          }
+
+          // --------------------------------------
+          // Lock Payment
+          // --------------------------------------
+
+          const lockedPayment = await Payment.findOne({
+            where: {
+              id: payment.id,
+            },
+            transaction: t,
+            lock: t.LOCK.UPDATE,
+          });
+
+          if (!lockedPayment) {
+            const err = new Error("پرداخت یافت نشد");
+            err.status = 400;
+            throw err;
+          }
+
+          if (lockedPayment.status === "paid") {
+            return;
+          }
+
+          // --------------------------------------
+          // User
+          // --------------------------------------
+
+          const user = await User.findByPk(lockedOrder.user_id, {
+            transaction: t,
+          });
+
+          if (!user) {
+            const err = new Error("کاربر یافت نشد");
+            err.status = 404;
+            throw err;
+          }
+
+          // --------------------------------------
+          // Finalize
+          // --------------------------------------
+
+          await finalizeChallengeAfterPaid({
+            user,
+            orderId,
+            trackingCode,
+            refNum,
+            t,
+            platform: "ctrader",
+          });
+
+          // --------------------------------------
+          // Payment
+          // --------------------------------------
+
+          await lockedPayment.update(
+            {
+              status: "paid",
+              provider_payment_id: trackingCode,
+              paid_at: new Date(),
+              meta: JSON.stringify({
+                data,
+                verify,
+              }),
+            },
+            {
+              transaction: t,
+            },
+          );
+
+          // --------------------------------------
+          // Order
+          // --------------------------------------
+
+          await lockedOrder.update(
+            {
+              status: "paid",
+              paid_at: new Date(),
+            },
+            {
+              transaction: t,
+            },
+          );
+        },
       );
 
-      await order.update(
-        {
-          status: "paid",
-          paid_at: new Date(),
-        },
-        { transaction: t },
-      );
-
-      await t.commit();
+      // ==========================================
+      // 7. Response
+      // ==========================================
 
       return res.redirect(
         baseSite + `/account/challenges?status=${verify?.status}`,
       );
-
-      // return this.response({
-      //   res,
-      //   status: 200,
-      //   message: finalizeResult.alreadyDone
-      //     ? "پرداخت قبلاً تایید شده بود"
-      //     : "اکانت مرحله اول با موفقیت ساخته شد!",
-      //   data: finalizeResult.alreadyDone
-      //     ? null
-      //     : {
-      //         user_challenge_id: finalizeResult.userChallenge.id,
-      //         account_instance_id: finalizeResult.acc.id,
-      //         phase_index: finalizeResult.acc.phase_index,
-      //         mt_login: finalizeResult.acc.mt_login,
-      //         mt_server: finalizeResult.acc.mt_server,
-      //       },
-      // });
     } catch (err) {
-      // await t.rollback();
+      console.error("callbackBuyCh ERROR:", err);
+
       return this.response({
         res,
         status: err.status || 500,

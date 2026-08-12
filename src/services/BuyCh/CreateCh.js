@@ -42,7 +42,7 @@ async function getActivePlan(planId, transaction) {
   const plan = await ChallengePlan.findOne({
     where: { id: planId, is_active: true },
     include: [ChallengePhase],
-    transaction,
+    // transaction,
   });
 
   if (!plan) {
@@ -164,7 +164,7 @@ async function validateAndApplyCoupon({
 
   const coupon = await Coupon.findOne({
     where: { code: couponCode, is_active: true },
-    transaction,
+    // transaction,
   });
 
   if (!coupon) {
@@ -202,7 +202,7 @@ async function validateAndApplyCoupon({
   // سقف برای هر کاربر
   const userUsageCount = await CouponUsage.count({
     where: { coupon_id: coupon.id, user_id: user.id },
-    transaction,
+    // transaction,
   });
 
   if (coupon.max_uses_per_user && userUsageCount >= coupon.max_uses_per_user) {
@@ -508,58 +508,41 @@ async function createOrderRecord({
 // ===================== کنترلر اصلی خرید ===================== //
 
 async function purchaseChallenge(req, res, next) {
-  const t = await sequelize.transaction();
-
   try {
     const user = req.user;
 
-    const {
-      challenge_plan_id,
-      gateway,
-      with_insurance = false,
-      coupon_code,
+    // =========================
+    // READ / CALCULATE
+    // خارج transaction
+    // =========================
 
-      // ✅ NEW preferred
-      floating_risk_enabled,
+    const plan = await getActivePlan(req.body.challenge_plan_id);
 
-      // ✅ backward compatible
-      floating_risk, // { is_enabled?: boolean }
-    } = req.body;
+    const insuranceInfo = calculateInsurance(plan, req.body.with_insurance);
 
-    // 1) plan
-    const plan = await getActivePlan(challenge_plan_id, t);
-
-    // 2) insurance
-    const insuranceInfo = calculateInsurance(plan, with_insurance);
-
-    // 3) resolve floating risk enabled
-    // preference: floating_risk_enabled -> floating_risk.is_enabled -> default true
     const floatingEnabled =
-      typeof floating_risk_enabled === "boolean"
-        ? floating_risk_enabled
-        : floating_risk && typeof floating_risk.is_enabled === "boolean"
-          ? floating_risk.is_enabled
+      typeof req.body.floating_risk_enabled === "boolean"
+        ? req.body.floating_risk_enabled
+        : req.body.floating_risk &&
+            typeof req.body.floating_risk.is_enabled === "boolean"
+          ? req.body.floating_risk.is_enabled
           : true;
 
-    // 4) floating risk fee (OFF => fee)
     const floatingRiskFeeInfo = calculateFloatingRiskFee(plan, floatingEnabled);
 
-    // 5) basePrice for coupon
     const basePrice =
       Number(plan.price_usd) +
       Number(insuranceInfo.fee_usd || 0) +
       Number(floatingRiskFeeInfo.fee_usd || 0);
 
-    // 6) coupon
+    // coupon validation
     const { coupon, discount } = await validateAndApplyCoupon({
-      couponCode: coupon_code,
+      couponCode: req.body.coupon_code,
       plan,
       user,
       basePrice,
-      transaction: t,
     });
 
-    // 7) prices
     const prices = buildPriceSummary({
       plan,
       insuranceFee: insuranceInfo.fee_usd,
@@ -567,69 +550,69 @@ async function purchaseChallenge(req, res, next) {
       discount,
     });
 
-    // 8) rules snapshot (swap if free)
-    const rulesSnapshot = buildRulesSnapshotWithFreeLogic({
-      plan,
-      isFree: prices.final_price_usd === 0,
+    // =========================
+    // TRANSACTION
+    // =========================
+
+    const result = await sequelize.transaction(async (t) => {
+      const rulesSnapshot = buildRulesSnapshotWithFreeLogic({
+        plan,
+        isFree: prices.final_price_usd === 0,
+      });
+
+      const userChallenge = await createUserChallengeRecord({
+        user,
+        plan,
+        rulesSnapshot,
+        insuranceInfo,
+        prices,
+        floatingRiskEnabled: floatingEnabled,
+        transaction: t,
+        admin_id: req?.admin?.id,
+        platform: req?.body?.platform,
+      });
+
+      const floatingRiskRow = await createFloatingRiskIfProvided({
+        userChallenge,
+        floatingRiskPayload: plan.has_floating_risk
+          ? {
+              is_enabled: Boolean(floatingEnabled),
+              type: plan.floating_risk_type,
+              value: plan.floating_risk_value,
+              base_on: plan.floating_risk_base_on || "starting_balance",
+            }
+          : null,
+        transaction: t,
+      });
+
+      await registerCouponUsage({
+        coupon,
+        user,
+        userChallenge,
+        discount,
+        transaction: t,
+      });
+
+      const order = await createOrderRecord({
+        user,
+        provider: req.body.gateway,
+        userChallenge,
+        gateway: req.body.gateway,
+        prices,
+        transaction: t,
+        admin_id: req?.admin?.id,
+        coupon,
+      });
+
+      return {
+        userChallenge,
+        floatingRisk: floatingRiskRow,
+        order,
+      };
     });
 
-    // 9) create user challenge
-    const userChallenge = await createUserChallengeRecord({
-      user,
-      plan,
-      rulesSnapshot,
-      insuranceInfo,
-      prices,
-      floatingRiskEnabled: floatingEnabled,
-      transaction: t,
-      admin_id: req?.admin?.id,
-      platform: req?.body?.platform,
-    });
-
-    // 10) optional: create UserChallengeRisk row (history) from plan snapshot
-    const floatingRiskRow = await createFloatingRiskIfProvided({
-      userChallenge,
-      floatingRiskPayload: plan.has_floating_risk
-        ? {
-            is_enabled: Boolean(floatingEnabled),
-            type: plan.floating_risk_type,
-            value: plan.floating_risk_value,
-            base_on: plan.floating_risk_base_on || "starting_balance",
-          }
-        : null,
-      transaction: t,
-    });
-
-    // 11) coupon usage
-    await registerCouponUsage({
-      coupon,
-      user,
-      userChallenge,
-      discount,
-      transaction: t,
-    });
-
-    // 12) order/payment
-    const order = await createOrderRecord({
-      user,
-      provider: gateway,
-      userChallenge,
-      gateway,
-      prices,
-      transaction: t,
-      admin_id: req?.admin?.id,
-      coupon,
-    });
-
-    await t.commit();
-
-    return {
-      userChallenge,
-      floatingRisk: floatingRiskRow,
-      order,
-    };
+    return result;
   } catch (err) {
-    await t.rollback();
     next(err);
   }
 }
