@@ -302,14 +302,20 @@ async function finalizeChallengeAfterPaid({
     });
   }
 
+  console.log("LOCK ORDER");
+
   // 2) lock order
   const order = await lockOrderByGatewayOrderId({ orderId, t });
+
+  console.log("lock challenge + plan");
 
   // 3) lock challenge + plan
   const userChallenge = await lockUserChallengeWithPlan({
     userChallengeId: payment.UserChallenge, // همون فیلدی که خودت داری
     t,
   });
+
+  console.log("payment confirmed + order paid");
 
   // 4) payment confirmed + order paid
   await payment.update(
@@ -328,6 +334,8 @@ async function finalizeChallengeAfterPaid({
     { transaction: t },
   );
 
+  console.log("ensure account instance exists (phase1)");
+
   // 5) ensure account instance exists (phase1)
   const acc = await getOrCreatePhase1AccountInstance({
     userChallenge,
@@ -335,6 +343,8 @@ async function finalizeChallengeAfterPaid({
     email: user?.email,
     platform,
   });
+
+  console.log(" update challenge status");
 
   // 6) update challenge status
   await userChallenge.update(
@@ -345,6 +355,8 @@ async function finalizeChallengeAfterPaid({
   // 7) create MT (idempotent)
   const orderKey = `${orderId}-${refNum || ""}`;
 
+  console.log("STEEEP CREATE MT ACCCOUNT");
+
   await createAndAttachMTAccount({
     acc,
     plan: userChallenge.ChallengePlan,
@@ -354,6 +366,8 @@ async function finalizeChallengeAfterPaid({
     platform,
     user: user,
   });
+
+  console.log("AFTER STEEEP CREATE MT ACCCOUNT");
 
   // 8) set refral
   await handelRefralSet({ user, order, t });

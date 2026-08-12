@@ -249,126 +249,139 @@ const Controller = class extends Controllers {
         );
       }
 
+      console.log("START SUCCESS __ 1");
+
       // ==========================================
       // 6. پرداخت موفق
       // فقط اینجا transaction
       // ==========================================
 
-      await sequelize.transaction(
-        {
-          isolationLevel: sequelize.Transaction.ISOLATION_LEVELS.READ_COMMITTED,
-        },
-        async (t) => {
-          // --------------------------------------
-          // Lock Order
-          // --------------------------------------
+      await sequelize.transaction(async (t) => {
+        // --------------------------------------
+        // Lock Order
+        // --------------------------------------
 
-          const lockedOrder = await Order.findOne({
-            where: {
-              id: order.id,
-            },
+        const lockedOrder = await Order.findOne({
+          where: {
+            id: order.id,
+          },
+          transaction: t,
+          lock: t.LOCK.UPDATE,
+        });
+
+        if (!lockedOrder) {
+          const err = new Error("سفارش یافت نشد");
+          err.status = 400;
+          throw err;
+        }
+
+        console.log("START SUCCESS __ 2");
+
+        // --------------------------------------
+        // دوباره بررسی کن
+        // چون ممکنه callback همزمان آمده باشد
+        // --------------------------------------
+
+        if (lockedOrder.status === "paid") {
+          return;
+        }
+
+        // --------------------------------------
+        // Lock Payment
+        // --------------------------------------
+
+        console.log("START SUCCESS __ 3");
+
+        const lockedPayment = await Payment.findOne({
+          where: {
+            id: payment.id,
+          },
+          transaction: t,
+          lock: t.LOCK.UPDATE,
+        });
+
+        console.log("START SUCCESS __ 4");
+
+        if (!lockedPayment) {
+          const err = new Error("پرداخت یافت نشد");
+          err.status = 400;
+          throw err;
+        }
+
+        if (lockedPayment.status === "paid") {
+          return;
+        }
+
+        console.log("START SUCCESS __ 5");
+
+        // --------------------------------------
+        // User
+        // --------------------------------------
+
+        const user = await User.findByPk(lockedOrder.user_id, {
+          transaction: t,
+        });
+
+        console.log("START SUCCESS __ 6");
+
+        if (!user) {
+          const err = new Error("کاربر یافت نشد");
+          err.status = 404;
+          throw err;
+        }
+
+        console.log("START SUCCESS __ 7");
+
+        // --------------------------------------
+        // Finalize
+        // --------------------------------------
+
+        await finalizeChallengeAfterPaid({
+          user,
+          orderId,
+          trackingCode,
+          refNum,
+          t,
+          platform: "ctrader",
+        });
+
+        console.log("START SUCCESS __ 8");
+
+        // --------------------------------------
+        // Payment
+        // --------------------------------------
+
+        await lockedPayment.update(
+          {
+            status: "paid",
+            provider_payment_id: trackingCode,
+            paid_at: new Date(),
+            meta: JSON.stringify({
+              data,
+              verify,
+            }),
+          },
+          {
             transaction: t,
-            lock: t.LOCK.UPDATE,
-          });
+          },
+        );
 
-          if (!lockedOrder) {
-            const err = new Error("سفارش یافت نشد");
-            err.status = 400;
-            throw err;
-          }
+        console.log("START SUCCESS __ 9");
 
-          // --------------------------------------
-          // دوباره بررسی کن
-          // چون ممکنه callback همزمان آمده باشد
-          // --------------------------------------
+        // --------------------------------------
+        // Order
+        // --------------------------------------
 
-          if (lockedOrder.status === "paid") {
-            return;
-          }
-
-          // --------------------------------------
-          // Lock Payment
-          // --------------------------------------
-
-          const lockedPayment = await Payment.findOne({
-            where: {
-              id: payment.id,
-            },
+        await lockedOrder.update(
+          {
+            status: "paid",
+            paid_at: new Date(),
+          },
+          {
             transaction: t,
-            lock: t.LOCK.UPDATE,
-          });
-
-          if (!lockedPayment) {
-            const err = new Error("پرداخت یافت نشد");
-            err.status = 400;
-            throw err;
-          }
-
-          if (lockedPayment.status === "paid") {
-            return;
-          }
-
-          // --------------------------------------
-          // User
-          // --------------------------------------
-
-          const user = await User.findByPk(lockedOrder.user_id, {
-            transaction: t,
-          });
-
-          if (!user) {
-            const err = new Error("کاربر یافت نشد");
-            err.status = 404;
-            throw err;
-          }
-
-          // --------------------------------------
-          // Finalize
-          // --------------------------------------
-
-          await finalizeChallengeAfterPaid({
-            user,
-            orderId,
-            trackingCode,
-            refNum,
-            t,
-            platform: "ctrader",
-          });
-
-          // --------------------------------------
-          // Payment
-          // --------------------------------------
-
-          await lockedPayment.update(
-            {
-              status: "paid",
-              provider_payment_id: trackingCode,
-              paid_at: new Date(),
-              meta: JSON.stringify({
-                data,
-                verify,
-              }),
-            },
-            {
-              transaction: t,
-            },
-          );
-
-          // --------------------------------------
-          // Order
-          // --------------------------------------
-
-          await lockedOrder.update(
-            {
-              status: "paid",
-              paid_at: new Date(),
-            },
-            {
-              transaction: t,
-            },
-          );
-        },
-      );
+          },
+        );
+      });
 
       // ==========================================
       // 7. Response
