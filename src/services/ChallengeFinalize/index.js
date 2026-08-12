@@ -322,10 +322,16 @@ async function finalizeChallengeAfterPaid({
   console.log("lock challenge + plan");
 
   console.log("order=>>", order);
+  console.log(" order.user_challenge_id=>>", order.user_challenge_id);
+  console.log(
+    " order.user_challenge_id=>>",
+    order.dataValues?.user_challenge_id,
+  );
 
   // 3) lock challenge + plan
   const userChallenge = await lockUserChallengeWithPlan({
-    userChallengeId: order.user_challenge_id, // همون فیلدی که خودت داری
+    userChallengeId:
+      order?.dataValues?.user_challenge_id || order?.user_challenge_id, // همون فیلدی که خودت داری
     t,
   });
 
