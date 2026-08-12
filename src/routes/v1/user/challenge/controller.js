@@ -69,6 +69,10 @@ const Controller = class extends Controllers {
       const amountUsd = Number(ch_data?.order?.amount_usd || 0);
       // const amountUsd = 0.1
       console.log(ch_data?.order);
+      console.log(
+        "ch_data?.userChallenge?.order?.discount_usd>",
+        ch_data?.order?.discount_usd,
+      );
 
       console.log("STEPPP =>> 2");
 
@@ -152,7 +156,7 @@ const Controller = class extends Controllers {
           callback_url:
             "https://api-crm.myprop.trade/api/v1/global/callback-peykan-challenge",
           type: "challenge_purchase",
-          discountUsd: ch_data?.userChallenge?.order?.discount_usd,
+          discountUsd: ch_data?.order?.discount_usd,
         });
 
         return this.response({
