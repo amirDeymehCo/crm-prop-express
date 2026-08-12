@@ -25,6 +25,8 @@ async function lockPaymentByOrderId({ orderId, t }) {
 }
 
 async function lockOrderByGatewayOrderId({ orderId, t }) {
+  console.log("orderId=>>>", orderId);
+
   const order = await Order.findOne({
     where: { gateway_order_id: orderId },
     transaction: t,
@@ -309,15 +311,15 @@ async function finalizeChallengeAfterPaid({
   // 2) lock order
   const order = await lockOrderByGatewayOrderId({ orderId, t });
 
-  if (String(order.status).toLowerCase() === "paid") {
-    // قبلا انجام شده
-    return { alreadyDone: true };
-  }
-  if (!["pending"].includes(String(order.status))) {
-    throw Object.assign(new Error("وضعیت تراکنش منتظر پرداخت نیست"), {
-      status: 400,
-    });
-  }
+  // if (String(order.status).toLowerCase() === "paid") {
+  //   // قبلا انجام شده
+  //   return { alreadyDone: true };
+  // }
+  // if (!["pending"].includes(String(order.status))) {
+  //   throw Object.assign(new Error("وضعیت تراکنش منتظر پرداخت نیست"), {
+  //     status: 400,
+  //   });
+  // }
 
   console.log("lock challenge + plan");
 
@@ -335,7 +337,7 @@ async function finalizeChallengeAfterPaid({
     t,
   });
 
-  console.log("payment confirmed + order paid");
+  console.log("payment confirmed + order paid", userChallenge);
 
   // 4) payment confirmed + order paid
   // await payment.update(
