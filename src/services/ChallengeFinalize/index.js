@@ -14,8 +14,8 @@ const WalletTransaction = require("../../models/WalletTransaction");
 async function lockPaymentByOrderId({ orderId, t }) {
   console.log("find order id payment=>", orderId);
 
-  const payment = await Payment.findOne({
-    where: { order_id: orderId },
+  const payment = await Order.findOne({
+    where: { gateway_order_id: orderId },
     transaction: t,
     lock: t.LOCK.UPDATE,
   });
@@ -288,40 +288,54 @@ async function finalizeChallengeAfterPaid({
   platform = "ctrader",
 }) {
   // 1) lock payment + idempotency
-  const payment = await lockPaymentByOrderId({ orderId, t });
+  // const payment = await lockPaymentByOrderId({ orderId, t });
 
-  if (String(payment.status).toLowerCase() === "confirmed") {
-    // قبلا انجام شده
-    return { alreadyDone: true };
-  }
-  if (
-    !["pending", "waiting", "confirmed_free"].includes(String(payment.status))
-  ) {
-    throw Object.assign(new Error("وضعیت تراکنش منتظر پرداخت نیست"), {
-      status: 400,
-    });
-  }
+  // console.log("payment=>>>", payment);
+
+  // if (String(payment.status).toLowerCase() === "paid") {
+  //   // قبلا انجام شده
+  //   return { alreadyDone: true };
+  // }
+  // if (
+  //   !["pending", "waiting", "confirmed_free"].includes(String(payment.status))
+  // ) {
+  //   throw Object.assign(new Error("وضعیت تراکنش منتظر پرداخت نیست"), {
+  //     status: 400,
+  //   });
+  // }
 
   console.log("LOCK ORDER");
 
   // 2) lock order
   const order = await lockOrderByGatewayOrderId({ orderId, t });
 
+  if (String(order.status).toLowerCase() === "paid") {
+    // قبلا انجام شده
+    return { alreadyDone: true };
+  }
+  if (!["pending"].includes(String(order.status))) {
+    throw Object.assign(new Error("وضعیت تراکنش منتظر پرداخت نیست"), {
+      status: 400,
+    });
+  }
+
   console.log("lock challenge + plan");
+
+  console.log("order=>>", order);
 
   // 3) lock challenge + plan
   const userChallenge = await lockUserChallengeWithPlan({
-    userChallengeId: payment.UserChallenge, // همون فیلدی که خودت داری
+    userChallengeId: order.user_challenge_id, // همون فیلدی که خودت داری
     t,
   });
 
   console.log("payment confirmed + order paid");
 
   // 4) payment confirmed + order paid
-  await payment.update(
-    { status: "confirmed", provider_payment_id: trackingCode },
-    { transaction: t },
-  );
+  // await payment.update(
+  //   { status: "confirmed", provider_payment_id: trackingCode },
+  //   { transaction: t },
+  // );
 
   await order.update(
     {
@@ -377,7 +391,7 @@ async function finalizeChallengeAfterPaid({
     userChallenge,
     acc,
     order,
-    payment,
+    payment: order,
   };
 }
 
