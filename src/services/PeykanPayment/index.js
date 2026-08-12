@@ -31,9 +31,9 @@ async function paykanService({
   const discountUsdValue = Number(discountUsd || 0);
   const finalAmountUsdValue = Math.max(amountUsdValue - discountUsdValue, 0);
 
-  const amountIrr = Math.round(amountUsdValue * dollarPrice);
-  const discountIrr = Math.round(discountUsdValue * dollarPrice);
-  const finalAmountIrr = Math.round(finalAmountUsdValue * dollarPrice);
+  const amountIrr = Math.round(amountUsdValue * dollarPrice) * 10;
+  const discountIrr = Math.round(discountUsdValue * dollarPrice) * 10;
+  const finalAmountIrr = Math.round(finalAmountUsdValue * dollarPrice) * 10;
 
   const userChallengeId =
     typeof userChallenge === "object" && userChallenge !== null
