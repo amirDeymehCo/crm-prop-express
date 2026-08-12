@@ -119,6 +119,7 @@ const Controller = class extends Controllers {
           orderId,
           amountUsd,
           t,
+          discountUsd: ch_data?.order?.discount_usd,
         });
 
         const result = await finalizeChallengeAfterPaid({
