@@ -22,9 +22,12 @@ async function paykanService({
   type = "wallet_deposit",
   discountUsd = 0,
   createOrder = true,
-  order_id = null,
+  orderSelect = null,
 }) {
-  const orderId = order_id ? order_id : `buyCh-${userId}-${Date.now()}`;
+  let order = orderSelect ? orderSelect : null;
+  const orderId = orderSelect?.gateway_order_id
+    ? orderSelect?.gateway_order_id
+    : `buyCh-${userId}-${Date.now()}`;
 
   const setting = await Setting.findOne({ where: { id: 1 } });
   const dollarPrice = Number(setting?.dollar_price || 0);
@@ -44,7 +47,7 @@ async function paykanService({
 
   if (createOrder) {
     // 1) ساخت Order
-    const order = await Order.create({
+    order = await Order.create({
       gateway_order_id: orderId,
       user_id: userId,
       user_challenge_id: userChallengeId,

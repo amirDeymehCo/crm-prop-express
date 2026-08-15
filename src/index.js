@@ -17,14 +17,14 @@ const cleanQuery = require("./middlewares/cleanQuery");
 
 const setupChallengeAssociations = require("./models/Challenge/setupAssociations");
 
-require("./crons/UpdateDollarPrice");
-// const smartCache = require("./middlewares/smartCache");
-
 const app = express();
 
 const PORT = Number(process.env.PORT || 8000);
 const NODE_ENV = process.env.NODE_ENV || "development";
 const isProduction = NODE_ENV === "production";
+
+let dbReady = false;
+let server;
 
 /**
  * اگر پشت Nginx / Load Balancer هستی، این مورد مهم است.
@@ -46,8 +46,7 @@ if (!fs.existsSync(logsDir)) {
 }
 
 /**
- * تنظیم لایبرری Pino برای نوشتن در فایل
- * فیلترها و سانسور اطلاعات حساس در اینجا تعریف شده‌اند
+ * تنظیم logger
  */
 const logger = pino(
   {
@@ -74,8 +73,7 @@ const logger = pino(
 );
 
 /**
- * غیرفعال کردن autoLogging
- * با این کار، به ازای هر درخواست معمولی هیچ لاگی ثبت نمی‌شود
+ * Pino HTTP logger
  */
 app.use(
   pinoHttp({
@@ -85,18 +83,114 @@ app.use(
 );
 
 /**
- * Middleware تشخیص درخواست‌های کند (Slow Requests)
- * فقط در صورتی که زمان پاسخ‌دهی از حد مجاز بیشتر شود، لاگ ثبت می‌کند.
+ * Security Headers
+ */
+app.use(
+  helmet({
+    crossOriginResourcePolicy: {
+      policy: "same-site",
+    },
+    contentSecurityPolicy: false,
+  }),
+);
+
+if (isProduction) {
+  app.use(
+    helmet.hsts({
+      maxAge: 15552000,
+      includeSubDomains: true,
+      preload: false,
+    }),
+  );
+}
+
+/**
+ * CORS
+ */
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "https://localhost:3000",
+  "https://localhost:3001",
+  "https://myprop.trade",
+  "https://crm.myprop.trade",
+];
+
+if (!isProduction) {
+  allowedOrigins.push("http://myprop.trade");
+  allowedOrigins.push("http://crm.myprop.trade");
+}
+
+const corsOptions = {
+  origin(origin, callback) {
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`CORS blocked for origin: ${origin}`), false);
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "X-Requested-With",
+    "Accept",
+    "Origin",
+  ],
+  optionsSuccessStatus: 204,
+};
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
+
+/**
+ * Cookie parser
+ */
+app.use(cookieParser());
+
+/**
+ * Body parsers
+ */
+app.use(
+  express.json({
+    limit: process.env.JSON_BODY_LIMIT || "2mb",
+  }),
+);
+
+app.use(
+  express.urlencoded({
+    extended: true,
+    limit: process.env.URLENCODED_BODY_LIMIT || "1mb",
+  }),
+);
+
+/**
+ * Global Rate Limit
+ */
+app.use(globalLimiter);
+
+/**
+ * پاکسازی query string
+ */
+app.use(cleanQuery);
+
+/**
+ * Slow Request Logger
  */
 app.use((req, res, next) => {
   const start = Date.now();
 
   res.on("finish", () => {
     const duration = Date.now() - start;
-    const slowThresholdMs = Number(process.env.SLOW_REQUEST_MS || 1000); // پیش‌فرض ۱ ثانیه
+    const slowThresholdMs = Number(process.env.SLOW_REQUEST_MS || 1000);
 
     if (duration >= slowThresholdMs) {
-      req.log.warn(
+      req.log?.warn(
         {
           type: "slow-request",
           method: req.method,
@@ -115,169 +209,21 @@ app.use((req, res, next) => {
 });
 
 /**
- * Security Headers
- */
-app.use(
-  helmet({
-    crossOriginResourcePolicy: {
-      policy: "same-site",
-    },
-    contentSecurityPolicy: false,
-  }),
-);
-
-/**
- * HSTS فقط در production فعال شود.
- * اگر روی localhost یا محیط dev فعال شود، گاهی دردسرساز می‌شود.
- */
-if (isProduction) {
-  app.use(
-    helmet.hsts({
-      maxAge: 15552000, // 180 days
-      includeSubDomains: true,
-      preload: false,
-    }),
-  );
-}
-
-/**
- * CORS
- */
-const allowedOrigins = [
-  "http://localhost:3000",
-  "http://localhost:3001",
-
-  /**
-   * اگر واقعاً در local با HTTPS کار می‌کنی نگه دار،
-   * وگرنه ضرورتی ندارد.
-   */
-  "https://localhost:3000",
-  "https://localhost:3001",
-
-  /**
-   * Production
-   */
-  "https://myprop.trade",
-  "https://crm.myprop.trade",
-];
-
-/**
- * در development می‌توانی HTTP دامنه اصلی را هم موقتاً مجاز کنی،
- * ولی در production بهتر است فقط HTTPS مجاز باشد.
- */
-if (!isProduction) {
-  allowedOrigins.push("http://myprop.trade");
-  allowedOrigins.push("http://crm.myprop.trade");
-}
-
-const corsOptions = {
-  origin(origin, callback) {
-    /**
-     * درخواست‌هایی مثل curl، Postman، server-to-server و health-check
-     * معمولاً origin ندارند.
-     */
-    if (!origin) {
-      return callback(null, true);
-    }
-
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-
-    return callback(new Error(`CORS blocked for origin: ${origin}`), false);
-  },
-
-  credentials: true,
-
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-
-  allowedHeaders: [
-    "Content-Type",
-    "Authorization",
-    "X-Requested-With",
-    "Accept",
-    "Origin",
-  ],
-
-  optionsSuccessStatus: 204,
-};
-
-app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
-
-/**
- * Cookie parser
- */
-app.use(cookieParser());
-
-/**
- * Body parsers
- *
- * اگر واقعاً JSON حجیم نداری، 30mb زیاد است.
- * پیشنهاد: 1mb تا 5mb
- * برای upload بهتر است از multipart/form-data و multer/object storage استفاده شود.
- */
-app.use(
-  express.json({
-    limit: process.env.JSON_BODY_LIMIT || "2mb",
-  }),
-);
-
-app.use(
-  express.urlencoded({
-    extended: true,
-    limit: process.env.URLENCODED_BODY_LIMIT || "1mb",
-  }),
-);
-
-/**
- * Global Rate Limit
- *
- * بهتر است بعد از trust proxy و قبل از routeها باشد.
- */
-app.use(globalLimiter);
-
-/**
- * پاکسازی query string
- */
-app.use(cleanQuery);
-
-/**
- * Slow Request Logger
+ * Middleware: اگر DB هنوز آماده نیست، فقط برای routeهای API خطای 503 بده
  */
 app.use((req, res, next) => {
-  const start = Date.now();
-
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-
-    const slowThresholdMs = Number(process.env.SLOW_REQUEST_MS || 1000);
-
-    if (duration >= slowThresholdMs) {
-      req.log.warn(
-        {
-          type: "slow-request",
-          method: req.method,
-          url: req.originalUrl || req.url,
-          statusCode: res.statusCode,
-          responseTime: duration,
-          ip: req.ip,
-          userAgent: req.get("user-agent"),
-        },
-        `Slow request detected: ${req.method} ${
-          req.originalUrl || req.url
-        } ${res.statusCode} - ${duration}ms`,
-      );
-    }
-  });
+  if (req.path.startsWith("/api") && !dbReady) {
+    return res.status(503).json({
+      success: false,
+      message: "Service temporarily unavailable: database not ready",
+    });
+  }
 
   next();
 });
 
 /**
  * Static Files
- *
- * اگر public داری، کمی محدودترش کن.
  */
 app.use(
   express.static(path.join(process.cwd(), "public"), {
@@ -289,7 +235,7 @@ app.use(
 );
 
 /**
- * Health Check
+ * Liveness check: فقط نشان می‌دهد پروسه زنده است
  */
 app.get("/health", (req, res) => {
   res.status(200).json({
@@ -297,6 +243,23 @@ app.get("/health", (req, res) => {
     env: NODE_ENV,
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
+  });
+});
+
+/**
+ * Readiness check: نشان می‌دهد DB هم آماده است یا نه
+ */
+app.get("/ready", (req, res) => {
+  if (!dbReady) {
+    return res.status(503).json({
+      status: "not_ready",
+      dbReady: false,
+    });
+  }
+
+  res.status(200).json({
+    status: "ready",
+    dbReady: true,
   });
 });
 
@@ -317,9 +280,6 @@ app.use((req, res) => {
 
 /**
  * Error Handler
- *
- * نکته:
- * در production نباید stack trace یا جزئیات داخلی به کاربر برگردد.
  */
 app.use((err, req, res, next) => {
   req.log?.error(
@@ -342,12 +302,7 @@ app.use((err, req, res, next) => {
         ? "Internal server error"
         : err.message || "Request failed"
       : err.message || "Internal server error",
-
-    ...(isProduction
-      ? {}
-      : {
-          stack: err.stack,
-        }),
+    ...(isProduction ? {} : { stack: err.stack }),
   });
 });
 
@@ -361,9 +316,7 @@ async function waitForDb(sequelizeInstance, opts = {}) {
   for (let attempt = 1; attempt <= retries; attempt += 1) {
     try {
       await sequelizeInstance.authenticate();
-
       logger.info("DB Connected");
-
       return;
     } catch (err) {
       const isLast = attempt === retries;
@@ -388,69 +341,82 @@ async function waitForDb(sequelizeInstance, opts = {}) {
 }
 
 /**
- * Start Server
+ * Initialize DB
  */
-let server;
-
-async function startServer() {
+async function initDatabase() {
   try {
     await waitForDb(sequelize);
+
     setupChallengeAssociations();
+    dbReady = true;
 
     /**
-     * خیلی مهم:
-     * sequelize.sync({ alter: true }) در production ریسک جدی دارد.
-     *
-     * پیشنهاد:
-     * - Development: مجاز
-     * - Production: فقط migration
+     * Sync فقط در development
+     * در production از migration استفاده کن
      */
     const shouldSync = process.env.DB_SYNC === "true";
-    const syncAlter = process.env.DB_SYNC_ALTER === "true";
 
     if (shouldSync) {
-      if (isProduction && syncAlter) {
-        throw new Error(
-          "Refusing to run sequelize.sync({ alter: true }) in production.",
+      if (isProduction) {
+        logger.warn(
+          "DB_SYNC is true, but production sync with alter is disabled. Use migrations instead.",
         );
+      } else {
+        await sequelize.sync({ alter: true });
+        logger.info("DB Sync done");
       }
-
-      // await sequelize.sync({
-      //   alter: false,
-      // });
-      await sequelize.sync({ alter: true });
-
-      logger.info(
-        {
-          alter: !isProduction && syncAlter,
-        },
-        "DB Sync done",
-      );
     }
 
     /**
-     * اگر initRbac idempotent است، یعنی چند بار اجرا شود دیتای تکراری نمی‌سازد،
-     * می‌توانی فعالش کنی.
+     * RBAC / Seed logic اگر لازم داری اینجا
      */
     // if (process.env.INIT_RBAC === "true") {
-    // await initRbac();
-    logger.info("RBAC initialized");
+    //   await initRbac();
     // }
 
+    /**
+     * Cron jobs را بعد از آماده شدن DB فعال کن
+     */
+    if (process.env.ENABLE_CRONS === "true") {
+      require("./crons/UpdateDollarPrice");
+      logger.info("Cron jobs loaded");
+    }
+
+    logger.info("Database initialized successfully");
+  } catch (err) {
+    dbReady = false;
+    logger.fatal({ err }, "Failed to initialize database");
+
+    /**
+     * اگر می‌خواهی برنامه بدون DB هم بالا بماند، این process.exit را حذف کن
+     * ولی اگر اپ بدون DB معنی ندارد، نگهش دار.
+     */
+    if (process.env.EXIT_ON_DB_FAIL === "true") {
+      process.exit(1);
+    }
+  }
+}
+
+/**
+ * Start Server
+ */
+async function startServer() {
+  try {
+    /**
+     * مهم: اول HTTP server بالا بیاید
+     */
     server = app.listen(PORT, () => {
       logger.info(`Server running on port ${PORT}`);
-      console.log(`🚀 Serve running on port ${PORT}`);
+      console.log(`🚀 Server running on port ${PORT}`);
     });
+
+    /**
+     * DB را بعد از بالا آمدن سرور init کن
+     */
+    await initDatabase();
   } catch (err) {
-    logger.fatal(
-      {
-        err,
-      },
-      "Failed to start server",
-    );
-
+    logger.fatal({ err }, "Failed to start server");
     console.error("❌ Failed to start server:", err?.message || err);
-
     process.exit(1);
   }
 }
@@ -476,18 +442,11 @@ async function shutdown(signal) {
     }
 
     await sequelize.close();
-
     logger.info("DB connection closed");
 
     process.exit(0);
   } catch (err) {
-    logger.error(
-      {
-        err,
-      },
-      "Error during shutdown",
-    );
-
+    logger.error({ err }, "Error during shutdown");
     process.exit(1);
   }
 }
@@ -496,5 +455,3 @@ process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));
 
 module.exports = app;
-
-/// updated

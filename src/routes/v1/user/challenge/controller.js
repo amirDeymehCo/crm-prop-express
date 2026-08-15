@@ -159,7 +159,7 @@ const Controller = class extends Controllers {
           type: "challenge_purchase",
           discountUsd: ch_data?.order?.discount_usd,
           createOrder: false,
-          order_id: ch_data?.order?.gateway_order_id,
+          orderSelect: ch_data?.order,
         });
 
         return this.response({
