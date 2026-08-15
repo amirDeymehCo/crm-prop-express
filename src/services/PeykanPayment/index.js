@@ -21,8 +21,10 @@ async function paykanService({
   userChallenge = null,
   type = "wallet_deposit",
   discountUsd = 0,
+  createOrder = true,
+  order_id = null,
 }) {
-  const orderId = `buyCh-${userId}-${Date.now()}`;
+  const orderId = order_id ? order_id : `buyCh-${userId}-${Date.now()}`;
 
   const setting = await Setting.findOne({ where: { id: 1 } });
   const dollarPrice = Number(setting?.dollar_price || 0);
@@ -40,45 +42,47 @@ async function paykanService({
       ? userChallenge.id
       : userChallenge;
 
-  // 1) ساخت Order
-  const order = await Order.create({
-    gateway_order_id: orderId,
-    user_id: userId,
-    user_challenge_id: userChallengeId,
-
-    amount_usd: amountUsdValue,
-    discount_usd: discountUsdValue,
-    final_amount_usd: finalAmountUsdValue,
-
-    amount_irr: amountIrr,
-    discount_irr: discountIrr,
-    final_amount_irr: finalAmountIrr,
-
-    gateway: finalAmountUsdValue === 0 ? "coupon_free" : "peykan",
-    status: finalAmountUsdValue === 0 ? "paid" : "pending",
-    type,
-  });
-
-  // 2) اگر مبلغ نهایی صفره، نیازی به درگاه نیست
-  if (finalAmountUsdValue === 0) {
-    const payment = await Payment.create({
-      order_id: orderId,
+  if (createOrder) {
+    // 1) ساخت Order
+    const order = await Order.create({
+      gateway_order_id: orderId,
       user_id: userId,
-      amount_irr: 0,
-      amount_usd: 0,
-      rate_irr_per_usd: dollarPrice,
-      status: "paid",
-      provider: "coupon_free",
-      raw_callback: callback_url,
       user_challenge_id: userChallengeId,
+
+      amount_usd: amountUsdValue,
+      discount_usd: discountUsdValue,
+      final_amount_usd: finalAmountUsdValue,
+
+      amount_irr: amountIrr,
+      discount_irr: discountIrr,
+      final_amount_irr: finalAmountIrr,
+
+      gateway: finalAmountUsdValue === 0 ? "coupon_free" : "peykan",
+      status: finalAmountUsdValue === 0 ? "paid" : "pending",
+      type,
     });
 
-    return {
-      order,
-      payment,
-      redirectUrl: null,
-      free: true,
-    };
+    // 2) اگر مبلغ نهایی صفره، نیازی به درگاه نیست
+    if (finalAmountUsdValue === 0) {
+      const payment = await Payment.create({
+        order_id: orderId,
+        user_id: userId,
+        amount_irr: 0,
+        amount_usd: 0,
+        rate_irr_per_usd: dollarPrice,
+        status: "paid",
+        provider: "coupon_free",
+        raw_callback: callback_url,
+        user_challenge_id: userChallengeId,
+      });
+
+      return {
+        order,
+        payment,
+        redirectUrl: null,
+        free: true,
+      };
+    }
   }
 
   // 3) ساخت رکورد Payment در حالت pending

@@ -158,6 +158,8 @@ const Controller = class extends Controllers {
             "https://api-crm.myprop.trade/api/v1/global/callback-peykan-challenge",
           type: "challenge_purchase",
           discountUsd: ch_data?.order?.discount_usd,
+          createOrder: false,
+          order_id: ch_data?.order?.gateway_order_id,
         });
 
         return this.response({
