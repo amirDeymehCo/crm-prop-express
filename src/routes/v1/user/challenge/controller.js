@@ -767,7 +767,7 @@ const Controller = class extends Controllers {
         await payWithWallet({
           userId: req.user.id,
           // ✅ همیشه id داخلی سفارش
-          orderId: order.id,
+          orderId: order.gateway_order_id,
           amountUsd,
           t,
         });
