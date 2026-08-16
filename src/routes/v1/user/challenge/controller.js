@@ -661,7 +661,6 @@ const Controller = class extends Controllers {
               gateway: req?.body?.gateway,
               status: "pending",
               meta: {
-                original_paid_amount_usd: paidAmount, // 100.1 (برای ارجاع)
                 base_amount_usd: baseAmount, // 77 ✅ جدید
                 insurance_fee_usd: baseAmount, // 23.1
                 phase_index: INSURANCE_PHASE.PHASE_2,
