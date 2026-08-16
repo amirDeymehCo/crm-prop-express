@@ -1,5 +1,6 @@
 const STATUS_USER_CHALLENGE = [
   "pending_payment",
+  "pending_payment_insurance",
   "pending",
   "phase1",
   "phase2",

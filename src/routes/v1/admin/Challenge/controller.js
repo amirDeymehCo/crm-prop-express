@@ -35,7 +35,7 @@ const generateMainPassword = require("../../../../services/BuyCh/CreatePassword"
 const { Op } = require("sequelize");
 const createTradingAccount = require("../../../../services/BuyCh/CreateTrainingAccount");
 
-const createPhaseCertificate = require("../../../../utils/CreateCt");
+const RunInsurance = require("../../../../services/Insurance/runInsurance");
 
 const typesStatus = {
   payment_phase2: "در انتظار پرداخت چالش رایگان",
@@ -324,6 +324,16 @@ const Controller = class extends Controllers {
             },
             { transaction: t },
           );
+          if (req?.body?.run_insurance) {
+            const insuranceResult = await RunInsurance({
+              userChallenge: userCh,
+              user,
+              adminId: req?.admin?.id,
+              platform: req?.body?.platform || "ctrader",
+              transaction: t,
+              repurchaseReturnUrl: req?.body?.repurchase_return_url ?? null,
+            });
+          }
 
           await t.commit();
 
@@ -575,6 +585,10 @@ const Controller = class extends Controllers {
           ],
         },
       ],
+      order: [
+        [{ model: HistoryChallenge }, "createdAt", "DESC"],
+        [{ model: Order }, "createdAt", "ASC"],
+      ],
     });
 
     if (!singleCh)
@@ -618,6 +632,11 @@ const Controller = class extends Controllers {
 
       // 2) ساخت چالش + order + payment
       const chData = await createChFounc(fakeReq, res, next, t);
+      await chData.order.update({
+        status: "paid",
+        paid_at: new Date(),
+        admin_id: req?.admin?.id,
+      });
 
       if (req?.body?.note) {
         await ChallengeNote.create({
