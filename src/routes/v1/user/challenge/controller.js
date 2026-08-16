@@ -588,6 +588,7 @@ const Controller = class extends Controllers {
               "pending_payment",
               "pending",
               "pending_payment_insurance",
+              "payment_phase2",
             ],
           },
         },
@@ -613,13 +614,17 @@ const Controller = class extends Controllers {
       let order;
       let amountUsd;
 
-      if (isInsuranceRepurchase) {
-        // ─────────── مسیر بیمه: ساخت سفارش ۷۰٪ همین‌جا ───────────
-        const paidAmount = await getPaidAmountUSD(userChallenge, t);
+      const INSURANCE_FEE_RATE = 0.3; // سهم حق بیمه که روی پایه اضافه می‌شود
+      const REPURCHASE_RATE = 0.7;
 
-        // مبلغ اصلی ۱۳ → هزینه بیمه ۳۰٪ = ۳.۹ → مبلغ پرداخت مجدد = ۹.۱
-        const repurchaseAmount =
-          paidAmount * (1 - INSURANCE.PHASE2_INSURANCE_FEE_PERCENT);
+      if (isInsuranceRepurchase) {
+        const totalPaid = await getPaidAmountUSD(userChallenge, t); // 100.1 (شامل حق بیمه)
+
+        // استخراج مبلغ پایه از مبلغ کل (چون کل = پایه × 1.3)
+        const baseAmount = totalPaid / (1 + INSURANCE_FEE_RATE); // 100.1 / 1.3 = 77
+
+        // مبلغ خرید مجدد فاز ۲ = ۷۰٪ مبلغ پایه (نه مبلغ کل)
+        const repurchaseAmount = round2(baseAmount * REPURCHASE_RATE); // 77 × 0.7 = 53.9
 
         if (!Number.isFinite(repurchaseAmount) || repurchaseAmount <= 0) {
           await t.rollback();
@@ -656,8 +661,9 @@ const Controller = class extends Controllers {
               gateway: req?.body?.gateway,
               status: "pending",
               meta: {
-                original_paid_amount_usd: paidAmount,
-                insurance_fee_usd: paidAmount - repurchaseAmount,
+                original_paid_amount_usd: paidAmount, // 100.1 (برای ارجاع)
+                base_amount_usd: baseAmount, // 77 ✅ جدید
+                insurance_fee_usd: paidAmount - baseAmount, // 23.1
                 phase_index: INSURANCE_PHASE.PHASE_2,
               },
             },
@@ -719,7 +725,7 @@ const Controller = class extends Controllers {
         // ✅ از id داخلی استفاده کن (gateway_order_id ممکنه null باشه)
         return finalizeChallengeAfterPaid({
           user: req.user,
-          orderId: order.id,
+          orderId: order.gateway_order_id,
           trackingCode,
           refNum,
           t,
