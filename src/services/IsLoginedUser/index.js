@@ -10,6 +10,7 @@ const PUBLIC_FIELDS = [
   "email",
   "mobile",
   "avatar",
+  "status",
 ];
 
 // آیا «لاگین بودن» باید به تایید شدن اکانت هم وابسته باشه؟
@@ -55,7 +56,7 @@ async function getSessionStatus(identifier = {}) {
   return {
     is_logged_in,
     session_expires_at: is_logged_in ? user.refresh_token_expires_at : null,
-    user: safeUser,
+    user: is_logged_in ? safeUser : null,
   };
 }
 
