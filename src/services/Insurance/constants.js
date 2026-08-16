@@ -23,7 +23,7 @@ const INSURANCE_STATUS = {
   USED: "used",
   CANCELLED: "cancelled",
   // اگه خواستی فاز ۲ رو به صورت صریح توی انتظار پرداخت نگه داری:
-  PENDING_REPURCHASE: "pending_repurchase",
+  PENDING_REPURCHASE: "used",
 };
 
 module.exports = { INSURANCE, INSURANCE_PHASE, INSURANCE_STATUS };
