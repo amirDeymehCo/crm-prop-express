@@ -7,6 +7,7 @@ router
   .all("/callback-peykan", asyncHandler(Controller.callbackPeykan))
   .all("/callback-peykan-challenge", asyncHandler(Controller.callbackBuyCh))
   .get("/getPlansList", asyncHandler(Controller.getPlansList))
-  .get("/getPhase/:planId", asyncHandler(Controller.getPhase));
+  .get("/getPhase/:planId", asyncHandler(Controller.getPhase))
+  .get("/isLogined", asyncHandler(Controller.isLogined));
 
 module.exports = router;

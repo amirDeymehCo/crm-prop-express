@@ -16,6 +16,7 @@ const {
 const {
   finalizeChallengeAfterPaid,
 } = require("../../../../services/ChallengeFinalize");
+const { getSessionStatus } = require("../../../../services/IsLoginedUser");
 const baseSite = process.env.FRONT_BASE_URL;
 
 const Controller = class extends Controllers {
@@ -442,6 +443,11 @@ const Controller = class extends Controllers {
       message: "اطلاعات دیتیل یه چالش",
       data: details,
     });
+  }
+  async isLogined(req, res) {
+    const result = await getSessionStatus(req.body || {});
+
+    this.response({ res, data: result });
   }
 };
 
