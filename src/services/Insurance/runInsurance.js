@@ -58,7 +58,7 @@ async function applyPhase1Refund({
   await logInsuranceEvent({
     userChallengeId: userChallenge.id,
     adminId,
-    type: "has_insurance",
+    type: "insurance_paid",
     title: `پرداخت بیمه مرحله اول به مبلغ ${refund?.toLocaleString()} دلار`,
     transaction,
   });
