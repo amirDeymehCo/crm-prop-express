@@ -624,7 +624,7 @@ const Controller = class extends Controllers {
         const baseAmount = totalPaid / (1 + INSURANCE_FEE_RATE); // 100.1 / 1.3 = 77
 
         // مبلغ خرید مجدد فاز ۲ = ۷۰٪ مبلغ پایه (نه مبلغ کل)
-        const repurchaseAmount = round2(baseAmount * REPURCHASE_RATE); // 77 × 0.7 = 53.9
+        const repurchaseAmount = baseAmount * REPURCHASE_RATE; // 77 × 0.7 = 53.9
 
         if (!Number.isFinite(repurchaseAmount) || repurchaseAmount <= 0) {
           await t.rollback();
