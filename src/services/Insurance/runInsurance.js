@@ -80,6 +80,8 @@ async function applyPhase2Repurchase({
   const insuranceFee = paidAmount * INSURANCE.PHASE2_INSURANCE_FEE_PERCENT;
   const repurchaseAmount = Number(paidAmount - insuranceFee)?.toLocaleString();
 
+  console.log("AMIW@@@@@@@@@@@@@@@@@@@@@");
+
   await userChallenge.update(
     {
       insurance_status: INSURANCE_STATUS.PENDING_REPURCHASE,
@@ -87,6 +89,8 @@ async function applyPhase2Repurchase({
     },
     { transaction },
   );
+
+  console.log("AMIWrrrrrrrrrrrrrrrr");
 
   await logInsuranceEvent({
     userChallengeId: userChallenge.id,
@@ -184,7 +188,7 @@ const RunInsurance = async ({
   userChallenge,
   user,
   adminId = null,
-  platform = "mt5",
+  platform = "ctrader",
   transaction,
   userChallengeId,
   repurchaseReturnUrl = null,
@@ -229,6 +233,8 @@ const RunInsurance = async ({
       return { applied: false, reason: "challenge_not_closed" };
     }
 
+    console.log("BEFORE AMOUNT");
+
     const paidAmount = await getPaidAmountUSD(userChallenge, transaction);
 
     if (!Number.isFinite(paidAmount) || paidAmount <= 0) {
@@ -239,6 +245,7 @@ const RunInsurance = async ({
     let result;
 
     console.log("phaseIndex=>", phaseIndex);
+    console.log("AMIR+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
 
     switch (phaseIndex) {
       case INSURANCE_PHASE.PHASE_1:

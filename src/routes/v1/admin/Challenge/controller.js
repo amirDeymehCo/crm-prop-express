@@ -324,6 +324,8 @@ const Controller = class extends Controllers {
             },
             { transaction: t },
           );
+
+          console.log("req?.body?.run_insurance=>", req?.body?.run_insurance);
           if (req?.body?.run_insurance) {
             const insuranceResult = await RunInsurance({
               userChallenge: userCh,

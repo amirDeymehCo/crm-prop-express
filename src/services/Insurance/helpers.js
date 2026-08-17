@@ -16,6 +16,8 @@ const round2 = (n) => Math.round((Number(n) + Number.EPSILOT) * 100) / 100;
  * اگه Order پیدا نشد، از فیلدهای خود UserChallenge استفاده می‌کنیم.
  */
 async function getPaidAmountUSD(userChallenge, transaction) {
+  console.log({ user_challenge_id: userChallenge.id, status: "paid" });
+
   // ۱) بهترین حالت: آخرین سفارشِ پرداخت‌شده برای این چالش
   const paidOrder = await Order.findOne({
     where: {
@@ -28,7 +30,12 @@ async function getPaidAmountUSD(userChallenge, transaction) {
   });
 
   if (paidOrder) {
-    const paid = Number(paidOrder?.final_price_usd ?? paidOrder?.price_usd);
+    const paid = Number(
+      paidOrder?.dataValues?.final_price_usd ??
+        paidOrder?.dataValues?.final_amount_usd ??
+        paidOrder?.dataValues?.amount_usd ??
+        paidOrder?.dataValues?.price_usd,
+    );
     return paid;
   }
 
