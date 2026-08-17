@@ -340,6 +340,10 @@ const Controller = class extends Controllers {
             "status",
           ],
         },
+        {
+          model: Order,
+          attributes: ["id", "amount_usd", "base_amount_usd"],
+        },
       ],
       attributes: [
         "id",
