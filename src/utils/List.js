@@ -1,30 +1,30 @@
 const founcList = async (model, req, where = {}, otherProps = {}) => {
-  const query = req?.query;
-  // paginations
-  const page = query?.page ? parseInt(query.page) : 1;
-  const limit = query?.limit ? parseInt(query.limit) : 25;
+  const query = req?.query || {};
+
+  const page = Math.max(parseInt(query.page, 10) || 1, 1);
+  const limit = Math.max(parseInt(query.limit, 10) || 25, 1);
   const offset = (page - 1) * limit;
 
   const result = await model.findAndCountAll({
     where,
-    limit: limit,
-    offset: offset,
+    limit,
+    offset,
     distinct: true,
     ...otherProps,
   });
 
-  const totalCount = result.count;
-  const items = result.rows;
+  // وقتی group داریم، Sequelize یک آرایه از گروه‌ها برمی‌گرداند.
+  const totalCount = Array.isArray(result.count)
+    ? result.count.length
+    : result.count;
 
-  const resData = {
+  return {
     totalCount,
     currentPage: page,
     totalPages: Math.ceil(totalCount / limit),
     limit,
-    items,
+    items: result.rows,
   };
-
-  return resData;
 };
 
 module.exports = founcList;
