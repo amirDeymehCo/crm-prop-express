@@ -663,6 +663,7 @@ const Controller = class extends Controllers {
               gateway_order_id: orderId,
               gateway: req?.body?.gateway,
               status: "pending",
+              base_amount_usd: baseAmount,
               meta: {
                 base_amount_usd: baseAmount, // 77 ✅ جدید
                 insurance_fee_usd: baseAmount, // 23.1
@@ -828,6 +829,8 @@ const Controller = class extends Controllers {
           type: isInsuranceRepurchase
             ? "challenge_insurance_repurchase"
             : "challenge_purchase",
+          base_amount_usd:
+            userChallenge?.paykanService || userChallenge?.amount_usd || 0,
         });
 
         return this.response({

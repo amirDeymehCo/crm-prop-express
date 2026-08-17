@@ -23,6 +23,7 @@ async function paykanService({
   discountUsd = 0,
   createOrder = true,
   orderSelect = null,
+  base_amount_usd = 0,
 }) {
   let order = orderSelect ? orderSelect : null;
   const orderId = orderSelect?.gateway_order_id
@@ -55,6 +56,8 @@ async function paykanService({
       amount_usd: amountUsdValue,
       discount_usd: discountUsdValue,
       final_amount_usd: finalAmountUsdValue,
+
+      base_amount_usd: base_amount_usd || amountUsdValue,
 
       amount_irr: amountIrr,
       discount_irr: discountIrr,

@@ -88,6 +88,11 @@ const Order = sequelize.define(
       type: DataTypes.DECIMAL(18, 2),
       allowNull: false,
     },
+    base_amount_usd: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: true,
+      defaultValue: 0,
+    },
     discount_irr: {
       type: DataTypes.DECIMAL(18, 2),
       allowNull: true,

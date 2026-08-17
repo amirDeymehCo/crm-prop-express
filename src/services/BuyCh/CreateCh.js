@@ -244,6 +244,7 @@ function buildPriceSummary({ plan, insuranceFee, floatingRiskFee, discount }) {
   const finalPrice = Math.max(basePrice - Number(discount || 0), 0);
 
   return {
+    price_based: Number(plan.price_usd),
     base_price_usd: basePrice,
     discount_usd: Number(discount || 0),
     final_price_usd: finalPrice,
@@ -462,14 +463,15 @@ async function createOrderRecord({
       user_challenge_id: userChallenge.id,
 
       // ---------- USD ----------
-      amount_usd: basePrice,
+      amount_usd: prices.price_based,
+      base_amount_usd: basePrice,
       discount_usd: discount,
       final_amount_usd: finalPrice,
 
       // ---------- IRR ----------
-      amount_irr: basePrice * dollarPrice,
-      discount_irr: discount * dollarPrice,
-      final_amount_irr: finalPrice * dollarPrice,
+      amount_irr: basePrice * dollarPrice * 10,
+      discount_irr: discount * dollarPrice * 10,
+      final_amount_irr: finalPrice * dollarPrice * 10,
 
       // ---------- درگاه / وضعیت ----------
       gateway: finalPrice === 0 ? "coupon_free" : gateway,
@@ -493,8 +495,8 @@ async function createOrderRecord({
       provider: finalPrice === 0 ? "coupon_free" : provider,
       order_id: orderId,
       user_id: user.id,
-      amount_irr: finalPrice * dollarPrice,
-      amount_usd: finalPrice,
+      amount_irr: finalPrice * dollarPrice * 10,
+      amount_usd: finalPrice * 10,
       status: finalPrice === 0 ? "confirmed_free" : "pending",
       pay_currency: "usd",
       UserChallenge: userChallenge.id,

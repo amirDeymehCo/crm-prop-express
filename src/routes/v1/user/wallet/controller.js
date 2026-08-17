@@ -37,6 +37,7 @@ const Controller = class extends Controllers {
         amountUsd: amount_usd,
         callback_url:
           "https://api-crm.myprop.trade/api/v1/global/callback-peykan",
+          
       });
 
       return this.response({
