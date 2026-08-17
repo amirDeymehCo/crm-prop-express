@@ -199,7 +199,7 @@ const Controller = class extends Controllers {
     challengeWhere.status = { [Op.in]: activeStatuses };
 
     // حداقل تعداد چالش فعال برای لید
-    const minChallenges = Number(query?.min_active_challenges) || 3;
+    const minChallenges = Number(query?.min_active_challenges) || 4;
 
     const list = await founcList(User, req, where, {
       attributes: [
