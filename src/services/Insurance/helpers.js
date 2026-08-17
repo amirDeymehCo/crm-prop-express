@@ -28,10 +28,7 @@ async function getPaidAmountUSD(userChallenge, transaction) {
   });
 
   if (paidOrder) {
-    const paid = Number(
-      paidOrder?.dataValues?.final_price_usd ??
-        paidOrder?.dataValues?.price_usd,
-    );
+    const paid = Number(paidOrder?.final_price_usd ?? paidOrder?.price_usd);
     return paid;
   }
 
