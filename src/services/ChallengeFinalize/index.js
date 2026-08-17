@@ -57,6 +57,7 @@ async function getOrCreatePhase1AccountInstance({
   platform,
   email = null,
   forceCreate = false,
+  phaseIndex = 1,
 }) {
   let acc = await AccountInstance.findOne({
     where: {
