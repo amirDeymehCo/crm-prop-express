@@ -463,8 +463,8 @@ async function createOrderRecord({
       user_challenge_id: userChallenge.id,
 
       // ---------- USD ----------
-      amount_usd: prices.price_based,
-      base_amount_usd: basePrice,
+      amount_usd: basePrice,
+      base_amount_usd: prices.price_based,
       discount_usd: discount,
       final_amount_usd: finalPrice,
 
