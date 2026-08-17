@@ -342,7 +342,20 @@ const Controller = class extends Controllers {
         },
         {
           model: Order,
-          attributes: ["id", "amount_usd", "base_amount_usd"],
+          attributes: [
+            "id",
+            "amount_usd",
+            "base_amount_usd",
+            "status",
+            "createdAt",
+          ],
+          where: {
+            status: "paid",
+          },
+          separate: true,
+          limit: 1,
+          order: [["createdAt", "DESC"]],
+          required: false,
         },
       ],
       attributes: [
