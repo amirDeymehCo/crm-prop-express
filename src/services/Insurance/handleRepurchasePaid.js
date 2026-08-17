@@ -175,21 +175,15 @@ const handleRepurchasePaid = async ({
     const order = await Order.findOne({
       where: {
         id: orderId,
-        type: "challenge_insurance_repurchase", // حالا میتونی برگردونی
       },
       transaction: t, // ⬅️ همون تراکنش بیرونی که Order داخلش ساخته شد
       lock: t.LOCK.UPDATE,
     });
+    console.log(order);
 
     if (!order) {
       if (ownTransaction) await t.rollback();
       return { ok: false, reason: "order_not_found" };
-    }
-
-    // جلوگیری از اجرای دوبارهی وبهوک
-    if (order.status === "paid") {
-      if (ownTransaction) await t.rollback();
-      return { ok: false, reason: "already_paid", orderId: order.id };
     }
 
     const userChallenge = await UserChallenge.findByPk(

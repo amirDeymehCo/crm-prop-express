@@ -573,7 +573,7 @@ const Controller = class extends Controllers {
         .json({ ok: false, message: "خطای سرور در بررسی کد تخفیف." });
     }
   }
-  async payPendingChallenge(req, res, next) {
+  async payPendingChallenge(req, res) {
     const t = await sequelize.transaction();
     try {
       const { user_challenge_id, gateway } = req.body;
@@ -645,6 +645,8 @@ const Controller = class extends Controllers {
           )
           .sort((a, b) => b.id - a.id)[0];
 
+        const orderId = `insurance-buyCh-${req?.user?.id}-${Date.now()}`;
+
         if (!order) {
           order = await Order.create(
             {
@@ -658,6 +660,7 @@ const Controller = class extends Controllers {
               final_amount_usd: repurchaseAmount,
               amount_irr: 0,
               final_amount_irr: 0,
+              gateway_order_id: orderId,
               gateway: req?.body?.gateway,
               status: "pending",
               meta: {
@@ -699,6 +702,9 @@ const Controller = class extends Controllers {
 
         amountUsd = Number(order.final_amount_usd ?? order.amount_usd ?? 0);
       }
+
+      console.log("order=>>>>>>");
+      console.log(order);
 
       // ─── فاینالایز مشترک ───
       const finalizePaid = async ({ trackingCode, refNum, gatewayOrderId }) => {
@@ -762,6 +768,8 @@ const Controller = class extends Controllers {
         });
       }
 
+      console.log("FISH WALLET=>>", order);
+
       // 3) پرداخت با ولت
       if (gateway === "wallet") {
         await payWithWallet({
@@ -771,6 +779,8 @@ const Controller = class extends Controllers {
           amountUsd,
           t,
         });
+
+        console.log("FISH WALLET=>> 22");
 
         const result = await finalizePaid({
           trackingCode: `WALLET-${Date.now()}`,
@@ -813,8 +823,9 @@ const Controller = class extends Controllers {
           userId: req.user.id,
           amountUsd,
           userChallenge: userChallenge.id,
-          callback_url:
-            "https://api-crm.myprop.trade/api/v1/global/callback-peykan-challenge",
+          callback_url: isInsuranceRepurchase
+            ? "https://api-crm.myprop.trade/api/v1/global/callback-paykan-challenge-insurance"
+            : "https://api-crm.myprop.trade/api/v1/global/callback-peykan-challenge",
           type: isInsuranceRepurchase
             ? "challenge_insurance_repurchase"
             : "challenge_purchase",
@@ -846,6 +857,7 @@ const Controller = class extends Controllers {
         message: "درگاه نامعتبر است",
       });
     } catch (err) {
+      console.log(err);
       await t.rollback();
       return this.response({
         res,

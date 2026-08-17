@@ -56,26 +56,32 @@ async function getOrCreatePhase1AccountInstance({
   t,
   platform,
   email = null,
+  forceCreate = false,
 }) {
   let acc = await AccountInstance.findOne({
-    where: { user_challenge_id: userChallenge.id, phase_index: 1, cycle_no: 1 },
+    where: {
+      user_challenge_id: userChallenge.id,
+      phase_index: phaseIndex,
+      cycle_no: 1,
+    },
     transaction: t,
     lock: t.LOCK.UPDATE,
   });
 
-  if (acc) return acc;
+  if (!forceCreate && acc) return acc;
 
   const plan = userChallenge.ChallengePlan;
+
   const startingBalance = Number(plan.balance);
 
   acc = await AccountInstance.create(
     {
       user_id: userChallenge.user_id,
       user_challenge_id: userChallenge.id,
-      phase_index: 1,
+      phase_index: phaseIndex,
       cycle_no: 1,
       platform,
-      email: email ? email : null,
+      email: email || null,
       starting_balance_usd: startingBalance,
       display_balance_usd: startingBalance,
       status: "pending",
@@ -358,19 +364,26 @@ async function finalizeChallengeAfterPaid({
 
   console.log("ensure account instance exists (phase1)");
 
+  const targetPhaseIndex =
+    userChallenge?.status === "pending_payment_insurance" ? 2 : 1;
   // 5) ensure account instance exists (phase1)
   const acc = await getOrCreatePhase1AccountInstance({
     userChallenge,
     t,
     email: user?.email,
     platform,
+    phaseIndex: targetPhaseIndex,
+    forceCreate: true,
   });
 
   console.log(" update challenge status");
 
   // 6) update challenge status
   await userChallenge.update(
-    { status: "phase1", current_phase_index: 1 },
+    {
+      status: `phase${targetPhaseIndex}`,
+      current_phase_index: targetPhaseIndex,
+    },
     { transaction: t },
   );
 
