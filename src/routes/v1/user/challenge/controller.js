@@ -823,9 +823,8 @@ const Controller = class extends Controllers {
           userId: req.user.id,
           amountUsd,
           userChallenge: userChallenge.id,
-          callback_url: isInsuranceRepurchase
-            ? "https://api-crm.myprop.trade/api/v1/global/callback-paykan-challenge-insurance"
-            : "https://api-crm.myprop.trade/api/v1/global/callback-peykan-challenge",
+          callback_url:
+            "https://api-crm.myprop.trade/api/v1/global/callback-peykan-challenge",
           type: isInsuranceRepurchase
             ? "challenge_insurance_repurchase"
             : "challenge_purchase",
