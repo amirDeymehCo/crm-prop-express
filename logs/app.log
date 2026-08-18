@@ -1562,3 +1562,178 @@
 {"level":30,"time":1787049795818,"pid":5812,"hostname":"abi-computer","msg":"DB Connected"}
 {"level":30,"time":1787049804054,"pid":5812,"hostname":"abi-computer","msg":"DB Sync done"}
 {"level":30,"time":1787049804054,"pid":5812,"hostname":"abi-computer","msg":"Database initialized successfully"}
+{"level":30,"time":1787054326583,"pid":5300,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":40,"time":1787054326602,"pid":5300,"hostname":"abi-computer","attempt":1,"retries":30,"delayMs":3000,"error":"getaddrinfo ENOTFOUND mysql-db-crm","msg":"DB not ready (1/30) - retry in 3000ms"}
+{"level":40,"time":1787054329618,"pid":5300,"hostname":"abi-computer","attempt":2,"retries":30,"delayMs":3000,"error":"getaddrinfo ENOTFOUND mysql-db-crm","msg":"DB not ready (2/30) - retry in 3000ms"}
+{"level":40,"time":1787054332629,"pid":5300,"hostname":"abi-computer","attempt":3,"retries":30,"delayMs":3000,"error":"getaddrinfo ENOTFOUND mysql-db-crm","msg":"DB not ready (3/30) - retry in 3000ms"}
+{"level":40,"time":1787054335645,"pid":5300,"hostname":"abi-computer","attempt":4,"retries":30,"delayMs":3000,"error":"getaddrinfo ENOTFOUND mysql-db-crm","msg":"DB not ready (4/30) - retry in 3000ms"}
+{"level":40,"time":1787054338654,"pid":5300,"hostname":"abi-computer","attempt":5,"retries":30,"delayMs":3000,"error":"getaddrinfo ENOTFOUND mysql-db-crm","msg":"DB not ready (5/30) - retry in 3000ms"}
+{"level":40,"time":1787054341667,"pid":5300,"hostname":"abi-computer","attempt":6,"retries":30,"delayMs":3000,"error":"getaddrinfo ENOTFOUND mysql-db-crm","msg":"DB not ready (6/30) - retry in 3000ms"}
+{"level":40,"time":1787054344676,"pid":5300,"hostname":"abi-computer","attempt":7,"retries":30,"delayMs":3000,"error":"getaddrinfo ENOTFOUND mysql-db-crm","msg":"DB not ready (7/30) - retry in 3000ms"}
+{"level":40,"time":1787054347687,"pid":5300,"hostname":"abi-computer","attempt":8,"retries":30,"delayMs":3000,"error":"getaddrinfo ENOTFOUND mysql-db-crm","msg":"DB not ready (8/30) - retry in 3000ms"}
+{"level":40,"time":1787054350694,"pid":5300,"hostname":"abi-computer","attempt":9,"retries":30,"delayMs":3000,"error":"getaddrinfo ENOTFOUND mysql-db-crm","msg":"DB not ready (9/30) - retry in 3000ms"}
+{"level":40,"time":1787054353711,"pid":5300,"hostname":"abi-computer","attempt":10,"retries":30,"delayMs":3000,"error":"getaddrinfo ENOTFOUND mysql-db-crm","msg":"DB not ready (10/30) - retry in 3000ms"}
+{"level":40,"time":1787054356722,"pid":5300,"hostname":"abi-computer","attempt":11,"retries":30,"delayMs":3000,"error":"getaddrinfo ENOTFOUND mysql-db-crm","msg":"DB not ready (11/30) - retry in 3000ms"}
+{"level":40,"time":1787054359729,"pid":5300,"hostname":"abi-computer","attempt":12,"retries":30,"delayMs":3000,"error":"getaddrinfo ENOTFOUND mysql-db-crm","msg":"DB not ready (12/30) - retry in 3000ms"}
+{"level":40,"time":1787054362734,"pid":5300,"hostname":"abi-computer","attempt":13,"retries":30,"delayMs":3000,"error":"getaddrinfo ENOTFOUND mysql-db-crm","msg":"DB not ready (13/30) - retry in 3000ms"}
+{"level":40,"time":1787054365744,"pid":5300,"hostname":"abi-computer","attempt":14,"retries":30,"delayMs":3000,"error":"getaddrinfo ENOTFOUND mysql-db-crm","msg":"DB not ready (14/30) - retry in 3000ms"}
+{"level":40,"time":1787054368760,"pid":5300,"hostname":"abi-computer","attempt":15,"retries":30,"delayMs":3000,"error":"getaddrinfo ENOTFOUND mysql-db-crm","msg":"DB not ready (15/30) - retry in 3000ms"}
+{"level":40,"time":1787054371774,"pid":5300,"hostname":"abi-computer","attempt":16,"retries":30,"delayMs":3000,"error":"getaddrinfo ENOTFOUND mysql-db-crm","msg":"DB not ready (16/30) - retry in 3000ms"}
+{"level":30,"time":1787054373926,"pid":5300,"hostname":"abi-computer","signal":"SIGINT","msg":"Shutdown signal received"}
+{"level":30,"time":1787054377689,"pid":4500,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787054377752,"pid":4500,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787054389448,"pid":4500,"hostname":"abi-computer","msg":"DB Sync done"}
+{"level":30,"time":1787054389448,"pid":4500,"hostname":"abi-computer","msg":"Database initialized successfully"}
+{"level":30,"time":1787054477510,"pid":5804,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787054477558,"pid":5804,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787054487127,"pid":17944,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787054487175,"pid":17944,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787054495530,"pid":17944,"hostname":"abi-computer","msg":"DB Sync done"}
+{"level":30,"time":1787054495530,"pid":17944,"hostname":"abi-computer","msg":"Database initialized successfully"}
+{"level":30,"time":1787054504823,"pid":13852,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787054504926,"pid":13852,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787054510324,"pid":10888,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787054510409,"pid":10888,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787054518908,"pid":10888,"hostname":"abi-computer","msg":"DB Sync done"}
+{"level":30,"time":1787054518908,"pid":10888,"hostname":"abi-computer","msg":"Database initialized successfully"}
+{"level":30,"time":1787054530175,"pid":22008,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787054530218,"pid":22008,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787054539591,"pid":4312,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787054539637,"pid":4312,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787054544278,"pid":6272,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787054544333,"pid":6272,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787054553352,"pid":6272,"hostname":"abi-computer","msg":"DB Sync done"}
+{"level":30,"time":1787054553352,"pid":6272,"hostname":"abi-computer","msg":"Database initialized successfully"}
+{"level":30,"time":1787054594670,"pid":7808,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787054594720,"pid":7808,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787054602841,"pid":7808,"hostname":"abi-computer","msg":"DB Sync done"}
+{"level":30,"time":1787054602841,"pid":7808,"hostname":"abi-computer","msg":"Database initialized successfully"}
+{"level":30,"time":1787054637971,"pid":20160,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787054638020,"pid":20160,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787054645189,"pid":14992,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787054645238,"pid":14992,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787054654873,"pid":8672,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787054654920,"pid":8672,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787054663682,"pid":8672,"hostname":"abi-computer","msg":"DB Sync done"}
+{"level":30,"time":1787054663682,"pid":8672,"hostname":"abi-computer","msg":"Database initialized successfully"}
+{"level":30,"time":1787054676419,"pid":4796,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787054676465,"pid":4796,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787054684269,"pid":4796,"hostname":"abi-computer","msg":"DB Sync done"}
+{"level":30,"time":1787054684269,"pid":4796,"hostname":"abi-computer","msg":"Database initialized successfully"}
+{"level":30,"time":1787054707576,"pid":864,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787054707627,"pid":864,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787054716218,"pid":864,"hostname":"abi-computer","msg":"DB Sync done"}
+{"level":30,"time":1787054716218,"pid":864,"hostname":"abi-computer","msg":"Database initialized successfully"}
+{"level":30,"time":1787054755814,"pid":8224,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787054755859,"pid":8224,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787054764055,"pid":8224,"hostname":"abi-computer","msg":"DB Sync done"}
+{"level":30,"time":1787054764055,"pid":8224,"hostname":"abi-computer","msg":"Database initialized successfully"}
+{"level":30,"time":1787054797160,"pid":21688,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787054797236,"pid":21688,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787054805756,"pid":21688,"hostname":"abi-computer","msg":"DB Sync done"}
+{"level":30,"time":1787054805756,"pid":21688,"hostname":"abi-computer","msg":"Database initialized successfully"}
+{"level":30,"time":1787054808495,"pid":13460,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787054808547,"pid":13460,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787054818110,"pid":13460,"hostname":"abi-computer","msg":"DB Sync done"}
+{"level":30,"time":1787054818110,"pid":13460,"hostname":"abi-computer","msg":"Database initialized successfully"}
+{"level":30,"time":1787054839643,"pid":17328,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787054839740,"pid":17328,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787054845242,"pid":3764,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787054845315,"pid":3764,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787054857018,"pid":14084,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787054857066,"pid":14084,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787054864887,"pid":9672,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787054864931,"pid":9672,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787054873280,"pid":9672,"hostname":"abi-computer","msg":"DB Sync done"}
+{"level":30,"time":1787054873280,"pid":9672,"hostname":"abi-computer","msg":"Database initialized successfully"}
+{"level":30,"time":1787054975681,"pid":16868,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787054975735,"pid":16868,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787054986934,"pid":8708,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787054986994,"pid":8708,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787054998255,"pid":8708,"hostname":"abi-computer","msg":"DB Sync done"}
+{"level":30,"time":1787054998255,"pid":8708,"hostname":"abi-computer","msg":"Database initialized successfully"}
+{"level":30,"time":1787055524144,"pid":21740,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787055524255,"pid":21740,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787055532896,"pid":21740,"hostname":"abi-computer","msg":"DB Sync done"}
+{"level":30,"time":1787055532896,"pid":21740,"hostname":"abi-computer","msg":"Database initialized successfully"}
+{"level":30,"time":1787055577853,"pid":1840,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787055577942,"pid":1840,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787055587488,"pid":1840,"hostname":"abi-computer","msg":"DB Sync done"}
+{"level":30,"time":1787055587489,"pid":1840,"hostname":"abi-computer","msg":"Database initialized successfully"}
+{"level":30,"time":1787055674688,"pid":13168,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787055674738,"pid":13168,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787055683678,"pid":13168,"hostname":"abi-computer","msg":"DB Sync done"}
+{"level":30,"time":1787055683678,"pid":13168,"hostname":"abi-computer","msg":"Database initialized successfully"}
+{"level":30,"time":1787055688591,"pid":8884,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787055688638,"pid":8884,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787055697414,"pid":8884,"hostname":"abi-computer","msg":"DB Sync done"}
+{"level":30,"time":1787055697414,"pid":8884,"hostname":"abi-computer","msg":"Database initialized successfully"}
+{"level":30,"time":1787055844020,"pid":12632,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787055844073,"pid":12632,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787055852792,"pid":12632,"hostname":"abi-computer","msg":"DB Sync done"}
+{"level":30,"time":1787055852891,"pid":12632,"hostname":"abi-computer","msg":"Database initialized successfully"}
+{"level":30,"time":1787055906260,"pid":19164,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787055906306,"pid":19164,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787055913203,"pid":16692,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787055913250,"pid":16692,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787055921549,"pid":16692,"hostname":"abi-computer","msg":"DB Sync done"}
+{"level":30,"time":1787055921640,"pid":16692,"hostname":"abi-computer","msg":"Database initialized successfully"}
+{"level":30,"time":1787055957338,"pid":21360,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787055957386,"pid":21360,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787055967921,"pid":21360,"hostname":"abi-computer","msg":"DB Sync done"}
+{"level":30,"time":1787055968054,"pid":21360,"hostname":"abi-computer","msg":"Database initialized successfully"}
+{"level":30,"time":1787056250043,"pid":19264,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787056250126,"pid":19264,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787056257548,"pid":19264,"hostname":"abi-computer","msg":"DB Sync done"}
+{"level":30,"time":1787056257641,"pid":19264,"hostname":"abi-computer","msg":"Database initialized successfully"}
+{"level":30,"time":1787056471640,"pid":21336,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787056471685,"pid":21336,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":60,"time":1787056475936,"pid":21336,"hostname":"abi-computer","err":{"type":"DatabaseError","message":"Invalid default value for 'status'","stack":"Error\n    at Query.run (D:\\New folder\\crm-prop-express\\node_modules\\sequelize\\lib\\dialects\\mysql\\query.js:52:25)\n    at D:\\New folder\\crm-prop-express\\node_modules\\sequelize\\lib\\sequelize.js:315:28\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async WidthdrawRequest.sync (D:\\New folder\\crm-prop-express\\node_modules\\sequelize\\lib\\model.js:984:11)\n    at async Sequelize.sync (D:\\New folder\\crm-prop-express\\node_modules\\sequelize\\lib\\sequelize.js:377:9)\n    at async initDatabase (D:\\New folder\\crm-prop-express\\src\\index.js:365:9)\n    at async startServer (D:\\New folder\\crm-prop-express\\src\\index.js:416:5)","name":"SequelizeDatabaseError","parent":{"type":"Error","message":"Invalid default value for 'status'","stack":"Error: Invalid default value for 'status'\n    at Packet.asError (D:\\New folder\\crm-prop-express\\node_modules\\mysql2\\lib\\packets\\packet.js:740:17)\n    at Query.execute (D:\\New folder\\crm-prop-express\\node_modules\\mysql2\\lib\\commands\\command.js:29:26)\n    at Connection.handlePacket (D:\\New folder\\crm-prop-express\\node_modules\\mysql2\\lib\\base\\connection.js:475:34)\n    at PacketParser.onPacket (D:\\New folder\\crm-prop-express\\node_modules\\mysql2\\lib\\base\\connection.js:93:12)\n    at PacketParser.executeStart (D:\\New folder\\crm-prop-express\\node_modules\\mysql2\\lib\\packet_parser.js:75:16)\n    at Socket.<anonymous> (D:\\New folder\\crm-prop-express\\node_modules\\mysql2\\lib\\base\\connection.js:100:25)\n    at Socket.emit (node:events:518:28)\n    at addChunk (node:internal/streams/readable:561:12)\n    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)\n    at Readable.push (node:internal/streams/readable:392:5)","code":"ER_INVALID_DEFAULT","errno":1067,"sqlState":"42000","sqlMessage":"Invalid default value for 'status'","sql":"ALTER TABLE `WidthdrawRequests` CHANGE `status` `status` ENUM('reuqest_waiting', 'request_progra', 'canceled') NOT NULL DEFAULT 'waiting';"},"original":{"type":"Error","message":"Invalid default value for 'status'","stack":"Error: Invalid default value for 'status'\n    at Packet.asError (D:\\New folder\\crm-prop-express\\node_modules\\mysql2\\lib\\packets\\packet.js:740:17)\n    at Query.execute (D:\\New folder\\crm-prop-express\\node_modules\\mysql2\\lib\\commands\\command.js:29:26)\n    at Connection.handlePacket (D:\\New folder\\crm-prop-express\\node_modules\\mysql2\\lib\\base\\connection.js:475:34)\n    at PacketParser.onPacket (D:\\New folder\\crm-prop-express\\node_modules\\mysql2\\lib\\base\\connection.js:93:12)\n    at PacketParser.executeStart (D:\\New folder\\crm-prop-express\\node_modules\\mysql2\\lib\\packet_parser.js:75:16)\n    at Socket.<anonymous> (D:\\New folder\\crm-prop-express\\node_modules\\mysql2\\lib\\base\\connection.js:100:25)\n    at Socket.emit (node:events:518:28)\n    at addChunk (node:internal/streams/readable:561:12)\n    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)\n    at Readable.push (node:internal/streams/readable:392:5)","code":"ER_INVALID_DEFAULT","errno":1067,"sqlState":"42000","sqlMessage":"Invalid default value for 'status'","sql":"ALTER TABLE `WidthdrawRequests` CHANGE `status` `status` ENUM('reuqest_waiting', 'request_progra', 'canceled') NOT NULL DEFAULT 'waiting';"},"sql":"ALTER TABLE `WidthdrawRequests` CHANGE `status` `status` ENUM('reuqest_waiting', 'request_progra', 'canceled') NOT NULL DEFAULT 'waiting';","parameters":{}},"msg":"Failed to initialize database"}
+{"level":30,"time":1787056536387,"pid":12008,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787056536440,"pid":12008,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787056545084,"pid":12008,"hostname":"abi-computer","msg":"DB Sync done"}
+{"level":30,"time":1787056545198,"pid":12008,"hostname":"abi-computer","msg":"Database initialized successfully"}
+{"level":30,"time":1787056768414,"pid":4080,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787056768467,"pid":4080,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787056777526,"pid":4080,"hostname":"abi-computer","msg":"DB Sync done"}
+{"level":30,"time":1787056777612,"pid":4080,"hostname":"abi-computer","msg":"Database initialized successfully"}
+{"level":30,"time":1787057117300,"pid":4728,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787057117352,"pid":4728,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787057126439,"pid":4728,"hostname":"abi-computer","msg":"DB Sync done"}
+{"level":30,"time":1787057126529,"pid":4728,"hostname":"abi-computer","msg":"Database initialized successfully"}
+{"level":30,"time":1787057555572,"pid":7428,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787057555623,"pid":7428,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787057564118,"pid":7428,"hostname":"abi-computer","msg":"DB Sync done"}
+{"level":30,"time":1787057564510,"pid":7428,"hostname":"abi-computer","msg":"Database initialized successfully"}
+{"level":30,"time":1787057844181,"pid":3568,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787057844224,"pid":3568,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787057851821,"pid":3568,"hostname":"abi-computer","msg":"DB Sync done"}
+{"level":30,"time":1787057852006,"pid":3568,"hostname":"abi-computer","msg":"Database initialized successfully"}
+{"level":30,"time":1787057956444,"pid":9736,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787057956493,"pid":9736,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787057965065,"pid":9736,"hostname":"abi-computer","msg":"DB Sync done"}
+{"level":30,"time":1787057965172,"pid":9736,"hostname":"abi-computer","msg":"Database initialized successfully"}
+{"level":30,"time":1787057975412,"pid":15224,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787057975545,"pid":15224,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787057981887,"pid":4416,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787057981929,"pid":4416,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787057990178,"pid":4416,"hostname":"abi-computer","msg":"DB Sync done"}
+{"level":30,"time":1787057990280,"pid":4416,"hostname":"abi-computer","msg":"Database initialized successfully"}
+{"level":30,"time":1787057998570,"pid":6284,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787057998614,"pid":6284,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787058006380,"pid":6284,"hostname":"abi-computer","msg":"DB Sync done"}
+{"level":30,"time":1787058006499,"pid":6284,"hostname":"abi-computer","msg":"Database initialized successfully"}
+{"level":30,"time":1787058012373,"pid":428,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787058012430,"pid":428,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787058022247,"pid":428,"hostname":"abi-computer","msg":"DB Sync done"}
+{"level":30,"time":1787058022337,"pid":428,"hostname":"abi-computer","msg":"Database initialized successfully"}
+{"level":30,"time":1787058686456,"pid":9640,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787058686500,"pid":9640,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787058694668,"pid":9640,"hostname":"abi-computer","msg":"DB Sync done"}
+{"level":30,"time":1787058694760,"pid":9640,"hostname":"abi-computer","msg":"Database initialized successfully"}
+{"level":30,"time":1787058699544,"pid":17308,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787058699617,"pid":17308,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1787058707756,"pid":17308,"hostname":"abi-computer","msg":"DB Sync done"}
+{"level":30,"time":1787058707850,"pid":17308,"hostname":"abi-computer","msg":"Database initialized successfully"}
+{"level":30,"time":1787058874317,"pid":20764,"hostname":"abi-computer","msg":"Server running on port 8000"}
+{"level":30,"time":1787058874363,"pid":20764,"hostname":"abi-computer","msg":"DB Connected"}

@@ -103,6 +103,9 @@ const Controller = class extends Controllers {
         message: "شناسه برداشت اشتباه است",
       });
 
+    console.log("LOG IS CANCELED=>");
+    console.log(requestWithdraw?.is_canceled);
+
     if (requestWithdraw?.is_canceled == "1")
       return this.response({
         res,
