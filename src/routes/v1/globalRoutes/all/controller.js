@@ -75,7 +75,7 @@ const Controller = class extends Controllers {
     await sequelize.transaction(async (t) => {
       // دوباره داخل تراکنش چک کن (برای همزمانی)
       const alreadyTx = await WalletTransaction.findOne({
-        where: { ref_id: verify.refNum }, // یا tracking_code
+        where: { ref_id: data.ref_num }, // یا tracking_code
         transaction: t,
         lock: t.LOCK.UPDATE,
       });
@@ -92,7 +92,11 @@ const Controller = class extends Controllers {
       );
 
       await order.update(
-        { status: "paid", paid_at: new Date() },
+        {
+          status: "paid",
+          paid_at: new Date(),
+          gateway_payment_id: data?.ref_num,
+        },
         { transaction: t },
       );
 
@@ -110,7 +114,7 @@ const Controller = class extends Controllers {
           amount: amountUSD,
           balance_before: wallet.balance,
           balance_after: Number(wallet.balance) + amountUSD,
-          ref_id: verify.refNum,
+          ref_id: data.ref_num,
           status: "completed",
           meta: JSON.stringify({ data, verify }),
           wallet_id: wallet.id,
