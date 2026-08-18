@@ -124,13 +124,11 @@ const Controller = class extends Controllers {
     // messages
     const messages = await SmsMessage.findAll({
       where: { user_id: user?.id },
-      limit: 2,
     });
 
     // calls
     const calls = await Call.findAll({
       where: { user_id: user?.id },
-      limit: 2,
     });
 
     // // transactions
@@ -141,7 +139,6 @@ const Controller = class extends Controllers {
     // // orders
     // const orders = await Order.findAll({
     //   where: { user_id: user?.id },
-    //   // limit: 2,
     //   attributes: ["id", "type", "amount_usd"],
     //   include: [
     //     {
@@ -244,7 +241,6 @@ const Controller = class extends Controllers {
     // requestWidthdraw
     const requestWidthdraw = await Ticket.findAll({
       where: { user_id: user?.id, type: "widthdraw" },
-      limit: 2,
       attributes: ["id", "title", "status", "type", "createdAt"],
       include: [
         {
@@ -303,7 +299,13 @@ const Controller = class extends Controllers {
       ],
       group: ["User.id"],
       order: [[literal("total_paid"), "DESC"]],
-      subQuery: false, // ✅ جلوگیری از خراب شدن LIMIT
+      subQuery: false,
+    });
+
+    // tickets
+    const tickets = await Ticket.findAll({
+      where: { user_id: user?.id, type: "ticket" },
+      attributes: ["id", "title", "status", "type", "createdAt"],
     });
 
     this.response({
@@ -323,6 +325,7 @@ const Controller = class extends Controllers {
         calls,
         messages,
         userChallenges,
+        tickets,
       },
     });
   }
