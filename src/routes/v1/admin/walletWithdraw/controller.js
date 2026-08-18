@@ -1,6 +1,7 @@
 const Controllers = require("../../../controllers");
 const Ticket = require("../../../../models/Ticket");
 const User = require("../../../../models/User");
+const Admin = require("../../../../models/Admin");
 const WidthdrawRequest = require("../../../../models/WidthdrawRequest");
 const RequestWithdrawLogs = require("../../../../models/request_withdraw_logs");
 const founcList = require("../../../../utils/List");
@@ -68,9 +69,21 @@ const Controller = class extends Controllers {
         message: "شناسه برداشت اشتباه است",
       });
 
-    const logsList = await founcList(RequestWithdrawLogs, req, {
-      log_id: requestWithdraw?.id,
-    });
+    const logsList = await founcList(
+      RequestWithdrawLogs,
+      req,
+      {
+        log_id: requestWithdraw?.id,
+      },
+      {
+        include: [
+          {
+            model: Admin,
+            attributes: ["id", "name", "avatar"],
+          },
+        ],
+      },
+    );
 
     this.response({
       res,
