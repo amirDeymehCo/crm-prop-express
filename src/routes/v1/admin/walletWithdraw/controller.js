@@ -115,10 +115,11 @@ const Controller = class extends Controllers {
 
     await requestWithdraw.update({
       status: req?.body?.status,
-      is_canceled: req?.body?.status === "canceled",
+      is_canceled: req?.body?.status === "request_canceled",
       description: req?.body?.description || requestWithdraw?.description,
     });
 
+    ///
     await RequestWithdrawLogs.create({
       old_status: oldStatus,
       new_status: req?.body?.status,
@@ -129,5 +130,7 @@ const Controller = class extends Controllers {
     this.response({ res, message: "اطلاعات با موفقیت ثبت شد" });
   }
 };
+
+/// amidwajdiawjid jaw
 
 module.exports = new Controller();
