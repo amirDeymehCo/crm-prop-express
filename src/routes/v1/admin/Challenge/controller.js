@@ -757,6 +757,8 @@ const Controller = class extends Controllers {
     if (req?.query?.type) where.type = req?.query?.type;
     if (req?.query?.user_id) where.user_id = req?.query?.user_id;
     if (req?.query?.status) where.status = req?.query?.status;
+    if (req?.query?.gateway_payment_id)
+      where.gateway_payment_id = req?.query?.gateway_payment_id;
 
     if (req?.query?.from || req?.query?.to) {
       where.createdAt = {};
@@ -878,6 +880,7 @@ const Controller = class extends Controllers {
             <td class="num">${formatPrice(item.amount_irr ?? Number(item.amount_usd || 0) * 1800000)}</td>
             <td class="center">${item.UserChallenge?.id || "-"}</td>
             <td class="nowrap">${formatDate(item.createdAt)}</td>
+            <td class="nowrap">${item?.gateway_payment_id || "--"}</td>
           </tr>
         `,
         )
@@ -1074,8 +1077,10 @@ const Controller = class extends Controllers {
                   <th style="width: 90px;">وضعیت</th>
                   <th style="width: 95px;">مبلغ دلاری</th>
                   <th style="width: 110px;">مبلغ ریالی</th>
+                  <th style="width: 110px;">مبلغ ریالی</th>
                   <th style="width: 85px;">Challenge</th>
                   <th style="width: 120px;">تاریخ</th>
+                  <th style="width: 120px;">شناسه درگاه</th>
                 </tr>
               </thead>
               <tbody>
