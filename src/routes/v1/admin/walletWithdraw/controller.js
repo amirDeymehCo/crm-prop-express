@@ -104,9 +104,9 @@ const Controller = class extends Controllers {
       });
 
     console.log("LOG IS CANCELED=>");
-    console.log(requestWithdraw?.is_canceled);
+    console.log(requestWithdraw?.is_canceled_reqeust);
 
-    if (requestWithdraw?.is_canceled == "1")
+    if (requestWithdraw?.is_canceled_reqeust == "1")
       return this.response({
         res,
         status: 400,
@@ -118,7 +118,7 @@ const Controller = class extends Controllers {
 
     await requestWithdraw.update({
       status: req?.body?.status,
-      is_canceled: req?.body?.status === "request_canceled",
+      is_canceled_reqeust: req?.body?.status === "request_canceled" ? "1" : "0",
       description: req?.body?.description || requestWithdraw?.description,
     });
 
