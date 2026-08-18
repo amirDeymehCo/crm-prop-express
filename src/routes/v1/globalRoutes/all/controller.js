@@ -423,13 +423,17 @@ const Controller = class extends Controllers {
       }
     });
 
+    console.log("AMIR=>>>>>>>");
+    console.log(setting);
+
     this.response({
       res,
       status: 200,
       message: "اطلاعات چالش ها",
       data: {
         listTypes,
-        dollar_price: setting?.dollar_price,
+        dollar_price:
+          Number(setting?.dollar_price) + Number(setting?.bonus_dollar),
       },
     });
   }

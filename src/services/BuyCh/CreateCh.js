@@ -451,7 +451,8 @@ async function createOrderRecord({
     where: { id: 1 },
     transaction,
   });
-  const dollarPrice = Number(setting?.dollar_price || 1800000);
+  const dollarPrice =
+    Number(setting?.dollar_price || 1800000) + Number(setting?.bonus_dollar);
 
   const basePrice = Number(prices.base_price_usd);
   const discount = Number(prices.discount_usd || 0);

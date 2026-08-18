@@ -39,7 +39,9 @@ async function createDepositUSDInvoice({
   await Order.create({
     gateway_order_id: orderId,
     user_id: user?.id,
-    amount_irr: Number(amountUsd) * Number(setting?.dollar_price),
+    amount_irr:
+      Number(amountUsd) *
+      Number(setting?.dollar_price + Number(setting?.bonus_dollar)),
     amount_usd: amountUsd,
     currency: "USD",
     gateway: "nowpayments",

@@ -119,7 +119,9 @@ const Controller = class extends Controllers {
     // wallet
     const wallet = await Wallet.findOne({ where: { user_id: user?.id } });
     const setting = await Setting.findOne({ where: { id: 1 } });
-    const amount_irr = wallet?.balance * setting?.dollar_price;
+    const amount_irr =
+      wallet?.balance *
+      (Number(setting?.dollar_price) + Number(setting?.bonus_dollar));
 
     // messages
     const messages = await SmsMessage.findAll({

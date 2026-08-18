@@ -15,6 +15,11 @@ const Setting = sequelize.define(
       allowNull: false,
       defaultValue: 0,
     },
+    bonus_dollar: {
+      type: DataTypes.DECIMAL(18, 4),
+      allowNull: false,
+      defaultValue: 2500,
+    },
   },
   {
     tableName: "setting",

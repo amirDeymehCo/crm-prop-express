@@ -54,7 +54,8 @@ async function authUser(req, res, next) {
     }
 
     const amount_irr =
-      (walletFind?.balance || 0) * (setting?.dollar_price || 0);
+      (walletFind?.balance || 0) *
+      (Number(setting?.dollar_price || 0) + Number(setting?.bonus_dollar));
 
     req.user = {
       ...userFind.dataValues,

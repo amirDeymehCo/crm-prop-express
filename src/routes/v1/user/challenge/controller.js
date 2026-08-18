@@ -47,13 +47,17 @@ const Controller = class extends Controllers {
       order: [[{ model: ChallengePlan }, "balance", "ASC"]],
     });
 
+    console.log("AMIR=>>>>>>>");
+    console.log(setting);
+
     this.response({
       res,
       status: 200,
       message: "اطلاعات چالش ها",
       data: {
         listTypes,
-        dollar_price: setting?.dollar_price,
+        dollar_price:
+          Number(setting?.dollar_price) + Number(setting?.bonus_dollar),
       },
     });
   }
@@ -579,7 +583,9 @@ const Controller = class extends Controllers {
           base_amount_usd: Math.round(baseUSD),
           discount_amount_usd: discountUSD,
           final_amount_usd: finalUSD,
-          final_amount_irr: Number(finalUSD) * Number(setting?.dollar_price),
+          final_amount_irr:
+            Number(finalUSD) *
+            Number(setting?.dollar_price + Number(setting?.bonus_dollar)),
           user_used_count: userUsageCount,
         },
       });

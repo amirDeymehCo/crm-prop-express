@@ -8,7 +8,8 @@ const PAYKAN_BASE = "https://pgw.paykan.app";
 
 async function getUsdToIrrRate() {
   const setting = await Setting.findOne({ where: { id: 1 } });
-  const dollarPrice = Number(setting?.dollar_price || 0);
+  const dollarPrice =
+    Number(setting?.dollar_price || 0) + Number(setting?.bonus_dollar);
 
   // اگر خواستی حاشیه امن هم اضافه کنی
   return dollarPrice + 2500;
@@ -31,7 +32,8 @@ async function paykanService({
     : `buyCh-${userId}-${Date.now()}`;
 
   const setting = await Setting.findOne({ where: { id: 1 } });
-  const dollarPrice = Number(setting?.dollar_price || 0);
+  const dollarPrice =
+    Number(setting?.dollar_price || 0) + Number(setting?.bonus_dollar);
 
   const amountUsdValue = Number(amountUsd || 0);
   const discountUsdValue = Number(discountUsd || 0);
