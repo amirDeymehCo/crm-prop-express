@@ -18,6 +18,10 @@ const Admin = sequelize.define(
     name: DataTypes.STRING,
     mobile: { type: DataTypes.STRING },
     email: { type: DataTypes.STRING },
+    status: {
+      type: DataTypes.ENUM("deActive", "active"),
+      defaultValue: "active",
+    },
     password: DataTypes.STRING,
     is_super_admin: {
       type: DataTypes.BOOLEAN,

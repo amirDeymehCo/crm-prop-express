@@ -40,6 +40,25 @@ const Controller = class extends Controllers {
     });
     this.response({ res, status: 201, message: "ادمین با موفقیت ساخته شد" });
   }
+  async update(req, res) {
+    const file = req?.file?.filename || null;
+    const findAdmin = await Admin.findByPk(req?.body?.admin_id);
+    if (!findAdmin)
+      return this.response({ res, status: 400, message: "ادمینی یافت نشد" });
+
+    const newBody = {};
+
+    if (req?.body?.name) newBody.name = req?.body?.name;
+    if (req?.body?.role) newBody.role = req?.body?.role;
+    if (req?.body?.mobile) newBody.mobile = req?.body?.mobile;
+    if (req?.body?.status) newBody.status = req?.body?.status;
+    if (req?.body?.password) newBody.password = req?.body?.password;
+    if (req?.body?.creator_admin_id) newBody.creator_admin_id = req?.admin?.id;
+    if (file) newBody.avatar = file;
+
+    await findAdmin.update(newBody);
+    this.response({ res, status: 201, message: "ادمین با موفقیت ویرایش شد" });
+  }
   async permissionsList(req, res) {
     const groups = await PermissionGroup.findAll({
       attributes: ["id", "name", "code", "description", "is_system"],

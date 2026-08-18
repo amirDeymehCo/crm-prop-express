@@ -13,6 +13,12 @@ router
     can("JUST_SUPER"),
     asyncHandler(Controller.create),
   )
+  .post(
+    "/update",
+    upload.single("avatar"),
+    can("JUST_SUPER"),
+    asyncHandler(Controller.update),
+  )
   .get("/", can("JUST_SUPER"), asyncHandler(Controller.list))
   .get(
     "/permissions-list",

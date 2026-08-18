@@ -15,6 +15,9 @@ const Controller = class extends Controllers {
       return res.status(400).json({ message: "ادمینی با این مشخصات یافت نشد" });
     }
 
+    if (admin?.status === "deActive")
+      return res.status(400).json({ message: "ادمینی با این مشخصات یافت نشد" });
+
     const passVerify = await admin.verifyPassword(password);
 
     console.log(passVerify);
