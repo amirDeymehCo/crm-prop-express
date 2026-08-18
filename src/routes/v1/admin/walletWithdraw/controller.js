@@ -103,7 +103,7 @@ const Controller = class extends Controllers {
         message: "شناسه برداشت اشتباه است",
       });
 
-    if (requestWithdraw?.is_canceled)
+    if (requestWithdraw?.is_canceled == "1")
       return this.response({
         res,
         status: 400,
