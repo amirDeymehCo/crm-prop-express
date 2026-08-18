@@ -94,7 +94,7 @@ const Controller = class extends Controllers {
   }
   async updateReqeust(req, res) {
     const requestWithdraw = await WidthdrawRequest.findOne({
-      id: req?.body?.id,
+      where: { id: req?.body?.id },
     });
     if (!requestWithdraw)
       return this.response({
