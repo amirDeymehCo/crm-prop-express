@@ -263,6 +263,12 @@ const Controller = class extends Controllers {
     if (!user)
       return res.status(400).json({ message: "کاربری با این مشخصات یافت نشد" });
 
+    if (user?.status === "rejected")
+      return this.response({
+        res,
+        status: 400,
+        message: "کاربر گرامی حساب کاربری شما مسدود شده است",
+      });
     if (!user?.verify_mobile)
       return "کاربر گرامی شماره تلفن شما تایید نشده است، لطفا دوباره اقدام به ثبت نام بفرمایید";
 
@@ -320,6 +326,13 @@ const Controller = class extends Controllers {
       });
     }
 
+    if (user?.status === "rejected")
+      return this.response({
+        res,
+        status: 400,
+        message: "کاربر گرامی حساب کاربری شما مسدود شده است",
+      });
+
     // ✅ تأیید شماره موبایل
     user.verify_mobile = true;
     await user.save();
@@ -370,6 +383,12 @@ const Controller = class extends Controllers {
         });
       }
 
+      if (userFind?.status === "rejected")
+        return this.response({
+          res,
+          status: 400,
+          message: "کاربر گرامی حساب کاربری شما مسدود شده است",
+        });
       const { code } = await createOtp({ mobile });
 
       const sent = await sendCode({
