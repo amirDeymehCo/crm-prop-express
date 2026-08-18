@@ -879,8 +879,8 @@ const Controller = class extends Controllers {
             <td class="num">${formatPrice(item.amount_usd)}</td>
             <td class="num">${formatPrice(item.amount_irr ?? Number(item.amount_usd || 0) * 1800000)}</td>
             <td class="center">${item.UserChallenge?.id || "-"}</td>
-            <td class="nowrap">${formatDate(item.createdAt)}</td>
             <td class="nowrap">${item?.gateway_payment_id || "--"}</td>
+            <td class="nowrap">${formatDate(item.createdAt)}</td>
           </tr>
         `,
         )
@@ -1077,10 +1077,9 @@ const Controller = class extends Controllers {
                   <th style="width: 90px;">وضعیت</th>
                   <th style="width: 95px;">مبلغ دلاری</th>
                   <th style="width: 110px;">مبلغ ریالی</th>
-                  <th style="width: 110px;">مبلغ ریالی</th>
-                  <th style="width: 85px;">Challenge</th>
-                  <th style="width: 120px;">تاریخ</th>
+                  <th style="width: 110px;">شناسه سفارش</th>
                   <th style="width: 120px;">شناسه درگاه</th>
+                  <th style="width: 85px;">تاریخ</th>
                 </tr>
               </thead>
               <tbody>
