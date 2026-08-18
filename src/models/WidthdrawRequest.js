@@ -16,6 +16,11 @@ const WidthdrawRequest = sequelize.define("WidthdrawRequest", {
     allowNull: true,
     defaultValue: "",
   },
+  is_canceled: {
+    type: DataTypes.BOOLEAN,
+    allowNull: true,
+    defaultValue: false,
+  },
   status: {
     type: DataTypes.ENUM("waiting", "verify", "canceled"),
     allowNull: false,

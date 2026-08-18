@@ -2,6 +2,7 @@ const Controllers = require("../../../controllers");
 const Ticket = require("../../../../models/Ticket");
 const User = require("../../../../models/User");
 const WidthdrawRequest = require("../../../../models/WidthdrawRequest");
+const RequestWithdrawLogs = require("../../../../models/request_withdraw_logs");
 const founcList = require("../../../../utils/List");
 
 const Controller = class extends Controllers {
@@ -67,16 +68,20 @@ const Controller = class extends Controllers {
         message: "شناسه برداشت اشتباه است",
       });
 
+    const logsList = await founcList(RequestWithdrawLogs, req, {
+      log_id: requestWithdraw?.id,
+    });
+
     this.response({
       res,
       status: 200,
       message: "اطلاعات برداشت ",
-      data: requestWithdraw,
+      data: { request: requestWithdraw, logs: logsList },
     });
   }
   async updateReqeust(req, res) {
-    const requestWithdraw = await WidthdrawRequest.update(req?.body, {
-      where: { id: req?.body?.id },
+    const requestWithdraw = await WidthdrawRequest.findOne({
+      id: req?.body?.id,
     });
     if (!requestWithdraw)
       return this.response({
@@ -84,6 +89,29 @@ const Controller = class extends Controllers {
         status: 400,
         message: "شناسه برداشت اشتباه است",
       });
+
+    if (requestWithdraw?.is_canceled)
+      return this.response({
+        res,
+        status: 400,
+        message:
+          "ادمین گرامی، درخواست برداشت قبلا کنسل شده است و امکان ویرایش نیست",
+      });
+
+    const oldStatus = requestWithdraw?.status;
+
+    await requestWithdraw.update({
+      status: req?.body?.status,
+      is_canceled: req?.body?.status === "canceled",
+      description: req?.body?.description || requestWithdraw?.description,
+    });
+
+    await RequestWithdrawLogs.create({
+      old_status: oldStatus,
+      new_status: req?.body?.status,
+      admin_id: req?.admin?.id,
+      log_id: requestWithdraw?.id,
+    });
 
     this.response({ res, message: "اطلاعات با موفقیت ثبت شد" });
   }
