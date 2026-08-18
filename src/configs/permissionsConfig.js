@@ -30,6 +30,10 @@ const PERMISSIONS = [
   { code: "profit.chat.read", description: "مشاهده اطلاعات چت برداشت سود" },
   { code: "profit.chat.edit", description: "ویرایش اطلاعات" },
 
+  // Profit Reqeust Withdraw - برداشت سود
+  { code: "request_withdraw.list", description: "لیست درخواست ها" },
+  { code: "request_withdraw.single", description: "مشاهده و ویرایش" },
+
   // Discounts - تخفیفات
   { code: "discount.list", description: "لیست تخفیف‌ها" },
   { code: "discount.manage", description: "ایجاد و ویرایش تخفیف" },
@@ -90,8 +94,14 @@ const GROUPS = [
   {
     code: "profit",
     name: "برداشت سود",
-    description: "دسترسی کامل به برداشت سودها",
+    description: "دسترسی به برداشت سود ها",
     permissions: ["profit.list", "profit.chat.read", "profit.chat.edit"],
+  },
+  {
+    code: "request_withdraw",
+    name: "برداشت از ولت",
+    description: "دسترسی به برداشت از ولت",
+    permissions: ["request_withdraw.list", "request_withdraw.single"],
   },
   {
     code: "discount",

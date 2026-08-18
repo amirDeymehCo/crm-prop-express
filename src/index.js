@@ -13,7 +13,7 @@ const router = require("./routes");
 
 const { globalLimiter } = require("./middlewares/rateLimit");
 const cleanQuery = require("./middlewares/cleanQuery");
-// const initRbac = require("./configs/permissionsInit");
+const initRbac = require("./configs/permissionsInit");
 
 const setupChallengeAssociations = require("./models/Challenge/setupAssociations");
 
@@ -371,7 +371,7 @@ async function initDatabase() {
      * RBAC / Seed logic اگر لازم داری اینجا
      */
     // if (process.env.INIT_RBAC === "true") {
-    //   await initRbac();
+    await initRbac();
     // }
 
     /**
