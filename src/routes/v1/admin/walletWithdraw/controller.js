@@ -72,7 +72,7 @@ const Controller = class extends Controllers {
       });
 
     const logsList = await founcList(
-      WalletTransaction,
+      RequestWithdrawLogs,
       req,
       {
         log_id: requestWithdraw?.id,
