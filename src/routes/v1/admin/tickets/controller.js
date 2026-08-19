@@ -148,6 +148,7 @@ const Controller = class extends Controllers {
 
     const listChats = await Message.findAll({
       where: { ticket_id: findTicket?.id },
+      include: [{ model: Admin, attributes: ["id", "name"] }],
     });
 
     this.response({
