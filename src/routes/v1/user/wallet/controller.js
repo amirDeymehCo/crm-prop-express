@@ -337,7 +337,6 @@ const Controller = class extends Controllers {
       balance: parseFloat(wallet.balance) - parseFloat(amount_usd),
     });
 
-    await Setting.findByPk(1);
     await WalletTransaction.create({
       type: "withdraw",
       amount: Number(req?.body?.amount),
@@ -346,7 +345,7 @@ const Controller = class extends Controllers {
       status: "completed",
       actor_type: "system",
       wallet_id: wallet?.id,
-      description: `بلوکه شدن مبلغ ${req?.body?.amount} جهت برداشت از ولت`,
+      description: `بلوکه شدن مبلغ ${Number(req?.body?.amount)?.toLocaleString()} جهت برداشت از ولت`,
     });
 
     return this.response({

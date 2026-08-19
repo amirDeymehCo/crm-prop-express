@@ -5,6 +5,7 @@ const Admin = require("../../../../models/Admin");
 const Wallet = require("../../../../models/Wallet");
 const WidthdrawRequest = require("../../../../models/WidthdrawRequest");
 const RequestWithdrawLogs = require("../../../../models/request_withdraw_logs");
+const WalletTransaction = require("../../../../models/WalletTransaction");
 const founcList = require("../../../../utils/List");
 
 const Controller = class extends Controllers {
@@ -71,7 +72,7 @@ const Controller = class extends Controllers {
       });
 
     const logsList = await founcList(
-      RequestWithdrawLogs,
+      WalletTransaction,
       req,
       {
         log_id: requestWithdraw?.id,
@@ -111,6 +112,17 @@ const Controller = class extends Controllers {
         where: { user_id: requestWithdraw?.user_id },
       });
 
+      await WalletTransaction.create({
+        type: "deposit",
+        amount: Number(requestWithdraw?.amount),
+        balance_before: wallet?.balance,
+        balance_after:
+          Number(wallet?.balance) + Number(requestWithdraw?.amount),
+        status: "completed",
+        actor_type: "system",
+        wallet_id: wallet?.id,
+        description: `بلوکه شدن مبلغ ${Number(requestWithdraw?.amount)?.toLocaleString()} جهت برداشت از ولت`,
+      });
       await wallet.update({
         balance: Number(wallet?.balance) + Number(requestWithdraw?.amount),
       });
