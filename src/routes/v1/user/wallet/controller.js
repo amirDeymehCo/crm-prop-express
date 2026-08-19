@@ -344,7 +344,7 @@ const Controller = class extends Controllers {
       balance_before: wallet?.balance,
       balance_after: Number(wallet?.balance) + Number(req?.body?.amount),
       status: "completed",
-      actor_type: "admin",
+      actor_type: "system",
       wallet_id: wallet?.id,
       description: `بلوکه شدن مبلغ ${req?.body?.amount} جهت برداشت از ولت`,
     });
