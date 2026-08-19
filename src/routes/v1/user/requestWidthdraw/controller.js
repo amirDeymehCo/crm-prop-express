@@ -3,8 +3,6 @@ const Ticket = require("../../../../models/Ticket");
 const Message = require("../../../../models/Message");
 const Wallet = require("../../../../models/Wallet");
 const WidthdrawRequest = require("../../../../models/WidthdrawRequest");
-const Order = require("../../../../models/Order");
-const Setting = require("../../../../models/Setting");
 const founcList = require("../../../../utils/List");
 const { Op } = require("sequelize");
 
@@ -36,13 +34,6 @@ const Controller = class extends Controllers {
     const widthStatusWiaings = await WidthdrawRequest.findOne({
       where: { status: "waiting", user_id: req?.user?.id },
     });
-
-    if (amount_usd < 100)
-      return this.response({
-        res,
-        status: 400,
-        message: "کاربر گرامی، حداقل مبلغ برداشت از ولت 100 دلار میباشد",
-      });
     if (widthStatusWiaings)
       return this.response({
         res,
@@ -55,7 +46,7 @@ const Controller = class extends Controllers {
       return this.response({
         res,
         status: 400,
-        message: "موجودی ولت شما کمتر از مقدار درخواستی هست",
+        message: "موچودی ولت شما کمتر از مقدار درخواستی هست",
       });
 
     await WidthdrawRequest.create({
@@ -64,35 +55,6 @@ const Controller = class extends Controllers {
       status: "waiting",
       user_id: req?.user?.id,
     });
-
-    await wallet.update({
-      balance: parseFloat(wallet.balance) - parseFloat(amount_usd),
-    });
-
-    const setting = await Setting.findByPk(1);
-
-    await Order.create({
-      user_id: req?.user?.id,
-      type: "wallet_withdraw",
-      amount_usd: parseFloat(amount_usd),
-      final_amount_usd: parseFloat(amount_usd),
-      amount_irr:
-        parseFloat(amount_usd) *
-        (setting?.dollar_price + setting?.bonus_dollar),
-      final_amount_irr:
-        parseFloat(amount_usd) *
-        (setting?.dollar_price + setting?.bonus_dollar),
-      currency: "USD",
-      gateway: "admin",
-      status: "paid",
-      meta: JSON.stringify({
-        balance: parseFloat(wallet.balance),
-        amount_usd: parseFloat(amount_usd),
-        balance_after: parseFloat(wallet.balance) - parseFloat(amount_usd),
-        type: "REQUEST_WITHDRAW",
-      }),
-    });
-
     this.response({
       res,
       status: 200,

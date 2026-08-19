@@ -13,7 +13,7 @@ const WidthdrawRequest = require("../../../../models/WidthdrawRequest");
 const WalletTransaction = require("../../../../models/WalletTransaction");
 const Order = require("../../../../models/Order");
 const Otp = require("../../../../models/Otp");
-const User = require("../../../../models/User");
+const Setting = require("../../../../models/Setting");
 const founcList = require("../../../../utils/List");
 const sequelize = require("../../../../../db");
 const {
@@ -37,7 +37,6 @@ const Controller = class extends Controllers {
         amountUsd: amount_usd,
         callback_url:
           "https://api-crm.myprop.trade/api/v1/global/callback-peykan",
-          
       });
 
       return this.response({
@@ -332,6 +331,22 @@ const Controller = class extends Controllers {
       amount: parseFloat(amount_usd),
       status: "waiting",
       user_id: req?.user?.id,
+    });
+
+    await wallet.update({
+      balance: parseFloat(wallet.balance) - parseFloat(amount_usd),
+    });
+
+    await Setting.findByPk(1);
+    await WalletTransaction.create({
+      type: "withdraw",
+      amount: Number(req?.body?.amount),
+      balance_before: wallet?.balance,
+      balance_after: Number(wallet?.balance) + Number(req?.body?.amount),
+      status: "completed",
+      actor_type: "admin",
+      wallet_id: wallet?.id,
+      description: `بلوکه شدن مبلغ ${req?.body?.amount} جهت برداشت از ولت`,
     });
 
     return this.response({
