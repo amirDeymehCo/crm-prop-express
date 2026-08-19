@@ -2,6 +2,7 @@ const Controllers = require("../../../controllers");
 const Ticket = require("../../../../models/Ticket");
 const User = require("../../../../models/User");
 const Admin = require("../../../../models/Admin");
+const Wallet = require("../../../../models/Wallet");
 const WidthdrawRequest = require("../../../../models/WidthdrawRequest");
 const RequestWithdrawLogs = require("../../../../models/request_withdraw_logs");
 const founcList = require("../../../../utils/List");
@@ -104,6 +105,16 @@ const Controller = class extends Controllers {
       });
 
     const oldStatus = requestWithdraw?.status;
+
+    if (req?.body?.status === "request_canceled") {
+      const wallet = await Wallet.findOne({
+        where: { user_id: requestWithdraw?.user_id },
+      });
+
+      await wallet.update({
+        balance: Number(wallet?.balance) + Number(requestWithdraw?.amount),
+      });
+    }
 
     await requestWithdraw.update({
       status: req?.body?.status,
