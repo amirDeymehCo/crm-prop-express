@@ -371,7 +371,7 @@ async function initDatabase() {
      * RBAC / Seed logic اگر لازم داری اینجا
      */
     // if (process.env.INIT_RBAC === "true") {
-    await initRbac();
+    // await initRbac();
     // }
 
     /**

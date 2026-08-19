@@ -300,16 +300,23 @@ const Controller = class extends Controllers {
     });
   }
   async createSms(req, res) {
-    const findUser = await User?.findByPk(req?.body?.user_id);
-    if (!findUser)
-      return this.response({
-        res,
-        status: 400,
-        message: "کاربری با این شناسه یافت نشد",
-      });
+    let mobile = "";
+
+    if (!req?.body?.mobile) {
+      const findUser = await User?.findByPk(req?.body?.user_id);
+      if (!findUser)
+        return this.response({
+          res,
+          status: 400,
+          message: "کاربری با این شناسه یافت نشد",
+        });
+
+      mobile = findUser?.mobile;
+    }
+    if (req?.body?.mobile) mobile = req?.body?.mobile;
 
     const sendSms = await sendCustomMessage({
-      receptor: findUser?.mobile,
+      receptor: mobile,
       message: req?.body?.text,
     });
     if (!sendSms)
