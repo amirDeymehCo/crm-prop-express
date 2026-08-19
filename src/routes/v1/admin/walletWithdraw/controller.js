@@ -103,17 +103,6 @@ const Controller = class extends Controllers {
         message: "شناسه برداشت اشتباه است",
       });
 
-    console.log("LOG IS CANCELED=>");
-    console.log(requestWithdraw?.is_canceled_reqeust);
-
-    if (requestWithdraw?.is_canceled_reqeust == "1")
-      return this.response({
-        res,
-        status: 400,
-        message:
-          "ادمین گرامی، درخواست برداشت قبلا کنسل شده است و امکان ویرایش نیست",
-      });
-
     const oldStatus = requestWithdraw?.status;
 
     await requestWithdraw.update({
