@@ -45,7 +45,7 @@ async function createAccount({
       floating_risk_percent: floating_risk_percent || 0,
     };
 
-    console.log(payload);
+    console.log("CTRADER_CREATE_URL=> ", CTRADER_CREATE_URL);
 
     const response = await axios.request({
       method: "GET",
