@@ -9,7 +9,7 @@ const jwt = require("jsonwebtoken");
 const { Op } = require("sequelize");
 const crypto = require("crypto");
 const bcrypt = require("bcrypt");
-const { sendOtpEmail } = require("../../../services/Email");
+// const { sendOtpEmail } = require("../../../services/Email");
 const trackAuth = require("../../../utils/UserTrack");
 
 function generateAccessToken(user) {
@@ -632,10 +632,10 @@ const Controller = class extends Controllers {
       } else {
         console.log("STARTED=>");
 
-        const emailResult = await sendOtpEmail({
-          to: destination,
-          code,
-        });
+        // const emailResult = await sendOtpEmail({
+        //   to: destination,
+        //   code,
+        // });
 
         // nodemailer در صورت ارسال موفق معمولاً info برمی‌گرداند
         sent = Boolean(emailResult?.messageId || emailResult);
