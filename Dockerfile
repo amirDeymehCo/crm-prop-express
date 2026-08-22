@@ -19,7 +19,7 @@ ENV NODE_ENV=production
 COPY package*.json ./
 
 # استفاده از npm ci برای نصب دقیق طبق lockfile
-RUN npm ci --only=production
+RUN npm ci --omit=dev
 
 COPY . .
 
