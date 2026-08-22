@@ -71,6 +71,11 @@ router
     "/history-messages/:user_id",
     // can("sales.calls.create"),
     asyncHandler(Controller.historyMessages),
+  )
+  .get(
+    "/analysis",
+    // can("sales.calls.create"),
+    asyncHandler(Controller.salesplusAnalytics),
   );
 
 module.exports = router;
