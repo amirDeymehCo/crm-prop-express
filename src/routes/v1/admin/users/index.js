@@ -30,6 +30,11 @@ router
     "/change-password",
     can("user.read"),
     asyncHandler(Controller.changePassword),
+  )
+  .get(
+    "/user-tracks/:user_id",
+    can("user.read"),
+    asyncHandler(Controller.listUserDevices),
   );
 
 module.exports = router;

@@ -107,6 +107,21 @@ const Controller = class extends Controllers {
 
     const oldStatus = requestWithdraw?.status;
 
+    if (oldStatus === "request_canceled")
+      return this.response({
+        res,
+        status: 400,
+        message:
+          "ادمین گرامی، وضعیت درخواست برداشت از ولت قبلا کنسل شده و امکان ویرایش مجدد نمیباشد",
+      });
+    if (oldStatus === "request_paid")
+      return this.response({
+        res,
+        status: 400,
+        message:
+          "ادمین گرامی، وضعیت درخواست برداشت از ولت قبلا به پرداخت شده تغییر کرده است و امکان ویرایش مجدد نمیباشد",
+      });
+
     if (req?.body?.status === "request_canceled") {
       const wallet = await Wallet.findOne({
         where: { user_id: requestWithdraw?.user_id },

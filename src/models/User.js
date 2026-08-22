@@ -3,6 +3,7 @@ const sequelize = require("../../db");
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
 const ReferralCommission = require("./ReferralCommission");
+const UserDevice = require("./UserDevice");
 
 function genReferralCode() {
   return "MP-" + crypto.randomBytes(4).toString("hex").toUpperCase();
@@ -30,6 +31,7 @@ const User = sequelize.define(
     email: { type: DataTypes.STRING, allowNull: false },
     mobile: { type: DataTypes.STRING, allowNull: false },
     verify_mobile: { type: DataTypes.BOOLEAN, defaultValue: false },
+    verify_email: { type: DataTypes.BOOLEAN, defaultValue: false },
     password: { type: DataTypes.STRING, allowNull: false },
     status: {
       type: DataTypes.ENUM("pending", "approved", "rejected"),
@@ -128,6 +130,17 @@ User.hasMany(ReferralCommission, {
 User.hasMany(ReferralCommission, {
   foreignKey: "referrer_id",
   as: "referrerCommissions",
+});
+
+User.hasMany(UserDevice, {
+  foreignKey: "user_id",
+  as: "authDevices",
+  onDelete: "CASCADE",
+});
+
+UserDevice.belongsTo(User, {
+  foreignKey: "user_id",
+  as: "user",
 });
 
 User.prototype.verifyPassword = async function (password) {

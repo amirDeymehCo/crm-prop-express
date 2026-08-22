@@ -13,7 +13,7 @@ const router = require("./routes");
 
 const { globalLimiter } = require("./middlewares/rateLimit");
 const cleanQuery = require("./middlewares/cleanQuery");
-const initRbac = require("./configs/permissionsInit");
+// const initRbac = require("./configs/permissionsInit");
 
 const setupChallengeAssociations = require("./models/Challenge/setupAssociations");
 
@@ -384,6 +384,8 @@ async function initDatabase() {
 
     logger.info("Database initialized successfully");
   } catch (err) {
+    console.log(err);
+
     dbReady = false;
     logger.fatal({ err }, "Failed to initialize database");
 

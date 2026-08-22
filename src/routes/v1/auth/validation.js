@@ -26,25 +26,13 @@ module.exports = new (class {
   }
   loginPassword() {
     return [
-      body("mobile")
-        .isLength({ min: 11, max: 11 })
-        .withMessage("شماره موبایل باید 11 رقم باشد")
-        .matches(/^09\d{9}$/)
-        .withMessage("شماره موبایل معتبر نیست"),
       body("password")
         .isLength({ min: 3 })
         .withMessage("رمز عبور شما باید بشتر از 3 رقم باشد"),
     ];
   }
   loginCode() {
-    return [
-      body("mobile")
-        .isLength({ min: 11, max: 11 })
-        .withMessage("شماره موبایل باید 11 رقم باشد")
-        .matches(/^09\d{9}$/)
-        .withMessage("شماره موبایل معتبر نیست"),
-
-    ];
+    return [];
   }
   forgotPassword() {
     return [
@@ -53,7 +41,6 @@ module.exports = new (class {
         .withMessage("شماره موبایل باید 11 رقم باشد")
         .matches(/^09\d{9}$/)
         .withMessage("شماره موبایل معتبر نیست"),
-
     ];
   }
   verifyOtp() {

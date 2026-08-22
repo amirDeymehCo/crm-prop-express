@@ -13,6 +13,7 @@ const SmsMessage = require("../../../../models/SmsMessage");
 const ChallengeType = require("../../../../models/Challenge/ChallengeType");
 const Admin = require("../../../../models/Admin");
 const UserNote = require("../../../../models/UserNote");
+const UserDevice = require("../../../../models/UserDevice");
 const founcList = require("../../../../utils/List");
 const sequelize = require("../../../../../db");
 const { Op, fn, col, literal } = require("sequelize");
@@ -444,6 +445,53 @@ const Controller = class extends Controllers {
     });
 
     this.response({ res, data: nots });
+  }
+  async listUserDevices(req, res) {
+    try {
+      const { user_id } = req.params;
+
+      if (!user_id) {
+        return this.response({
+          res,
+          status: 400,
+          message: "شناسه کاربر الزامی است",
+        });
+      }
+
+      const devices = await UserDevice.findAll({
+        where: {
+          user_id,
+        },
+
+        attributes: [
+          "id",
+          "user_id",
+          "ip",
+          "device_type",
+          "browser",
+          "os",
+          "user_agent",
+          "createdAt",
+          "updatedAt",
+        ],
+
+        order: [["createdAt", "DESC"]],
+      });
+
+      this.response({
+        res,
+        message: "لیست دستگاه‌های کاربر",
+        data: devices,
+      });
+    } catch (error) {
+      console.error("List user devices error:", error);
+
+      this.response({
+        res,
+        status: 500,
+        message: "خطا در دریافت لیست دستگاه‌های کاربر",
+      });
+    }
   }
 };
 

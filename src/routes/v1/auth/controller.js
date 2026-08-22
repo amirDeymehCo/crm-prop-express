@@ -9,6 +9,8 @@ const jwt = require("jsonwebtoken");
 const { Op } = require("sequelize");
 const crypto = require("crypto");
 const bcrypt = require("bcrypt");
+const { sendOtpEmail } = require("../../../services/Email");
+const trackAuth = require("../../../utils/UserTrack");
 
 function generateAccessToken(user) {
   return jwt.sign({ id: user.id, type_token: "user" }, process.env.JWT_SECRET, {
@@ -221,6 +223,8 @@ const Controller = class extends Controllers {
         });
       }
 
+      await trackAuth(req, user.id);
+
       /* --------------------------------------------------
        * 5) پاسخ نهایی
        * -------------------------------------------------- */
@@ -297,6 +301,8 @@ const Controller = class extends Controllers {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
+    await trackAuth(req, user.id);
+
     return res.status(200).json({
       data: { accessToken },
       message: "ورود با موفقیت انجام شد",
@@ -359,6 +365,8 @@ const Controller = class extends Controllers {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
+    await trackAuth(req, user.id);
+
     return this.response({
       res,
       data: {
@@ -404,6 +412,8 @@ const Controller = class extends Controllers {
         });
       }
 
+      await trackAuth(req, userFind.id);
+
       return this.response({
         res,
         status: 200,
@@ -448,6 +458,8 @@ const Controller = class extends Controllers {
           message: "در ارسال کد تایید مشکلی پیش آمده است، بعدا امتحان کنید",
         });
       }
+
+      await trackAuth(req, user.id);
 
       return this.response({
         res,
@@ -503,6 +515,8 @@ const Controller = class extends Controllers {
       user.password = hashedPassword;
       await user.save();
 
+      await trackAuth(req, user.id);
+
       return this.response({
         res,
         message: "رمز عبور با موفقیت تغییر یافت",
@@ -518,38 +532,150 @@ const Controller = class extends Controllers {
   }
 
   async loginCode(req, res) {
-    const findUserByMobile = await User.findOne({
-      where: { mobile: req.body.mobile },
-    });
-    if (!findUserByMobile)
-      return this.response({
-        res,
-        status: 400,
-        message: "کاربری با این شماره موبایل پیدا نشد",
+    try {
+      // برای سازگاری با فرانت فعلی mobile را هم قبول می‌کنیم
+      // بهتر است در آینده نام این فیلد در فرانت identifier باشد.
+      const identifier = String(req.body.mobile || "")
+        .trim()
+        .toLowerCase();
+
+      if (!identifier) {
+        return this.response({
+          res,
+          status: 400,
+          message: "شماره موبایل یا ایمیل الزامی است",
+        });
+      }
+
+      // شماره ایران با فرمت 0912... یا +98912... یا 98912...
+      const normalizedMobile = identifier
+        .replace(/\s|-/g, "")
+        .replace(/^\+98/, "0")
+        .replace(/^98/, "0");
+
+      const isMobile = /^09\d{9}$/.test(normalizedMobile);
+
+      // اعتبارسنجی ساده ایمیل
+      const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier);
+
+      if (!isMobile && !isEmail) {
+        return this.response({
+          res,
+          status: 400,
+          message: "شماره موبایل یا ایمیل واردشده معتبر نیست",
+        });
+      }
+
+      const channel = isMobile ? "mobile" : "email";
+      const destination = isMobile ? normalizedMobile : identifier;
+
+      const user = await User.findOne({
+        where: isMobile ? { mobile: normalizedMobile } : { email: identifier },
       });
 
-    if (!findUserByMobile?.verify_mobile)
-      return "کاربر گرامی شماره تلفن شما تایید نشده است، لطفا دوباره اقدام به ثبت نام بفرمایید";
+      if (!user) {
+        return this.response({
+          res,
+          status: 400,
+          message:
+            channel === "mobile"
+              ? "کاربری با این شماره موبایل پیدا نشد"
+              : "کاربری با این ایمیل پیدا نشد",
+        });
+      }
 
-    const { code } = await createOtp({ mobile: req?.body?.mobile });
+      // بررسی تأیید شماره در ورود با موبایل
+      if (channel === "mobile" && !user.verify_mobile) {
+        return this.response({
+          res,
+          status: 400,
+          message:
+            "کاربر گرامی شماره تلفن شما تأیید نشده است، لطفاً دوباره اقدام به ثبت‌نام بفرمایید",
+        });
+      }
 
-    const sent = await sendCode({
-      receptor: req?.body?.mobile,
-      token: code,
-    });
-    if (!sent) {
+      /*
+      اگر در مدل User فیلد verify_email داری، این بخش را فعال نگه دار.
+      اگر هنوز چنین ستونی نداری، این if را حذف کن.
+    */
+      if (channel === "email" && user.verify_email === false) {
+        return this.response({
+          res,
+          status: 400,
+          message:
+            "کاربر گرامی ایمیل شما تأیید نشده است، لطفاً ابتدا ایمیل خود را تأیید کنید",
+        });
+      }
+
+      /*
+      نکته:
+      createOtp فعلی تو احتمالاً فقط mobile می‌گیرد.
+      بهتر است آن را تغییر بده تا destination و channel را هم ذخیره کند.
+
+      فعلاً اگر createOtp در دیتابیس OTP را با فیلد mobile ذخیره می‌کند،
+      destination را به آن پاس بده تا برای ایمیل هم کار کند؛
+      ولی از نظر نام‌گذاری/ساختار بهتر است بعداً فیلد destination داشته باشی.
+    */
+      const { code } = await createOtp({
+        mobile: destination,
+        channel,
+        userId: user.id,
+      });
+
+      let sent = false;
+
+      if (channel === "mobile") {
+        sent = await sendCode({
+          receptor: destination,
+          token: code,
+        });
+      } else {
+        console.log("STARTED=>");
+
+        const emailResult = await sendOtpEmail({
+          to: destination,
+          code,
+        });
+
+        // nodemailer در صورت ارسال موفق معمولاً info برمی‌گرداند
+        sent = Boolean(emailResult?.messageId || emailResult);
+      }
+
+      if (!sent) {
+        return this.response({
+          res,
+          status: 500,
+          message:
+            channel === "mobile"
+              ? "در ارسال کد تأیید پیامکی مشکلی پیش آمده است، بعداً امتحان کنید"
+              : "در ارسال کد تأیید ایمیل مشکلی پیش آمده است، بعداً امتحان کنید",
+        });
+      }
+
+      await trackAuth(req, user.id);
+
+      return this.response({
+        res,
+        status: 201,
+        message:
+          channel === "mobile"
+            ? "کد تأیید به شماره تلفن شما ارسال شد"
+            : "کد تأیید به ایمیل شما ارسال شد",
+
+        // اگر فرانت نیاز دارد بداند صفحه بعدی چه نوع OTP است
+        data: {
+          channel,
+        },
+      });
+    } catch (error) {
+      console.error("loginCode error:", error);
+
       return this.response({
         res,
         status: 500,
-        message: "در ارسال کد تایید مشکلی پیش آمده است، بعدا امتحان کنید",
+        message: "خطایی در ارسال کد تأیید رخ داده است",
       });
     }
-
-    this.response({
-      res,
-      status: 201,
-      message: "کد تایید تلفن شماارسال شد",
-    });
   }
   async logout(req, res) {
     const refreshToken = req.cookies.refreshToken;
@@ -619,6 +745,8 @@ const Controller = class extends Controllers {
       path: "/",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
+
+    await trackAuth(req, user.id);
 
     return res.json({
       accessToken: newAccessToken,

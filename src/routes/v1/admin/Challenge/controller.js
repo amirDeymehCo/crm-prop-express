@@ -326,16 +326,16 @@ const Controller = class extends Controllers {
           );
 
           console.log("req?.body?.run_insurance=>", req?.body?.run_insurance);
-          if (req?.body?.run_insurance) {
-            const insuranceResult = await RunInsurance({
-              userChallenge: userCh,
-              user,
-              adminId: req?.admin?.id,
-              platform: req?.body?.platform || "ctrader",
-              transaction: t,
-              repurchaseReturnUrl: req?.body?.repurchase_return_url ?? null,
-            });
-          }
+          // if (req?.body?.run_insurance) {
+          //   const insuranceResult = await RunInsurance({
+          //     userChallenge: userCh,
+          //     user,
+          //     adminId: req?.admin?.id,
+          //     platform: req?.body?.platform || "ctrader",
+          //     transaction: t,
+          //     repurchaseReturnUrl: req?.body?.repurchase_return_url ?? null,
+          //   });
+          // }
 
           await t.commit();
 
