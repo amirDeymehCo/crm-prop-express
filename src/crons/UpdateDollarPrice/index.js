@@ -25,7 +25,7 @@ async function updatePrice() {
 }
 
 // اجرای کرون‌جاب هر 12 ساعت
-cron.schedule("0 * * * *", () => {
+cron.schedule("*/5 * * * *", () => {
   console.log("Running USD price updater...");
 
   updatePrice();
