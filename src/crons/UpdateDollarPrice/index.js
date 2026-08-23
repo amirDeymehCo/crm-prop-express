@@ -11,6 +11,8 @@ async function updatePrice() {
     const usd = data?.data?.currencies?.USDT;
     if (!usd) throw new Error("USD not found");
 
+    console.log(usd);
+
     await Setting.upsert({
       id: 1,
       dollar_price: usd.price,
@@ -23,9 +25,9 @@ async function updatePrice() {
 }
 
 // اجرای کرون‌جاب هر 12 ساعت
-cron.schedule("0 */12 * * *", () => {
+cron.schedule("0 * * * *", () => {
   console.log("Running USD price updater...");
+
   updatePrice();
 });
-
 module.exports = updatePrice;
