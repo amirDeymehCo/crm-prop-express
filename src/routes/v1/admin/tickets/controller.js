@@ -331,6 +331,23 @@ const Controller = class extends Controllers {
 
     this.response({ res, data: list });
   }
+  async deleteMessage(req, res) {
+    const findMessage = await Message.findOne({
+      where: { id: req?.params?.messageId },
+    });
+
+    if (findMessage?.admin_id == "null")
+      if (findMessage?.admin_id !== req?.admin?.id)
+        return this.response({
+          res,
+          status: 400,
+          message: "فرستنده پیام شما نیستید و امکان حذف پیام را ندارید",
+        });
+
+    await findMessage.destroy();
+
+    this.response({ res, message: "پیام حذف شد" });
+  }
 };
 
 module.exports = new Controller();

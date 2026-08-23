@@ -10,6 +10,11 @@ const UserNote = sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
+    status: {
+      type: DataTypes.ENUM("active", "deActive"),
+      defaultValue: "active",
+      allowNull: true,
+    },
   },
   {
     tableName: "user_nots",

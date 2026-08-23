@@ -40,6 +40,7 @@ router
     validator.sendMessage(),
     Controller.validationBody,
     asyncHandler(Controller.editMessage),
-  );
+  )
+  .delete("/messages/:messageId", asyncHandler(Controller.deleteMessage));
 
 module.exports = router;

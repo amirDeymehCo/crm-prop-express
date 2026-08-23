@@ -446,6 +446,25 @@ const Controller = class extends Controllers {
 
     this.response({ res, data: nots });
   }
+  async changeStatusNote(req, res) {
+    const findNote = await UserNote.findByPk(req?.body?.note_id);
+    if (!findNote)
+      return this.response({ res, status: 400, message: "یااداشت یافت نشد" });
+
+    if (findNote.admin_id !== req?.admin?.id)
+      return this.response({
+        res,
+        status: 400,
+        message: "شما سازنده این یادداشت نیستید و امکان ویرایش ندارید",
+      });
+
+    await findNote.update({
+      status: req?.body?.status,
+      id: req?.body?.note_id,
+    });
+
+    return this.response({ res, status: 200, message: "یادداشت ویرایش شد" });
+  }
   async listUserDevices(req, res) {
     try {
       const { user_id } = req.params;

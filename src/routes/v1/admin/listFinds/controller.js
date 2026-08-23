@@ -12,17 +12,37 @@ const { fn, col, Op, literal, Sequelize } = require("sequelize");
 const Controller = class extends Controllers {
   async users(req, res) {
     const { search = "", page = 1, limit = 20 } = req.query;
-    const offset = (page - 1) * limit;
+
+    const pageNumber = Number(page);
+    const limitNumber = Number(limit);
+    const offset = (pageNumber - 1) * limitNumber;
 
     const where = {};
 
-    if (search.trim()) {
+    if (search?.trim()) {
       const cleanSearch = search.trim();
 
       where[Op.or] = [
-        { username: { [Op.like]: `%${cleanSearch}%` } },
-        { email: { [Op.like]: `%${cleanSearch}%` } },
-        { mobile: { [Op.like]: `%${cleanSearch}%` } },
+        {
+          email: {
+            [Op.like]: `%${cleanSearch}%`,
+          },
+        },
+        {
+          username: {
+            [Op.like]: `%${cleanSearch}%`,
+          },
+        },
+        {
+          mobile: {
+            [Op.like]: `%${cleanSearch}%`,
+          },
+        },
+        {
+          id: {
+            [Op.like]: `%${cleanSearch}%`,
+          },
+        },
       ];
     }
 
@@ -38,19 +58,17 @@ const Controller = class extends Controllers {
         "kyc_steep",
         "kyc_status",
       ],
-      limit: Number(limit),
-      offset: Number(offset),
+      limit: limitNumber,
+      offset,
       order: [["createdAt", "DESC"]],
     });
 
     const formatted = rows.map((e) => ({
-      ...e?.dataValues,
-      avatar: e?.avatar || "default",
+      ...e.dataValues,
+      avatar: e.avatar || "default",
       value: e.id,
       label:
-        e.firstname && e.lastname
-          ? `${e.firstname} ${e.lastname} `
-          : "بدون نام",
+        e.firstname && e.lastname ? `${e.firstname} ${e.lastname}` : "بدون نام",
     }));
 
     this.response({
@@ -60,8 +78,8 @@ const Controller = class extends Controllers {
         data: formatted,
         meta: {
           total: count,
-          page: Number(page),
-          totalPages: Math.ceil(count / limit),
+          page: pageNumber,
+          totalPages: Math.ceil(count / limitNumber),
         },
       },
     });

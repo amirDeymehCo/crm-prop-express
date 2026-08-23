@@ -25,6 +25,11 @@ router
   // nots
   .get("/nots/:user_id", can("user.read"), asyncHandler(Controller.listNots))
   .post("/create-note", can("user.read"), asyncHandler(Controller.createNote))
+  .post(
+    "/change-status-note",
+    can("user.read"),
+    asyncHandler(Controller.changeStatusNote),
+  )
   // change password
   .post(
     "/change-password",
