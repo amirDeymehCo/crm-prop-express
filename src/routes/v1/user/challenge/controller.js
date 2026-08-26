@@ -80,7 +80,7 @@ const Controller = class extends Controllers {
       const ch_data = await createChFounc(req, res, next, t);
 
       const orderId = ch_data?.order?.gateway_order_id;
-      const amountUsd = Number(ch_data?.order?.amount_usd || 0);
+      const amountUsd = Number(ch_data?.order?.final_amount_usd || 0);
       // const amountUsd = 0.1
 
       if (!orderId) {
