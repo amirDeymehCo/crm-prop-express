@@ -33,6 +33,11 @@ router
     Controller.validationBody,
     asyncHandler(Controller.payPendingChallenge),
   )
+  .post(
+    "/pay-real",
+    Controller.validationBody,
+    asyncHandler(Controller.payReal),
+  )
   .get(
     "/get-analysis-data/:mt_login",
     asyncHandler(Controller.getAnalysisData),

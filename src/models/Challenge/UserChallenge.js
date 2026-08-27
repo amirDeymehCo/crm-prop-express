@@ -152,6 +152,94 @@ const UserChallenge = sequelize.define(
       type: DataTypes.BIGINT.UNSIGNED,
       allowNull: true,
     },
+
+    // payments type files
+    payment_plan: {
+      type: DataTypes.ENUM("full", "installment"),
+      allowNull: false,
+      defaultValue: "full",
+    },
+
+    payment_status: {
+      type: DataTypes.ENUM(
+        "pending_first_payment",
+        "paid_first_payment",
+        "pending_second_payment",
+        "fully_paid",
+        "cancelled",
+        "expired",
+      ),
+      allowNull: false,
+      defaultValue: "pending_first_payment",
+    },
+
+    total_price_usd: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: false,
+    },
+    total_price_irr: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: false,
+    },
+
+    paid_amount_usd: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: false,
+      defaultValue: 0,
+    },
+    paid_amount_irr: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: false,
+      defaultValue: 0,
+    },
+
+    remaining_amount_usd: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: false,
+      defaultValue: 0,
+    },
+    remaining_amount_irr: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: false,
+      defaultValue: 0,
+    },
+
+    paid_base_amount_usd: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: false,
+      defaultValue: 0,
+    },
+    paid_base_amount_irr: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: false,
+      defaultValue: 0,
+    },
+
+    paid_insurance_amount_usd: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: false,
+      defaultValue: 0,
+    },
+    paid_insurance_amount_irr: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: false,
+      defaultValue: 0,
+    },
+
+    first_payment_paid_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+
+    second_payment_paid_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+
+    second_payment_due_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
   },
   {
     tableName: "user_challenges",

@@ -35,6 +35,8 @@ const CouponUsage = require("../../models/CouponUsage");
 const Order = require("../../models/Order");
 const Payment = require("../../models/Payment");
 const Setting = require("../../models/Setting");
+const splitInstallmentAmount = require("../PaymentPlan/SplitInstallmentAmount");
+const { randomUUID } = require("crypto");
 
 // ===================== helpers اصلی ===================== //
 
@@ -151,13 +153,7 @@ function calculateFloatingRiskFee(plan, floatingRiskEnabled) {
 
 // -------- کوپن تخفیف ---------- //
 // تغییر: به جای insuranceFee، basePrice را پاس می‌دهیم چون fee ریسک شناور هم داخل basePrice است
-async function validateAndApplyCoupon({
-  couponCode,
-  plan,
-  user,
-  basePrice,
-  transaction,
-}) {
+async function validateAndApplyCoupon({ couponCode, plan, user, basePrice }) {
   if (!couponCode) {
     return { coupon: null, discount: 0 };
   }
@@ -235,20 +231,33 @@ async function validateAndApplyCoupon({
 
 // -------- قیمت نهایی ---------- //
 
-function buildPriceSummary({ plan, insuranceFee, floatingRiskFee, discount }) {
+function buildPriceSummary({
+  floatingRiskFee,
+  discount,
+  final_base_amount,
+  final_insurance_amount,
+  // all price
+  challengeBasePriceUsd,
+  insuranceFeeUsd,
+}) {
   const basePrice =
-    Number(plan.price_usd) +
-    Number(insuranceFee || 0) +
+    Number(final_base_amount) +
+    Number(final_insurance_amount || 0) +
     Number(floatingRiskFee || 0);
 
   const finalPrice = Math.max(basePrice - Number(discount || 0), 0);
 
   return {
-    price_based: Number(plan.price_usd),
-    base_price_usd: basePrice,
+    price_based: Number(final_base_amount),
+    base_price_usd: Number(final_base_amount),
+    insurance_amount: Number(final_insurance_amount),
     discount_usd: Number(discount || 0),
     final_price_usd: finalPrice,
     floating_risk_fee_usd: Number(floatingRiskFee || 0),
+    // all price
+    challengeBasePriceUsd,
+    insuranceFeeUsd,
+    total_all_price: challengeBasePriceUsd + insuranceFeeUsd,
   };
 }
 
@@ -345,6 +354,7 @@ async function createUserChallengeRecord({
   transaction,
   admin_id = null,
   platform,
+  payment_type = "full",
 }) {
   const startingBalance = Number(plan.balance);
 
@@ -362,7 +372,15 @@ async function createUserChallengeRecord({
     throw err;
   }
 
-  console.log("platform=>", platform);
+  console.log("prices=>", prices);
+  const setting = await Setting.findByPk(1, { transaction });
+
+  console.log("prices?.total_all_price>", prices?.total_all_price);
+  console.log("prices?.final_price_usd>", prices?.final_price_usd);
+  console.log(
+    "prices?.total_all_price - prices?.final_price_us>",
+    Number(prices?.total_all_price) - Number(prices?.final_price_usd),
+  );
 
   const userChallenge = await UserChallenge.create(
     {
@@ -402,6 +420,18 @@ async function createUserChallengeRecord({
 
       // snapshot مقدار ریسک از plan
       ...floatingRiskSnapshot,
+
+      // payment type files
+      payment_plan: payment_type,
+      total_price_usd: prices?.final_price_usd,
+      total_price_irr: prices?.final_price_usd * setting.dollar_price * 10,
+      remaining_amount_usd:
+        Number(prices?.total_all_price) - Number(prices?.final_price_usd),
+      remaining_amount_irr:
+        prices?.total_all_price -
+        prices?.final_price_usd *
+          (setting?.dollar_price + setting?.bonus_dollar) *
+          10,
     },
     { transaction },
   );
@@ -440,10 +470,25 @@ async function createOrderRecord({
   provider,
   userChallenge,
   gateway,
-  prices,
   transaction,
   admin_id = null,
   coupon,
+
+  paymentPlan = "full",
+  installmentNumber = 0,
+  orderGroupId,
+  paymentAttemptNumber = 1,
+  parentOrderId = null,
+
+  // payment type
+  baseAmountUsd,
+  baseAmountIrr,
+  insuranceAmountUsd = 0,
+  insuranceAmountIrr = 0,
+  discountUsd = 0,
+  discountIrr = 0,
+  amountUsd,
+  amountIrr,
 }) {
   const orderId = `buyCh-${user?.id}-${Date.now()}`;
 
@@ -451,40 +496,54 @@ async function createOrderRecord({
     where: { id: 1 },
     transaction,
   });
-  const dollarPrice =
-    Number(setting?.dollar_price || 1800000) + Number(setting?.bonus_dollar);
 
-  const basePrice = Number(prices.base_price_usd);
-  const discount = Number(prices.discount_usd || 0);
-  const finalPrice = Number(prices.final_price_usd);
+  const dollarPrice =
+    Number(setting?.dollar_price || 1800000) +
+    Number(setting?.bonus_dollar || 0);
+
+  const finalAmountUsd = Number(amountUsd || 0);
+  const finalAmountIrr = Number(amountIrr ?? finalAmountUsd * dollarPrice * 10);
 
   const order = await Order.create(
     {
       user_id: user.id,
       user_challenge_id: userChallenge.id,
 
-      // ---------- USD ----------
-      amount_usd: basePrice,
-      base_amount_usd: prices.price_based,
-      discount_usd: discount,
-      final_amount_usd: finalPrice,
-
-      // ---------- IRR ----------
-      amount_irr: basePrice * dollarPrice * 10,
-      discount_irr: discount * dollarPrice * 10,
-      final_amount_irr: finalPrice * dollarPrice * 10,
-
-      // ---------- درگاه / وضعیت ----------
-      gateway: finalPrice === 0 ? "coupon_free" : gateway,
-      status: finalPrice === 0 ? "paid" : "pending",
-      gateway_order_id: orderId,
       type:
         gateway === "wallet"
           ? "challenge_purchase_wallet"
           : "challenge_purchase",
+
+      payment_plan: paymentPlan,
+      installment_number: installmentNumber,
+      order_group_id: orderGroupId,
+      payment_attempt_number: paymentAttemptNumber,
+      parent_order_id: parentOrderId,
+
+      // Components
+      base_amount_usd: baseAmountUsd,
+      base_amount_irr: baseAmountIrr,
+
+      insurance_amount_usd: insuranceAmountUsd,
+      insurance_amount_irr: insuranceAmountIrr,
+
+      // Final payable amount
+      amount_usd: finalAmountUsd,
+      amount_irr: finalAmountIrr,
+
+      discount_usd: discountUsd,
+      discount_irr: discountIrr,
+
+      final_amount_usd: finalAmountUsd,
+      final_amount_irr: finalAmountIrr,
+
+      currency: "USD",
+      gateway: finalAmountUsd === 0 ? "coupon_free" : gateway,
+      status: finalAmountUsd === 0 ? "paid" : "pending",
+      gateway_order_id: orderId,
+
       admin_id: admin_id ?? null,
 
-      // ---------- snapshot کوپن ⬅️ NEW ----------
       coupon_id: coupon?.id ?? null,
       coupon_code_snapshot: coupon?.code ?? null,
     },
@@ -493,12 +552,14 @@ async function createOrderRecord({
 
   await Payment.create(
     {
-      provider: finalPrice === 0 ? "coupon_free" : provider,
+      provider: finalAmountUsd === 0 ? "coupon_free" : provider,
       order_id: orderId,
       user_id: user.id,
-      amount_irr: finalPrice * dollarPrice * 10,
-      amount_usd: finalPrice * 10,
-      status: finalPrice === 0 ? "confirmed_free" : "pending",
+
+      amount_irr: finalAmountIrr,
+      amount_usd: finalAmountUsd,
+
+      status: finalAmountUsd === 0 ? "confirmed_free" : "pending",
       pay_currency: "usd",
       UserChallenge: userChallenge.id,
     },
@@ -513,6 +574,7 @@ async function createOrderRecord({
 async function purchaseChallenge(req, res, next) {
   try {
     const user = req.user;
+    const orderGroupId = randomUUID();
 
     // =========================
     // READ / CALCULATE
@@ -533,25 +595,70 @@ async function purchaseChallenge(req, res, next) {
 
     const floatingRiskFeeInfo = calculateFloatingRiskFee(plan, floatingEnabled);
 
+    const challengeBasePriceUsd = Number(plan.price_usd);
+
+    const insuranceFeeUsd = Number(insuranceInfo.fee_usd || 0);
+
+    const floatingRiskFeeUsd = Number(floatingRiskFeeInfo.fee_usd || 0);
+
+    const grossPriceUsd =
+      challengeBasePriceUsd + insuranceFeeUsd + floatingRiskFeeUsd;
     const basePrice =
-      Number(plan.price_usd) +
-      Number(insuranceInfo.fee_usd || 0) +
-      Number(floatingRiskFeeInfo.fee_usd || 0);
+      challengeBasePriceUsd + insuranceFeeUsd + floatingRiskFeeUsd;
+
+    const setting = await Setting.findByPk(1);
+
+    console.log(challengeBasePriceUsd);
+    console.log(insuranceFeeUsd);
+    console.log(grossPriceUsd);
+
+    // 1) set final prices
+    let final_base_amount = 0;
+    let final_insurance_amount = 0;
+    let final_total_amount = 0;
+
+    if (req?.body?.payment_type === "full") {
+      final_base_amount = challengeBasePriceUsd;
+      final_insurance_amount = insuranceFeeUsd;
+      final_total_amount = grossPriceUsd;
+    } else if (req?.body?.payment_type === "installment") {
+      const amounts = splitInstallmentAmount({
+        totalBaseUsd: challengeBasePriceUsd,
+        totalBaseIrr:
+          Number(challengeBasePriceUsd) *
+          Number(setting?.dollar_price + setting?.bonus_dollar),
+        totalInsuranceUsd: insuranceFeeUsd,
+        totalInsuranceIrr:
+          Number(insuranceFeeUsd) *
+          Number(setting?.dollar_price + setting?.bonus_dollar),
+      });
+
+      final_base_amount = amounts?.first?.baseUsd;
+      final_insurance_amount = amounts?.first?.insuranceUsd;
+      final_total_amount = amounts?.first?.totalUsd;
+    }
 
     // coupon validation
     const { coupon, discount } = await validateAndApplyCoupon({
       couponCode: req.body.coupon_code,
       plan,
       user,
-      basePrice,
+      basePrice: final_base_amount,
     });
 
     const prices = buildPriceSummary({
-      plan,
-      insuranceFee: insuranceInfo.fee_usd,
+      insuranceFee: insuranceFeeUsd,
       floatingRiskFee: floatingRiskFeeInfo.fee_usd,
       discount,
+      final_base_amount,
+      final_insurance_amount,
+
+      // all price
+      challengeBasePriceUsd,
+      insuranceFeeUsd,
     });
+
+    console.log("prices=>", prices);
 
     // =========================
     // TRANSACTION
@@ -573,6 +680,7 @@ async function purchaseChallenge(req, res, next) {
         transaction: t,
         admin_id: req?.admin?.id,
         platform: req?.body?.platform,
+        payment_type: req?.body?.payment_type,
       });
 
       const floatingRiskRow = await createFloatingRiskIfProvided({
@@ -596,15 +704,29 @@ async function purchaseChallenge(req, res, next) {
         transaction: t,
       });
 
+      const finalDollarPrice =
+        Number(setting?.dollar_price) + Number(setting?.bonus_dollar);
+
       const order = await createOrderRecord({
         user,
         provider: req.body.gateway,
         userChallenge,
         gateway: req.body.gateway,
-        prices,
         transaction: t,
         admin_id: req?.admin?.id,
         coupon,
+
+        paymentPlan: req?.body?.payment_type,
+        installmentNumber: req?.body?.payment_type === "full" ? 0 : 1,
+        orderGroupId,
+        baseAmountUsd: prices?.price_based,
+        baseAmountIrr: prices?.price_based * finalDollarPrice * 10,
+        insuranceAmountUsd: prices?.insurance_amount,
+        insuranceAmountIrr: prices?.insurance_amount * finalDollarPrice * 10,
+        discountUsd: prices?.discount_usd,
+        discountIrr: prices?.discount_usd * finalDollarPrice * 10,
+        amountUsd: prices?.final_price_usd,
+        amountIrr: prices?.final_price_usd * finalDollarPrice * 10,
       });
 
       return {

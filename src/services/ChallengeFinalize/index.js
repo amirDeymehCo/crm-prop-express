@@ -1,5 +1,4 @@
 const Order = require("../../models/Order");
-const Payment = require("../../models/Payment");
 const UserChallenge = require("../../models/Challenge/UserChallenge");
 const ChallengePlan = require("../../models/Challenge/ChallengePlan");
 const AccountInstance = require("../../models/Challenge/AccountInstance");
@@ -10,6 +9,7 @@ const ReferralCommissionRule = require("../../models/ReferralCommissionRule");
 const ReferralCommission = require("../../models/ReferralCommission");
 const Wallet = require("../../models/Wallet");
 const WalletTransaction = require("../../models/WalletTransaction");
+const Setting = require("../../models/Setting");
 
 async function lockPaymentByOrderId({ orderId, t }) {
   console.log("find order id payment=>", orderId);
@@ -295,6 +295,8 @@ async function finalizeChallengeAfterPaid({
   user,
   t,
   platform = "ctrader",
+  payment_type = "full",
+  current_phase_index = 1,
 }) {
   // 1) lock payment + idempotency
   // const payment = await lockPaymentByOrderId({ orderId, t });
@@ -328,15 +330,6 @@ async function finalizeChallengeAfterPaid({
   //   });
   // }
 
-  console.log("lock challenge + plan");
-
-  console.log("order=>>", order);
-  console.log(" order.user_challenge_id=>>", order.user_challenge_id);
-  console.log(
-    " order.user_challenge_id=>>",
-    order.dataValues?.user_challenge_id,
-  );
-
   // 3) lock challenge + plan
   const userChallenge = await lockUserChallengeWithPlan({
     userChallengeId:
@@ -365,8 +358,7 @@ async function finalizeChallengeAfterPaid({
 
   console.log("ensure account instance exists (phase1)");
 
-  const targetPhaseIndex =
-    userChallenge?.status === "pending_payment_insurance" ? 2 : 1;
+  const targetPhaseIndex = current_phase_index;
   // 5) ensure account instance exists (phase1)
   const acc = await getOrCreatePhase1AccountInstance({
     userChallenge,
@@ -379,15 +371,152 @@ async function finalizeChallengeAfterPaid({
 
   console.log(" update challenge status");
 
-  // 6) update challenge status
-  await userChallenge.update(
-    {
-      status: `phase${targetPhaseIndex}`,
-      current_phase_index: targetPhaseIndex,
-    },
-    { transaction: t },
+  const setting = await Setting.findByPk(1, { transaction: t });
+
+  // =========================================================
+  // 5) مبلغ Order
+  // =========================================================
+
+  const orderAmountUsd = Number(order.final_amount_usd || 0);
+
+  const orderAmountIrr = Number(order.final_amount_irr || 0);
+
+  console.log("ORDER AMOUNT =>", {
+    usd: orderAmountUsd,
+    irr: orderAmountIrr,
+  });
+
+  // =========================================================
+  // 9) محاسبه پرداخت
+  // =========================================================
+
+  const oldPaidUsd = Number(userChallenge.paid_amount_usd || 0);
+  const oldPaidIrr = Number(userChallenge.paid_amount_irr || 0);
+
+  const oldBasePaidUsd = Number(userChallenge.paid_base_amount_usd || 0);
+
+  const oldBasePaidIrr = Number(userChallenge.paid_base_amount_irr || 0);
+
+  const oldInsurancePaidUsd = Number(
+    userChallenge.paid_insurance_amount_usd || 0,
   );
 
+  const oldInsurancePaidIrr = Number(
+    userChallenge.paid_insurance_amount_irr || 0,
+  );
+
+  // مبلغ همین فاکتور
+  const currentOrderUsd = Number(order.final_amount_usd || 0);
+
+  const currentOrderIrr = Number(order.final_amount_irr || 0);
+
+  const currentBaseUsd = Number(order.base_amount_usd || 0);
+
+  const currentBaseIrr = Number(order.base_amount_irr || 0);
+
+  const currentInsuranceUsd = Number(order.insurance_amount_usd || 0);
+
+  const currentInsuranceIrr = Number(order.insurance_amount_irr || 0);
+
+  console.log("========== PAYMENT CALC ==========");
+  console.log("OLD PAID USD =>", oldPaidUsd);
+  console.log("CURRENT ORDER USD =>", currentOrderUsd);
+
+  console.log("OLD PAID IRR =>", oldPaidIrr);
+  console.log("CURRENT ORDER IRR =>", currentOrderIrr);
+
+  console.log("OLD BASE USD =>", oldBasePaidUsd);
+  console.log("CURRENT BASE USD =>", currentBaseUsd);
+
+  console.log("OLD INSURANCE USD =>", oldInsurancePaidUsd);
+  console.log("CURRENT INSURANCE USD =>", currentInsuranceUsd);
+  console.log("==================================");
+
+  // مبلغ نهایی پرداخت شده تا این لحظه
+  const newPaidUsd = oldPaidUsd + currentOrderUsd;
+
+  const newPaidIrr = oldPaidIrr + currentOrderIrr;
+
+  // مبلغ Base پرداخت شده
+  const newBasePaidUsd = oldBasePaidUsd + currentBaseUsd;
+  console.log("oldBasePaidUsd=>", oldBasePaidUsd);
+  console.log("currentBaseUsd=>", currentBaseUsd);
+
+  const newBasePaidIrr = oldBasePaidIrr + currentBaseIrr;
+
+  // مبلغ Insurance پرداخت شده
+  const newInsurancePaidUsd = oldInsurancePaidUsd + currentInsuranceUsd;
+
+  const newInsurancePaidIrr = oldInsurancePaidIrr + currentInsuranceIrr;
+
+  // کل مبلغ سفارش
+  const totalPriceUsd = Number(userChallenge.total_price_usd || 0);
+
+  const totalPriceIrr = Number(userChallenge.total_price_irr || 0);
+
+  // مانده
+  const newRemainingUsd = Math.max(0, totalPriceUsd - newPaidUsd);
+
+  const newRemainingIrr = Math.max(0, totalPriceIrr - newPaidIrr);
+
+  // وضعیت پرداخت
+  const isSecondPayment =
+    userChallenge.payment_status === "pending_second_payment";
+
+  const isFullPayment = payment_type === "full";
+
+  const newPaymentStatus =
+    isFullPayment || isSecondPayment ? "fully_paid" : "paid_first_payment";
+
+  // وضعیت چالش
+  const newStatus =
+    targetPhaseIndex === 3 ? "real" : `phase${targetPhaseIndex}`;
+
+  // اطلاعاتی که باید روی UserChallenge ذخیره شود
+  const dataUpdateCh = {
+    status: newStatus,
+
+    current_phase_index: targetPhaseIndex,
+
+    current_phase_id: userChallenge.current_phase_id,
+
+    current_account_instance_id: acc.id,
+
+    payment_status: newPaymentStatus,
+
+    // مجموع پرداخت‌ها
+    paid_amount_usd: newPaidUsd,
+
+    paid_amount_irr: newPaidIrr,
+
+    // باقی‌مانده
+    // remaining_amount_usd: newRemainingUsd,
+
+    // remaining_amount_irr: newRemainingIrr,
+
+    // Base
+    paid_base_amount_usd: newBasePaidUsd,
+
+    paid_base_amount_irr: newBasePaidIrr,
+
+    // Insurance
+    paid_insurance_amount_usd: newInsurancePaidUsd,
+
+    paid_insurance_amount_irr: newInsurancePaidIrr,
+  };
+
+  // تاریخ پرداخت
+  if (isSecondPayment) {
+    dataUpdateCh.second_payment_paid_at = new Date();
+  } else if (!userChallenge.first_payment_paid_at) {
+    dataUpdateCh.first_payment_paid_at = new Date();
+  }
+
+  console.log("FINAL PAYMENT UPDATE =>", dataUpdateCh);
+
+  await userChallenge.update(dataUpdateCh, {
+    transaction: t,
+  });
   // 7) create MT (idempotent)
   const orderKey = `${orderId}-${refNum || ""}`;
 

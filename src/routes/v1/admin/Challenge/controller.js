@@ -354,7 +354,11 @@ const Controller = class extends Controllers {
           break;
 
         case "real":
-          phaseIndex = 3;
+          if (userCh?.payment_plan === "full") {
+            phaseIndex = 3;
+          } else if (userCh?.second_paymnet_paid_at) {
+            phaseIndex = 3;
+          } else phaseIndex = null;
           break;
 
         default:
@@ -364,6 +368,33 @@ const Controller = class extends Controllers {
             status: 400,
             message: "وضعیت ارسالی معتبر نیست",
           });
+      }
+
+      if (![1, 2, 3]?.includes(phaseIndex)) {
+        await HistoryChallenge.create(
+          {
+            type: "change_status",
+            user_challenge_id: req?.body?.user_challenge_id,
+            admin_id: req?.admin?.id,
+            title: "تغییر وضعیت به پرداخت قسط دوم",
+          },
+          { transaction: t },
+        );
+
+        await userCh.update(
+          {
+            status: "pending_payment_real",
+            payment_status: "pending_second_payment",
+          },
+          { transaction: t },
+        );
+
+        await t.commit();
+        return this.response({
+          res,
+          status: 200,
+          message: "وضعیت به در انتظار قسط دوم تغییر یافت",
+        });
       }
 
       const findGroup = await ChallengePhase.findOne({
@@ -383,6 +414,7 @@ const Controller = class extends Controllers {
         },
         { transaction: t },
       );
+
       await HistoryChallenge.create(
         {
           type: "change_status",
@@ -401,7 +433,7 @@ const Controller = class extends Controllers {
         phaseIndex,
         cycleNo: 1,
         t,
-        platform: req?.body?.platform || "mt5",
+        platform: req?.body?.platform || "ctrader",
         adminId: req?.admin?.id,
         findUser: user,
       });
@@ -418,7 +450,7 @@ const Controller = class extends Controllers {
         mtGroup: findGroup?.group,
         orderKey,
         t,
-        platform: req?.body?.platform || "mt5",
+        platform: req?.body?.platform || "ctrader",
         findUser: user,
       });
 

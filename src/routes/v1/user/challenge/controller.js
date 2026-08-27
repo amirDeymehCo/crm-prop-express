@@ -80,7 +80,7 @@ const Controller = class extends Controllers {
       const ch_data = await createChFounc(req, res, next, t);
 
       const orderId = ch_data?.order?.gateway_order_id;
-      const amountUsd = Number(ch_data?.order?.amount_usd || 0);
+      const amountUsd = Number(ch_data?.order?.final_amount_usd || 0);
       // const amountUsd = 0.1
 
       if (!orderId) {
@@ -134,6 +134,7 @@ const Controller = class extends Controllers {
           refNum: null,
           t,
           platform: req?.body?.platform || "ctrader",
+          payment_type: req?.body?.payment_type,
         });
 
         await t.commit();
@@ -367,6 +368,7 @@ const Controller = class extends Controllers {
         "status",
         "current_phase_index",
         "price_usd",
+        "total_price_usd",
         "floating_risk_enabled",
         "has_insurance",
         "coupon_code_snapshot",
@@ -884,6 +886,549 @@ const Controller = class extends Controllers {
     } catch (err) {
       console.log(err);
       await t.rollback();
+      return this.response({
+        res,
+        status: err.status || 500,
+        message: err.message || "خطای سرور",
+      });
+    }
+  }
+  async payReal(req, res) {
+    const t = await sequelize.transaction();
+
+    try {
+      const { user_challenge_id, gateway } = req.body;
+
+      // =========================================================
+      // 1. Validation
+      // =========================================================
+
+      if (!user_challenge_id) {
+        await t.rollback();
+
+        return this.response({
+          res,
+          status: 400,
+          message: "شناسه چالش الزامی است",
+        });
+      }
+
+      console.log("gateway=>>>", gateway);
+
+      if (!gateway) {
+        await t.rollback();
+
+        return this.response({
+          res,
+          status: 400,
+          message: "درگاه پرداخت الزامی است",
+        });
+      }
+
+      const allowedGateways = ["wallet", "peykan", "nowpayments"];
+
+      if (!allowedGateways.includes(gateway)) {
+        await t.rollback();
+
+        return this.response({
+          res,
+          status: 400,
+          message: "درگاه نامعتبر است",
+        });
+      }
+
+      // =========================================================
+      // 2. گرفتن UserChallenge با Lock
+      // =========================================================
+
+      const userChallenge = await UserChallenge.findOne({
+        where: {
+          id: user_challenge_id,
+          user_id: req.user.id,
+
+          // کاربر باید در مرحله پرداخت Real باشد
+          status: "pending_payment_real",
+
+          // قسط اول پرداخت شده و قسط دوم باقی مانده
+          payment_status: "pending_second_payment",
+        },
+
+        transaction: t,
+        lock: t.LOCK.UPDATE,
+      });
+
+      if (!userChallenge) {
+        await t.rollback();
+
+        return this.response({
+          res,
+          status: 400,
+          message: "پرداخت قسط دوم برای این چالش فعال نیست",
+        });
+      }
+
+      // =========================================================
+      // 3. مبلغ قسط دوم
+      // =========================================================
+      //
+      // چون Order قسط دوم هنوز ساخته نشده،
+      // مبلغ را از remaining_amount می‌گیریم.
+      //
+      // مثال:
+      //
+      // total = 100
+      // paid  = 50
+      // remain = 50
+      //
+      // پس قسط دوم = 50
+      // =========================================================
+
+      const amountUsd = Number(userChallenge.remaining_amount_usd || 0);
+      console.log("amountUsd=>>", amountUsd);
+
+      const amountIrr = Number(userChallenge.remaining_amount_irr || 0);
+
+      if (!Number.isFinite(amountUsd) || amountUsd < 0) {
+        await t.rollback();
+
+        return this.response({
+          res,
+          status: 400,
+          message: "مبلغ قسط دوم نامعتبر است",
+        });
+      }
+
+      // =========================================================
+      // 4. جلوگیری از ساخت Order تکراری
+      // =========================================================
+
+      const existingSecondOrder = await Order.findOne({
+        where: {
+          user_challenge_id: userChallenge.id,
+          payment_plan: "installment",
+          installment_number: 2,
+          status: "pending",
+        },
+
+        transaction: t,
+        lock: t.LOCK.UPDATE,
+      });
+      
+
+      console.log("existingSecondOrder=>", existingSecondOrder);
+      console.log("amountUsd=>", amountUsd);
+
+      let order = existingSecondOrder;
+
+      const orderData = {
+        gateway,
+
+        amount_usd: amountUsd,
+        amount_irr: amountIrr,
+
+        final_amount_usd: amountUsd,
+        final_amount_irr: amountIrr,
+
+        discount_usd: 0,
+        discount_irr: 0,
+
+        base_amount_usd: userChallenge?.price_usd,
+
+        insurance_amount_usd: userChallenge?.paid_insurance_amount_usd,
+        insurance_amount_irr: 0,
+
+        is_insurance_payment: false,
+
+        payment_plan: "installment",
+        installment_number: 2,
+      };
+
+      // =========================================================
+      // 5. ساخت Order قسط دوم
+      // =========================================================
+
+      if (!order) {
+        const orderGroupId =
+          userChallenge.order_group_id || require("crypto").randomUUID();
+
+        order = await Order.create(
+          {
+            user_id: req.user.id,
+
+            user_challenge_id: userChallenge.id,
+
+            gateway_order_id: `installment_2_${req.user.id}-${Date.now()}`,
+
+            type: "challenge_purchase",
+
+            order_group_id: orderGroupId,
+
+            payment_attempt_number: 1,
+
+            status: "pending",
+
+            meta: {
+              payment_type: "second_installment",
+              user_challenge_id: userChallenge.id,
+              installment_number: 2,
+            },
+
+            ...orderData,
+          },
+          {
+            transaction: t,
+          },
+        );
+      } else {
+        // ⭐ اگر Order قبلاً ساخته شده، مبلغش را حتماً sync کن
+        await order.update(
+          {
+            ...orderData,
+
+            // اگر دوباره کاربر درگاه دیگری انتخاب کرده
+            gateway,
+
+            payment_attempt_number:
+              gateway !== order.gateway
+                ? Number(order.payment_attempt_number || 1) + 1
+                : Number(order.payment_attempt_number || 1),
+
+            meta: {
+              ...(order.meta || {}),
+              payment_type: "second_installment",
+              user_challenge_id: userChallenge.id,
+              installment_number: 2,
+            },
+          },
+          {
+            transaction: t,
+          },
+        );
+      }
+
+      // =========================================================
+      // 6. اگر Order قبلی وجود داشت، Gateway را آپدیت کن
+      // =========================================================
+
+      // if (order.gateway !== gateway) {
+      //   await order.update(
+      //     {
+      //       gateway,
+      //       payment_attempt_number:
+      //         Number(order.payment_attempt_number || 1) + 1,
+      //     },
+      //     {
+      //       transaction: t,
+      //     },
+      //   );
+      // }
+
+      // =========================================================
+      // 7. پرداخت رایگان
+      // =========================================================
+
+      if (amountUsd === 0) {
+        await order.update(
+          {
+            status: "paid",
+            paid_at: new Date(),
+
+            gateway: "coupon_free",
+
+            meta: {
+              ...(order.meta || {}),
+              payment_type: "second_installment",
+              trackingCode: `FREE-SECOND-${Date.now()}`,
+            },
+          },
+          {
+            transaction: t,
+          },
+        );
+
+        // ---------------------------------------------
+        // UserChallenge
+        // ---------------------------------------------
+
+        console.log(
+          "Number(userChallenge.paid_amount_usd || 0) + amountUsd=>> 1111",
+          Number(userChallenge.paid_amount_usd || 0) + amountUsd,
+        );
+
+        await userChallenge.update(
+          {
+            payment_status: "fully_paid",
+            status: "real",
+            second_payment_paid_at: new Date(),
+          },
+          {
+            transaction: t,
+          },
+        );
+
+        // ---------------------------------------------
+        // فعال‌سازی Real
+        // ---------------------------------------------
+
+        const result = await finalizeChallengeAfterPaid({
+          user: req.user,
+
+          // Order داخلی
+          orderId: order.gateway_order_id,
+
+          trackingCode: `FREE-SECOND-${Date.now()}`,
+
+          refNum: null,
+
+          t,
+
+          current_phase_index: 3,
+
+          platform: userChallenge.platform || req.body.platform || "ctrader",
+        });
+
+        await t.commit();
+
+        return this.response({
+          res,
+          message: "قسط دوم با موفقیت ثبت شد و چالش فعال شد",
+          data: {
+            user_challenge_id: userChallenge.id,
+            order_id: order.id,
+
+            account_instance_id:
+              result?.acc?.id || result?.account_instance_id || null,
+
+            phase_index:
+              result?.phase_index || userChallenge.current_phase_index || 3,
+          },
+        });
+      }
+
+      // =========================================================
+      // 8. Wallet
+      // =========================================================
+
+      if (gateway === "wallet") {
+        await payWithWallet({
+          userId: req.user.id,
+
+          // ID واقعی Order
+          orderId: order.id,
+
+          amountUsd,
+
+          t,
+        });
+
+        // ---------------------------------------------
+        // Order = Paid
+        // ---------------------------------------------
+
+        await order.update(
+          {
+            status: "paid",
+            paid_at: new Date(),
+
+            gateway_payment_id: null,
+
+            meta: {
+              ...(order.meta || {}),
+              payment_type: "second_installment",
+              trackingCode: `WALLET-SECOND-${Date.now()}`,
+            },
+          },
+          {
+            transaction: t,
+          },
+        );
+
+        // ---------------------------------------------
+        // UserChallenge = Fully Paid
+        // ---------------------------------------------
+
+        console.log(
+          "    Number(userChallenge.paid_amount_usd || 0) + amountUsd=>222 ",
+          Number(userChallenge.paid_amount_usd || 0) + amountUsd,
+        );
+
+        await userChallenge.update(
+          {
+            payment_status: "fully_paid",
+            status: "real",
+            second_payment_paid_at: new Date(),
+          },
+          {
+            transaction: t,
+          },
+        );
+
+        // ---------------------------------------------
+        // فعال‌سازی Real
+        // ---------------------------------------------
+
+        const result = await finalizeChallengeAfterPaid({
+          user: req.user,
+
+          orderId: order.gateway_order_id,
+
+          trackingCode: `WALLET-SECOND-${Date.now()}`,
+
+          refNum: null,
+
+          t,
+
+          current_phase_index: 3,
+
+          platform: userChallenge.platform || req.body.platform || "ctrader",
+        });
+
+        await t.commit();
+
+        return this.response({
+          res,
+          message: "پرداخت قسط دوم با ولت با موفقیت انجام شد",
+          data: {
+            user_challenge_id: userChallenge.id,
+            order_id: order.gateway_order_id,
+
+            account_instance_id:
+              result?.acc?.id || result?.account_instance_id || null,
+
+            phase_index:
+              result?.phase_index || userChallenge.current_phase_index || 3,
+          },
+        });
+      }
+
+      // =========================================================
+      // 9. Peykan
+      // =========================================================
+
+      if (gateway === "peykan") {
+        // Order ID داخلی را برای callback ذخیره می‌کنیم
+        await order.update(
+          {
+            gateway: "peykan",
+
+            gateway_order_id: `installment_2_${req?.user?.id}-${Date.now()}`,
+
+            meta: {
+              ...(order.meta || {}),
+              payment_type: "second_installment",
+              user_challenge_id: userChallenge.id,
+              installment_number: 2,
+            },
+          },
+          {
+            transaction: t,
+          },
+        );
+
+        // قبل از redirect باید transaction بسته شود
+        await t.commit();
+
+        const { redirectUrl } = await paykanService({
+          userId: req.user.id,
+
+          amountUsd,
+
+          userChallenge: userChallenge.id,
+
+          callback_url:
+            "https://api-crm.myprop.trade/api/v1/global/callback-peykan-challenge",
+
+          type: "challenge_purchase",
+
+          base_amount_usd: amountUsd,
+
+          // اگر paykanService این را قبول می‌کند
+          orderId: order.id,
+        });
+
+        return this.response({
+          res,
+          message: "در حال انتقال به درگاه...",
+          data: {
+            url: redirectUrl,
+            order_id: order.id,
+          },
+        });
+      }
+
+      // =========================================================
+      // 10. NowPayments
+      // =========================================================
+
+      if (gateway === "nowpayments") {
+        await order.update(
+          {
+            gateway: "nowpayments",
+
+            gateway_order_id: `installment_2_${req?.user?.id}-${Date.now()}`,
+
+            meta: {
+              ...(order.meta || {}),
+              payment_type: "second_installment",
+              user_challenge_id: userChallenge.id,
+              installment_number: 2,
+            },
+          },
+          {
+            transaction: t,
+          },
+        );
+
+        await t.commit();
+
+        const { invoiceUrl } = await createDepositUSDInvoice({
+          amountUsd,
+
+          user: req.user,
+
+          orderId: order.id,
+
+          metadata: {
+            order_id: order.id,
+            user_challenge_id: userChallenge.id,
+            installment_number: 2,
+          },
+        });
+
+        return this.response({
+          res,
+          message: "در حال انتقال به درگاه...",
+          data: {
+            url: invoiceUrl,
+            order_id: order.id,
+          },
+        });
+      }
+
+      // =========================================================
+      // 11. Fallback
+      // =========================================================
+
+      if (!t.finished) {
+        await t.rollback();
+      }
+
+      return this.response({
+        res,
+        status: 400,
+        message: "درگاه نامعتبر است",
+      });
+    } catch (err) {
+      console.error("payReal error:", err);
+
+      try {
+        if (!t.finished) {
+          await t.rollback();
+        }
+      } catch (rollbackError) {
+        console.error("payReal rollback error:", rollbackError);
+      }
+
       return this.response({
         res,
         status: err.status || 500,

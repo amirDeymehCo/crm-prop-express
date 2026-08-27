@@ -166,6 +166,7 @@ const handleRepurchasePaid = async ({
   platform = PLATFORM_DEFAULT,
   adminId = null,
   transaction = null, // ⬅️ تراکنش بیرونی رو بگیر
+  current_phase_index = 2,
 }) => {
   const t = transaction || (await sequelize.transaction());
   const ownTransaction = !transaction; // فقط وقتی خودش ساخته، commit/rollback کن
@@ -225,7 +226,7 @@ const handleRepurchasePaid = async ({
       {
         insurance_status: INSURANCE_STATUS.USED,
         has_insurance: false,
-        current_phase_index: 2,
+        current_phase_index,
         challenge_phase: null,
         status: "phase2",
       },
@@ -284,7 +285,7 @@ const handleRepurchasePaid = async ({
       ok: true,
       user_challenge_id: userChallenge.id,
       account_instance_id: acc.id,
-      phase_index: 2,
+      phase_index: current_phase_index,
       cycle_no: cycleNo,
       mt_login: acc.mt_login,
       mt_server: acc.mt_server,
