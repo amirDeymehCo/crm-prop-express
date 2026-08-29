@@ -1,69 +1,132 @@
-services:
-  app:
-    build: .
-    container_name: props-app-crm
-    restart: unless-stopped
+name: Deploy Express Crm
 
-    ports:
-      - "127.0.0.1:3002:8000"
+on:
+  push:
+    branches:
+      - main
 
-    env_file:
-      - .env
+concurrency:
+  group: express-crm
+  cancel-in-progress: true
 
-    volumes:
-      - .:/app
-      - node_modules:/app/node_modules
+jobs:
+  deploy:
+    name: Deploy To Server
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
 
-    command: npm start
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script_stop: true
 
-    depends_on:
-      - db
+          command_timeout: 15m
 
-    # متصل کردن سرویس به شبکه اختصاصی با MTU اصلاح‌شده
-    networks:
-      - crm-net
+          script: |
+            set -Eeuo pipefail
 
-  db:
-    image: mysql:8.0
-    container_name: mysql-db-crm
-    restart: unless-stopped
+            echo "==============================="
+            echo "🚀 Starting Deployment"
+            echo "==============================="
 
-    env_file:
-      - .env
+            APP_DIR="${{ secrets.APP_DIR }}"
+            APP_PORT=3001
 
-    environment:
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
-      MYSQL_DATABASE: ${DB_NAME}
+            echo "STEP 1: APP_DIR"
+            echo "APP_DIR is set: ${APP_DIR:+YES}"
 
-    ports:
-      - "3316:3306"
+            echo "STEP 2: Changing directory..."
+            cd "$APP_DIR"
 
-    volumes:
-      - crm_mysql_data:/var/lib/mysql
+            echo "STEP 3: Current directory:"
+            /bin/pwd
 
-    networks:
-      - crm-net
+            echo "STEP 4: Checking git..."
+            git --version
 
-  phpmyadmin:
-    image: phpmyadmin:latest
-    container_name: phpmyadmin
-    restart: unless-stopped
-    ports:
-      - "8080:80"
-    environment:
-      PMA_ARBITRARY: 1
-      UPLOAD_LIMIT: 256M
+            echo "STEP 5: Checking repository..."
+            git status
 
-    networks:
-      - crm-net
+            echo "STEP 6: Fetching repository..."
+            timeout 120 git fetch origin
 
-volumes:
-  crm_mysql_data:
-  node_modules:
+            echo "STEP 7: Getting commits..."
+            LOCAL=$(git rev-parse HEAD)
+            REMOTE=$(git rev-parse origin/main)
 
-# تعریف شبکه اختصاصی و تنظیم MTU روی 1400 جهت هماهنگی با کارت شبکه هاست (eno49)
-networks:
-  crm-net:
-    driver: bridge
-    driver_opts:
-      com.docker.network.driver.mtu: "1400"
+            echo "LOCAL:  $LOCAL"
+            echo "REMOTE: $REMOTE"
+
+            if [ "$LOCAL" != "$REMOTE" ]; then
+              echo "STEP 8: Updating repository..."
+              git reset --hard origin/main
+            else
+              echo "Repository already up-to-date."
+            fi
+
+            echo "STEP 9: Checking Docker..."
+            docker --version
+            docker compose version
+
+            echo "STEP 10: Docker compose config..."
+            docker compose config
+
+            echo "STEP 11: Building Docker image..."
+            timeout 12m docker compose build --pull
+
+            echo "STEP 12: Starting containers..."
+            docker compose up -d --remove-orphans
+
+            echo "STEP 13: Container status..."
+            docker compose ps
+
+            echo "STEP 14: Waiting for application..."
+            sleep 10
+
+            SUCCESS=false
+
+            for i in {1..15}; do
+
+              STATUS=$(curl \
+                --silent \
+                --output /dev/null \
+                --write-out "%{http_code}" \
+                --connect-timeout 3 \
+                --max-time 5 \
+                http://127.0.0.1:${APP_PORT} || true)
+
+              STATUS=${STATUS:-000}
+
+              echo "Attempt $i -> HTTP $STATUS"
+
+              if [[ "$STATUS" =~ ^(200|201|204|301|302|307|308|401|403|404)$ ]]; then
+                SUCCESS=true
+                break
+              fi
+
+              sleep 5
+            done
+
+            if [ "$SUCCESS" = false ]; then
+              echo "❌ Application did not become healthy"
+
+              echo "========== CONTAINERS =========="
+              docker compose ps
+
+              echo "========== LOGS =========="
+              docker compose logs --tail=200
+
+              exit 1
+            fi
+
+            echo "STEP 15: Cleaning Docker..."
+            docker image prune -af
+
+            echo "==============================="
+            echo "✅ Deployment Successful"
+            echo "==============================="
