@@ -382,6 +382,10 @@ async function createUserChallengeRecord({
     Number(prices?.total_all_price) - Number(prices?.final_price_usd),
   );
 
+  const remaining_amount_usd = Number(prices?.final_price_usd);
+
+    console.log("remaining_amount_usd>", remaining_amount_usd);
+
   const userChallenge = await UserChallenge.create(
     {
       user_id: user.id,
@@ -425,13 +429,11 @@ async function createUserChallengeRecord({
       payment_plan: payment_type,
       total_price_usd: prices?.final_price_usd,
       total_price_irr: prices?.final_price_usd * setting.dollar_price * 10,
-      remaining_amount_usd:
-        Number(prices?.total_all_price) - Number(prices?.final_price_usd),
+      remaining_amount_usd,
       remaining_amount_irr:
-        prices?.total_all_price -
-        prices?.final_price_usd *
-          (setting?.dollar_price + setting?.bonus_dollar) *
-          10,
+        remaining_amount_usd *
+        (setting?.dollar_price + setting?.bonus_dollar) *
+        10,
     },
     { transaction },
   );

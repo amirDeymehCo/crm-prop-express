@@ -117,6 +117,8 @@ const Controller = class extends Controllers {
         });
       }
 
+      console.log("amountUsd=>>>>", amountUsd);
+
       // ✅ 3) مسیر ولت
       if (req?.body?.gateway === "wallet") {
         await payWithWallet({
@@ -124,7 +126,7 @@ const Controller = class extends Controllers {
           orderId,
           amountUsd,
           t,
-          discountUsd: ch_data?.order?.discount_usd,
+          discountUsd: 0,
         });
 
         const result = await finalizeChallengeAfterPaid({
@@ -912,9 +914,6 @@ const Controller = class extends Controllers {
           message: "شناسه چالش الزامی است",
         });
       }
-
-      console.log("gateway=>>>", gateway);
-
       if (!gateway) {
         await t.rollback();
 
@@ -1013,12 +1012,13 @@ const Controller = class extends Controllers {
         transaction: t,
         lock: t.LOCK.UPDATE,
       });
-      
 
       console.log("existingSecondOrder=>", existingSecondOrder);
       console.log("amountUsd=>", amountUsd);
 
       let order = existingSecondOrder;
+
+      const setting = await Setting.findByPk(1, { transaction: t });
 
       const orderData = {
         gateway,
@@ -1029,8 +1029,11 @@ const Controller = class extends Controllers {
         final_amount_usd: amountUsd,
         final_amount_irr: amountIrr,
 
-        discount_usd: 0,
-        discount_irr: 0,
+        discount_usd: userChallenge?.discountUSD,
+        discount_irr:
+          userChallenge?.discountUSD *
+          (setting.dollar_price + setting?.bonus_dollar) *
+          10,
 
         base_amount_usd: userChallenge?.price_usd,
 
