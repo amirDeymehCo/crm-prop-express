@@ -35,7 +35,7 @@ const generateMainPassword = require("../../../../services/BuyCh/CreatePassword"
 const { Op } = require("sequelize");
 const createTradingAccount = require("../../../../services/BuyCh/CreateTrainingAccount");
 
-const RunInsurance = require("../../../../services/Insurance/runInsurance");
+const InsuranceReload = require("../../../../services/InsuranceReload");
 
 const typesStatus = {
   payment_phase2: "در انتظار پرداخت چالش رایگان",
@@ -325,24 +325,25 @@ const Controller = class extends Controllers {
             { transaction: t },
           );
 
-          console.log("req?.body?.run_insurance=>", req?.body?.run_insurance);
-          // if (req?.body?.run_insurance) {
-          //   const insuranceResult = await RunInsurance({
-          //     userChallenge: userCh,
-          //     user,
-          //     adminId: req?.admin?.id,
-          //     platform: req?.body?.platform || "ctrader",
-          //     transaction: t,
-          //     repurchaseReturnUrl: req?.body?.repurchase_return_url ?? null,
-          //   });
-          // }
+          let insuranceResult = null;
+          if (req?.body?.run_insurance) {
+            insuranceResult = await InsuranceReload({
+              userChallenge: userCh,
+              adminId: req?.admin?.id,
+              platform: req?.body?.platform || userCh.platform,
+              transaction: t,
+            });
+          }
 
           await t.commit();
 
           return this.response({
             res,
             status: 200,
-            message: "چالش با موفقیت رد شد",
+            message: insuranceResult?.applied
+              ? "چالش رد شد و چالش جایگزین بیمه ساخته شد"
+              : "چالش با موفقیت رد شد",
+            data: insuranceResult ?? undefined,
           });
         }
         case "phase1":
@@ -492,7 +493,12 @@ const Controller = class extends Controllers {
         },
       });
     } catch (err) {
-      await t.rollback();
+      // اگر خطا بعد از commit رخ داده باشد، rollback خودش خطای جدید پرتاب می‌کند
+      // و خطای اصلی را قایم می‌کند؛ پس فقط تراکنشِ بازْ رول‌بک می‌شود.
+      if (!t.finished) await t.rollback();
+
+      console.error("changeStatus error:", err);
+
       return this.response({
         res,
         status: err.status || 500,

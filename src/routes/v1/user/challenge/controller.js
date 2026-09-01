@@ -28,17 +28,6 @@ const {
   fetchFullAccountAnalysis,
 } = require("../../../..//services/AnalysisUser/accountAnalysisService");
 
-const {
-  INSURANCE_PHASE,
-  INSURANCE_STATUS,
-  INSURANCE,
-} = require("../../../../services/Insurance/constants");
-const {
-  round2,
-  getPaidAmountUSD,
-} = require("../../../../services/Insurance/helpers");
-const handleRepurchasePaid = require("../../../../services/Insurance/handleRepurchasePaid");
-
 const Controller = class extends Controllers {
   async getPlansList(req, res) {
     const setting = await Setting.findByPk(1);
@@ -370,6 +359,7 @@ const Controller = class extends Controllers {
         "status",
         "current_phase_index",
         "price_usd",
+        "discount_usd",
         "total_price_usd",
         "floating_risk_enabled",
         "has_insurance",
@@ -605,18 +595,13 @@ const Controller = class extends Controllers {
     try {
       const { user_challenge_id, gateway } = req.body;
 
-      // 1) گرفتن چالش — شامل وضعیت جدید بیمه
+      // 1) گرفتن چالش
       const userChallenge = await UserChallenge.findOne({
         where: {
           id: user_challenge_id,
           user_id: req.user.id,
           status: {
-            [Op.in]: [
-              "pending_payment",
-              "pending",
-              "pending_payment_insurance",
-              "payment_phase2",
-            ],
+            [Op.in]: ["pending_payment", "pending", "payment_phase2"],
           },
         },
         include: [{ model: Order }],
@@ -633,166 +618,63 @@ const Controller = class extends Controllers {
         });
       }
 
-      // 🔥 تشخیص خرید مجدد بیمه (فاز ۲)
-      const isInsuranceRepurchase =
-        userChallenge.status === "pending_payment_insurance" ||
-        userChallenge.insurance_status === INSURANCE_STATUS.PENDING_REPURCHASE;
+      // نکته: چالشِ جایگزینِ بیمه هم یک چالش عادیِ pending_payment است
+      // و از همین مسیر پرداخت می‌شود (سرویس InsuranceReload می‌سازدش).
+      const orders = userChallenge.Orders || [];
 
-      let order;
-      let amountUsd;
-
-      const INSURANCE_FEE_RATE = 0.3; // سهم حق بیمه که روی پایه اضافه می‌شود
-      const REPURCHASE_RATE = 0.7;
-
-      if (isInsuranceRepurchase) {
-        const totalPaid = await getPaidAmountUSD(userChallenge, t); // 100.1 (شامل حق بیمه)
-
-        // استخراج مبلغ پایه از مبلغ کل (چون کل = پایه × 1.3)
-        const baseAmount = totalPaid / (1 + INSURANCE_FEE_RATE); // 100.1 / 1.3 = 77
-
-        // مبلغ خرید مجدد فاز ۲ = ۷۰٪ مبلغ پایه (نه مبلغ کل)
-        const repurchaseAmount = baseAmount * REPURCHASE_RATE; // 77 × 0.7 = 53.9
-
-        if (!Number.isFinite(repurchaseAmount) || repurchaseAmount <= 0) {
-          await t.rollback();
-          return this.response({
-            res,
-            status: 400,
-            message: "مبلغ قابل محاسبه‌ای برای خرید مجدد بیمه یافت نشد",
-          });
-        }
-
-        // گارد idempotency: اگه کاربر دوبار کلیک کرد، سفارش تکراری نساز
-        // ✅ حتماً type بیمه رو هم چک کن
-        order = (userChallenge.Orders || [])
-          .filter(
-            (o) =>
-              o.status === "pending" &&
-              o.type === "challenge_insurance_repurchase",
-          )
-          .sort((a, b) => b.id - a.id)[0];
-
-        const orderId = `insurance-buyCh-${req?.user?.id}-${Date.now()}`;
-
-        if (!order) {
-          order = await Order.create(
-            {
-              user_id: userChallenge.user_id,
-              user_challenge_id: userChallenge.id,
-              // ✅ نوع صحیح برای مسیر بیمه
-              type: "challenge_insurance_repurchase",
-              currency: "USD",
-              amount_usd: repurchaseAmount,
-              discount_usd: 0,
-              final_amount_usd: repurchaseAmount,
-              amount_irr: 0,
-              final_amount_irr: 0,
-              gateway_order_id: orderId,
-              gateway: req?.body?.gateway,
-              status: "pending",
-              base_amount_usd: baseAmount,
-              meta: {
-                base_amount_usd: baseAmount, // 77 ✅ جدید
-                insurance_fee_usd: baseAmount, // 23.1
-                phase_index: INSURANCE_PHASE.PHASE_2,
-              },
-            },
-            { transaction: t },
-          );
-        }
-
-        amountUsd = Number(order.final_amount_usd ?? order.amount_usd ?? 0);
-      } else {
-        // ─────────── مسیر عادی (بدون تغییر) ───────────
-        const orders = userChallenge.Orders || [];
-
-        if (!orders.length) {
-          await t.rollback();
-          return this.response({
-            res,
-            status: 400,
-            message: "هیچ سفارشی برای این چالش یافت نشد",
-          });
-        }
-
-        order = orders
-          .filter((o) => o.status === "pending")
-          .sort((a, b) => b.id - a.id)[0];
-
-        if (!order) {
-          await t.rollback();
-          return this.response({
-            res,
-            status: 400,
-            message: "سفارشی برای پرداخت فعال وجود ندارد",
-          });
-        }
-
-        amountUsd = Number(order.final_amount_usd ?? order.amount_usd ?? 0);
+      if (!orders.length) {
+        await t.rollback();
+        return this.response({
+          res,
+          status: 400,
+          message: "هیچ سفارشی برای این چالش یافت نشد",
+        });
       }
+
+      const order = orders
+        .filter((o) => o.status === "pending")
+        .sort((a, b) => b.id - a.id)[0];
+
+      if (!order) {
+        await t.rollback();
+        return this.response({
+          res,
+          status: 400,
+          message: "سفارشی برای پرداخت فعال وجود ندارد",
+        });
+      }
+
+      const amountUsd = Number(order.final_amount_usd ?? order.amount_usd ?? 0);
 
       console.log("order=>>>>>>");
       console.log(order);
 
       // ─── فاینالایز مشترک ───
-      const finalizePaid = async ({ trackingCode, refNum, gatewayOrderId }) => {
-        if (isInsuranceRepurchase) {
-          const result = await handleRepurchasePaid({
-            orderId: order.id, // ⬅️ آی‌دی داخلی سفارش بیمه
-            gatewayOrderId,
-            paymentMeta: { trackingCode, refNum },
-            platform: req.body.platform || "ctrader",
-            adminId: null,
-            transaction: t, // ← داخل همون تراکنش
-          });
-
-          // ✅ اگه سفارش پیدا نشد یا قبلاً paid بود، متوقف شو
-          if (!result || result.ok === false) {
-            await t.rollback();
-            throw new Error(result?.reason || "خطا در فعال‌سازی مجدد چالش");
-          }
-
-          return result;
-        }
-
-        // ✅ از id داخلی استفاده کن (gateway_order_id ممکنه null باشه)
-        return finalizeChallengeAfterPaid({
+      const finalizePaid = async ({ trackingCode, refNum }) =>
+        finalizeChallengeAfterPaid({
           user: req.user,
           orderId: order.gateway_order_id,
           trackingCode,
           refNum,
           t,
         });
-      };
 
       // 2) اگر رایگان
       if (amountUsd === 0) {
         const result = await finalizePaid({
           trackingCode: `FREE-${Date.now()}`,
           refNum: null,
-          gatewayOrderId: null,
         });
 
         await t.commit();
 
         return this.response({
           res,
-          message: isInsuranceRepurchase
-            ? "چالش با بیمه مجدداً فعال شد"
-            : "چالش با موفقیت فعال شد",
-          data: isInsuranceRepurchase
-            ? {
-                user_challenge_id: result.user_challenge_id,
-                account_instance_id: result.account_instance_id,
-                phase_index: result.phase_index,
-                cycle_no: result.cycle_no,
-                mt_login: result.mt_login,
-                mt_server: result.mt_server,
-              }
-            : {
-                user_challenge_id: result.userChallenge?.id,
-                account_instance_id: result.acc?.id,
-              },
+          message: "چالش با موفقیت فعال شد",
+          data: {
+            user_challenge_id: result.userChallenge?.id,
+            account_instance_id: result.acc?.id,
+          },
         });
       }
 
@@ -813,33 +695,17 @@ const Controller = class extends Controllers {
         const result = await finalizePaid({
           trackingCode: `WALLET-${Date.now()}`,
           refNum: null,
-          gatewayOrderId: null,
         });
-
-        // ❌ حذف شد: آپدیت تکراری چالش.
-        // وضعیت، بیمه و اکانت همه داخل handleRepurchasePaid انجام می‌شه.
-        // (has_insurance: true هم غلط بود — باید false باشه)
 
         await t.commit();
 
         return this.response({
           res,
-          message: isInsuranceRepurchase
-            ? "پرداخت با ولت و فعال‌سازی مجدد سفارش موفق بود"
-            : "پرداخت با ولت موفق بود",
-          data: isInsuranceRepurchase
-            ? {
-                user_challenge_id: result.user_challenge_id,
-                account_instance_id: result.account_instance_id,
-                phase_index: result.phase_index,
-                cycle_no: result.cycle_no,
-                mt_login: result.mt_login,
-                mt_server: result.mt_server,
-              }
-            : {
-                user_challenge_id: result.userChallenge?.id,
-                account_instance_id: result.acc?.id,
-              },
+          message: "پرداخت با ولت موفق بود",
+          data: {
+            user_challenge_id: result.userChallenge?.id,
+            account_instance_id: result.acc?.id,
+          },
         });
       }
 
@@ -853,9 +719,7 @@ const Controller = class extends Controllers {
           userChallenge: userChallenge.id,
           callback_url:
             "https://api-crm.myprop.trade/api/v1/global/callback-peykan-challenge",
-          type: isInsuranceRepurchase
-            ? "challenge_insurance_repurchase"
-            : "challenge_purchase",
+          type: "challenge_purchase",
           base_amount_usd:
             userChallenge?.paykanService || userChallenge?.amount_usd || 0,
         });
@@ -887,7 +751,9 @@ const Controller = class extends Controllers {
       });
     } catch (err) {
       console.log(err);
-      await t.rollback();
+      // درگاه‌ها بعد از commit صدا زده می‌شوند؛ اگر آنجا خطا بخورد
+      // تراکنش دیگر باز نیست و rollback فقط خطای اصلی را قایم می‌کند.
+      if (!t.finished) await t.rollback();
       return this.response({
         res,
         status: err.status || 500,
