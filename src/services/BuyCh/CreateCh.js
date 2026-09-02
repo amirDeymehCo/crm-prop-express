@@ -658,6 +658,14 @@ async function purchaseChallenge(req, res, next) {
       basePrice: final_base_amount,
     });
 
+    if (req?.body?.payment_type === "installment" && coupon) {
+      const err = new Error(
+        "کاربر گرامی خرید اقساطی با کد تخفیف امکان پذیر نمیباشد",
+      );
+      err.status = 400;
+      throw err;
+    }
+
     const prices = buildPriceSummary({
       insuranceFee: insuranceFeeUsd,
       floatingRiskFee: floatingRiskFeeInfo.fee_usd,
