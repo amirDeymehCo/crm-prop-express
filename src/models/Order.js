@@ -128,7 +128,7 @@ const Order = sequelize.define(
 
     order_group_id: {
       type: DataTypes.UUID,
-      allowNull: false,
+      allowNull: true,
     },
 
     payment_attempt_number: {
