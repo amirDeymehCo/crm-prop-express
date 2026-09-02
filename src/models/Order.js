@@ -110,6 +110,65 @@ const Order = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: true,
     },
+
+    // payment types
+    payment_plan: {
+      type: DataTypes.ENUM("full", "installment"),
+      allowNull: false,
+      defaultValue: "full",
+    },
+
+    installment_number: {
+      type: DataTypes.TINYINT.UNSIGNED,
+      allowNull: false,
+      defaultValue: 0,
+      comment:
+        "0 = full payment, 1 = first installment, 2 = second installment",
+    },
+
+    order_group_id: {
+      type: DataTypes.UUID,
+      allowNull: false,
+    },
+
+    payment_attempt_number: {
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: false,
+      defaultValue: 1,
+    },
+
+    base_amount_usd: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: false,
+      defaultValue: 0,
+    },
+    base_amount_irr: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: false,
+      defaultValue: 0,
+    },
+
+    insurance_amount_usd: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: false,
+      defaultValue: 0,
+    },
+    insurance_amount_irr: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: false,
+      defaultValue: 0,
+    },
+
+    is_insurance_payment: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+    },
+
+    parent_order_id: {
+      type: DataTypes.BIGINT.UNSIGNED,
+      allowNull: true,
+    },
   },
   {
     tableName: "orders",

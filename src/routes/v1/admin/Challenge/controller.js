@@ -35,7 +35,7 @@ const generateMainPassword = require("../../../../services/BuyCh/CreatePassword"
 const { Op } = require("sequelize");
 const createTradingAccount = require("../../../../services/BuyCh/CreateTrainingAccount");
 
-const RunInsurance = require("../../../../services/Insurance/runInsurance");
+const InsuranceReload = require("../../../../services/InsuranceReload");
 
 const typesStatus = {
   payment_phase2: "در انتظار پرداخت چالش رایگان",
@@ -325,24 +325,25 @@ const Controller = class extends Controllers {
             { transaction: t },
           );
 
-          console.log("req?.body?.run_insurance=>", req?.body?.run_insurance);
-          // if (req?.body?.run_insurance) {
-          //   const insuranceResult = await RunInsurance({
-          //     userChallenge: userCh,
-          //     user,
-          //     adminId: req?.admin?.id,
-          //     platform: req?.body?.platform || "ctrader",
-          //     transaction: t,
-          //     repurchaseReturnUrl: req?.body?.repurchase_return_url ?? null,
-          //   });
-          // }
+          let insuranceResult = null;
+          if (req?.body?.run_insurance) {
+            insuranceResult = await InsuranceReload({
+              userChallenge: userCh,
+              adminId: req?.admin?.id,
+              platform: req?.body?.platform || userCh.platform,
+              transaction: t,
+            });
+          }
 
           await t.commit();
 
           return this.response({
             res,
             status: 200,
-            message: "چالش با موفقیت رد شد",
+            message: insuranceResult?.applied
+              ? "چالش رد شد و چالش جایگزین بیمه ساخته شد"
+              : "چالش با موفقیت رد شد",
+            data: insuranceResult ?? undefined,
           });
         }
         case "phase1":
@@ -354,7 +355,11 @@ const Controller = class extends Controllers {
           break;
 
         case "real":
-          phaseIndex = 3;
+          if (userCh?.payment_plan === "full") {
+            phaseIndex = 3;
+          } else if (userCh?.second_paymnet_paid_at) {
+            phaseIndex = 3;
+          } else phaseIndex = null;
           break;
 
         default:
@@ -364,6 +369,33 @@ const Controller = class extends Controllers {
             status: 400,
             message: "وضعیت ارسالی معتبر نیست",
           });
+      }
+
+      if (![1, 2, 3]?.includes(phaseIndex)) {
+        await HistoryChallenge.create(
+          {
+            type: "change_status",
+            user_challenge_id: req?.body?.user_challenge_id,
+            admin_id: req?.admin?.id,
+            title: "تغییر وضعیت به پرداخت قسط دوم",
+          },
+          { transaction: t },
+        );
+
+        await userCh.update(
+          {
+            status: "pending_payment_real",
+            payment_status: "pending_second_payment",
+          },
+          { transaction: t },
+        );
+
+        await t.commit();
+        return this.response({
+          res,
+          status: 200,
+          message: "وضعیت به در انتظار قسط دوم تغییر یافت",
+        });
       }
 
       const findGroup = await ChallengePhase.findOne({
@@ -383,6 +415,7 @@ const Controller = class extends Controllers {
         },
         { transaction: t },
       );
+
       await HistoryChallenge.create(
         {
           type: "change_status",
@@ -401,7 +434,7 @@ const Controller = class extends Controllers {
         phaseIndex,
         cycleNo: 1,
         t,
-        platform: req?.body?.platform || "mt5",
+        platform: req?.body?.platform || "ctrader",
         adminId: req?.admin?.id,
         findUser: user,
       });
@@ -418,7 +451,7 @@ const Controller = class extends Controllers {
         mtGroup: findGroup?.group,
         orderKey,
         t,
-        platform: req?.body?.platform || "mt5",
+        platform: req?.body?.platform || "ctrader",
         findUser: user,
       });
 
@@ -460,7 +493,12 @@ const Controller = class extends Controllers {
         },
       });
     } catch (err) {
-      await t.rollback();
+      // اگر خطا بعد از commit رخ داده باشد، rollback خودش خطای جدید پرتاب می‌کند
+      // و خطای اصلی را قایم می‌کند؛ پس فقط تراکنشِ بازْ رول‌بک می‌شود.
+      if (!t.finished) await t.rollback();
+
+      console.error("changeStatus error:", err);
+
       return this.response({
         res,
         status: err.status || 500,

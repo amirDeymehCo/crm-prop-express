@@ -6,6 +6,7 @@ const STATUS_USER_CHALLENGE = [
   "phase2",
   "real",
   "payment_phase2",
+  "pending_payment_real",
   "closed",
 ];
 
