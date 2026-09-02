@@ -1,6 +1,7 @@
 // src/services/NOWPayments/index.js
 const axios = require("axios");
 const crypto = require("crypto");
+const { randomUUID } = require("crypto");
 const Payment = require("../../models/Payment");
 const Wallet = require("../../models/Wallet");
 const Order = require("../../models/Order");
@@ -36,13 +37,27 @@ async function createDepositUSDInvoice({
   const orderId = `now-${user.id}-${Date.now()}`;
   const setting = await Setting.findByPk(1);
 
+  const dollarPrice =
+    Number(setting?.dollar_price || 0) + Number(setting?.bonus_dollar || 0);
+
+  const amountUsdValue = Number(amountUsd || 0);
+  const amountIrr = Math.round(amountUsdValue * dollarPrice);
+
+  // ⚠️ order_group_id / final_amount_usd / final_amount_irr در مدل Order
+  // همگی NOT NULL و بدون default هستند؛ اگر ست نشوند Sequelize قبل از
+  // رسیدن به دیتابیس خطای «cannot be null» می‌دهد.
   await Order.create({
     gateway_order_id: orderId,
     user_id: user?.id,
-    amount_irr:
-      Number(amountUsd) *
-      Number(setting?.dollar_price + Number(setting?.bonus_dollar)),
-    amount_usd: amountUsd,
+
+    order_group_id: randomUUID(),
+
+    amount_irr: amountIrr,
+    amount_usd: amountUsdValue,
+
+    final_amount_usd: amountUsdValue,
+    final_amount_irr: amountIrr,
+
     currency: "USD",
     gateway: "nowpayments",
     status: "pending",
