@@ -154,7 +154,8 @@ const Controller = class extends Controllers {
           callback_url:
             "https://api-crm.myprop.trade/api/v1/global/callback-peykan-challenge",
           type: "challenge_purchase",
-          discountUsd: ch_data?.order?.discount_usd,
+          // مبالغ (شامل تخفیف) از خود سفارش خوانده می‌شود؛ discountUsd را
+          // پاس نده وگرنه تخفیف دوباره کم می‌شود.
           createOrder: false,
           orderSelect: ch_data?.order,
         });
@@ -897,11 +898,11 @@ const Controller = class extends Controllers {
         final_amount_usd: amountUsd,
         final_amount_irr: amountIrr,
 
-        discount_usd: userChallenge?.discountUSD,
-        discount_irr:
-          userChallenge?.discountUSD *
-          (setting.dollar_price + setting?.bonus_dollar) *
-          10,
+        // تخفیف کوپن روی قسط اول اعمال شده؛ قسط دوم تخفیف ندارد.
+        // (قبلاً userChallenge.discountUSD خوانده می‌شد که اصلاً فیلدی از
+        // UserChallenge نیست → undefined و در نتیجه discount_irr برابر NaN.)
+        discount_usd: 0,
+        discount_irr: 0,
 
         base_amount_usd: userChallenge?.price_usd,
 

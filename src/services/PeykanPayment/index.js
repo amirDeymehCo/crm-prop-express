@@ -36,13 +36,44 @@ async function paykanService({
   const dollarPrice =
     Number(setting?.dollar_price || 0) + Number(setting?.bonus_dollar);
 
-  const amountUsdValue = Number(amountUsd || 0);
-  const discountUsdValue = Number(discountUsd || 0);
-  const finalAmountUsdValue = Math.max(amountUsdValue - discountUsdValue, 0);
+  // ⚠️ اگر سفارش از قبل ساخته شده، مبالغ همان سفارش ملاک است و اینجا
+  // هیچ محاسبه‌ای انجام نمی‌شود. در غیر این صورت تخفیف دو بار کم می‌شد:
+  // یک بار موقع ساخت سفارش و یک بار اینجا — که با کوپن‌های بزرگ مبلغ را
+  // صفر می‌کرد و درگاه درخواست را رد می‌کرد.
+  // ضمناً مبلغ ارسالی به درگاه باید دقیقاً با order.amount_irr یکی باشد،
+  // چون کال‌بک همان را verify می‌کند.
+  const hasExistingOrder = Boolean(order);
 
-  const amountIrr = Math.round(amountUsdValue * dollarPrice) * 10;
-  const discountIrr = Math.round(discountUsdValue * dollarPrice) * 10;
-  const finalAmountIrr = Math.round(finalAmountUsdValue * dollarPrice) * 10;
+  const amountUsdValue = hasExistingOrder
+    ? Number(order.amount_usd || 0)
+    : Number(amountUsd || 0);
+
+  const discountUsdValue = hasExistingOrder
+    ? Number(order.discount_usd || 0)
+    : Number(discountUsd || 0);
+
+  const finalAmountUsdValue = hasExistingOrder
+    ? Number(order.final_amount_usd ?? order.amount_usd ?? 0)
+    : Math.max(Number(amountUsd || 0) - Number(discountUsd || 0), 0);
+
+  const amountIrr = hasExistingOrder
+    ? Number(order.amount_irr || 0)
+    : Math.round(amountUsdValue * dollarPrice) * 10;
+
+  const discountIrr = hasExistingOrder
+    ? Number(order.discount_irr || 0)
+    : Math.round(discountUsdValue * dollarPrice) * 10;
+
+  const finalAmountIrr = hasExistingOrder
+    ? Number(order.final_amount_irr || order.amount_irr || 0)
+    : Math.round(finalAmountUsdValue * dollarPrice) * 10;
+
+  if (hasExistingOrder && !(finalAmountIrr > 0)) {
+    throw Object.assign(
+      new Error("مبلغ سفارش برای ارسال به درگاه معتبر نیست"),
+      { status: 400 },
+    );
+  }
 
   const userChallengeId =
     typeof userChallenge === "object" && userChallenge !== null
