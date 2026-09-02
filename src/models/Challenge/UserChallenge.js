@@ -258,3 +258,6 @@ const UserChallenge = sequelize.define(
 );
 
 module.exports = UserChallenge;
+
+
+// update test
