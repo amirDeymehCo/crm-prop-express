@@ -8,6 +8,7 @@ const Setting = require("../.././../../models/Setting");
 const ChallengeType = require("../.././../../models/Challenge/ChallengeType");
 const ChallengePlan = require("../.././../../models/Challenge/ChallengePlan");
 const ChallengePhase = require("../.././../../models/Challenge/ChallengePhase");
+const UserChallenge = require("../.././../../models/Challenge/UserChallenge");
 const { verifyWithGateway } = require("../../../../services/PeykanPayment");
 const sequelize = require("../../../../../db");
 const {
@@ -167,10 +168,13 @@ const Controller = class extends Controllers {
       // 2. پیدا کردن Payment - بدون transaction
       // ==========================================
 
+      // چون هر تلاش پرداخت یک Payment جدید با همین order_id می‌سازد،
+      // آخرین رکورد ملاک است.
       const payment = await Payment.findOne({
         where: {
           order_id: orderId,
         },
+        order: [["id", "DESC"]],
       });
 
       if (!payment) {
@@ -214,43 +218,45 @@ const Controller = class extends Controllers {
       // 5. پرداخت ناموفق
       // ==========================================
 
-      if (normalizedStatus !== "confirmed") {
+      // مبلغ تاییدشده باید با مبلغ سفارش بخواند، وگرنه پرداخت را قبول نکن.
+      // (اگر درگاه مبلغ برنگرداند از این چک رد می‌شویم تا جریان نشکند.)
+      const verifiedAmountIrr = Number(verify?.amount);
+      const expectedAmountIrr = Number(order.amount_irr);
+
+      const amountMismatch =
+        normalizedStatus === "confirmed" &&
+        Number.isFinite(verifiedAmountIrr) &&
+        verifiedAmountIrr > 0 &&
+        Number.isFinite(expectedAmountIrr) &&
+        expectedAmountIrr > 0 &&
+        verifiedAmountIrr !== expectedAmountIrr;
+
+      if (amountMismatch) {
+        console.error("callbackBuyCh AMOUNT MISMATCH:", {
+          orderId,
+          expectedAmountIrr,
+          verifiedAmountIrr,
+        });
+      }
+
+      if (normalizedStatus !== "confirmed" || amountMismatch) {
+        const failMeta = { data, verify, amount_mismatch: amountMismatch };
+
         await sequelize.transaction(async (t) => {
           await Payment.update(
-            {
-              status: "failed",
-              meta: JSON.stringify({
-                data,
-                verify,
-              }),
-            },
-            {
-              where: {
-                id: payment.id,
-              },
-              transaction: t,
-            },
+            { status: "failed", raw_callback: failMeta },
+            { where: { id: payment.id }, transaction: t },
           );
 
           await Order.update(
-            {
-              status: "failed",
-              meta: JSON.stringify({
-                data,
-                verify,
-              }),
-            },
-            {
-              where: {
-                id: order.id,
-              },
-              transaction: t,
-            },
+            { status: "failed", meta: failMeta },
+            { where: { id: order.id }, transaction: t },
           );
         });
 
         return res.redirect(
-          baseSite + `/account/challenges?status=${verify?.status}`,
+          baseSite +
+            `/account/challenges?status=${amountMismatch ? "AMOUNT_MISMATCH" : verify?.status}`,
         );
       }
 
@@ -338,6 +344,32 @@ const Controller = class extends Controllers {
         console.log("START SUCCESS __ 7");
 
         // --------------------------------------
+        // تشخیص «این پرداخت قسط چندم است» از روی خودِ چالش
+        //
+        // بدون این دو پارامتر، finalizeChallengeAfterPaid با دیفالت‌های
+        // payment_type="full" و current_phase_index=1 اجرا می‌شد؛ یعنی
+        // قسط اولِ درگاهی «fully_paid» علامت می‌خورد و قسط دوم هم
+        // به‌جای ریل، اکانت فاز ۱ می‌ساخت. (مسیر ولت این‌ها را پاس می‌دهد.)
+        // --------------------------------------
+
+        const userChallenge = await UserChallenge.findByPk(
+          lockedOrder.user_challenge_id,
+          { transaction: t, lock: t.LOCK.UPDATE },
+        );
+
+        if (!userChallenge) {
+          const err = new Error("چالش این سفارش یافت نشد");
+          err.status = 400;
+          throw err;
+        }
+
+        const isSecondInstallment =
+          userChallenge.payment_status === "pending_second_payment";
+
+        const paymentType =
+          userChallenge.payment_plan === "installment" ? "installment" : "full";
+
+        // --------------------------------------
         // Finalize
         // --------------------------------------
 
@@ -347,7 +379,9 @@ const Controller = class extends Controllers {
           trackingCode,
           refNum,
           t,
-          platform: "ctrader",
+          platform: userChallenge.platform || "ctrader",
+          payment_type: paymentType,
+          current_phase_index: isSecondInstallment ? 3 : 1,
         });
 
         console.log("START SUCCESS __ 8");
@@ -356,15 +390,12 @@ const Controller = class extends Controllers {
         // Payment
         // --------------------------------------
 
+        // مدل Payment ستون paid_at/meta ندارد؛ پیلود در raw_callback می‌نشیند
         await lockedPayment.update(
           {
             status: "paid",
             provider_payment_id: trackingCode,
-            paid_at: new Date(),
-            meta: JSON.stringify({
-              data,
-              verify,
-            }),
+            raw_callback: { data, verify, paid_at: new Date() },
           },
           {
             transaction: t,

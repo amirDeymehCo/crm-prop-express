@@ -1,5 +1,6 @@
 // services/paykanService.js
 const axios = require("axios");
+const { randomUUID } = require("crypto");
 const Payment = require("../../models/Payment");
 const Order = require("../../models/Order");
 const Setting = require("../../models/Setting");
@@ -50,10 +51,14 @@ async function paykanService({
 
   if (createOrder) {
     // 1) ساخت Order
+    // ⚠️ order_group_id در مدل NOT NULL و بدون default است؛ اگر ستش نکنیم
+    // روی سرور (sql_mode سخت‌گیرانه) خطای 1364 می‌گیریم.
     order = await Order.create({
       gateway_order_id: orderId,
       user_id: userId,
       user_challenge_id: userChallengeId,
+
+      order_group_id: randomUUID(),
 
       amount_usd: amountUsdValue,
       discount_usd: discountUsdValue,
@@ -77,11 +82,10 @@ async function paykanService({
         user_id: userId,
         amount_irr: 0,
         amount_usd: 0,
-        rate_irr_per_usd: dollarPrice,
         status: "paid",
         provider: "coupon_free",
-        raw_callback: callback_url,
-        user_challenge_id: userChallengeId,
+        raw_callback: { callback_url, rate_irr_per_usd: dollarPrice },
+        UserChallenge: userChallengeId,
       });
 
       return {
@@ -99,11 +103,10 @@ async function paykanService({
     user_id: userId,
     amount_irr: finalAmountIrr,
     amount_usd: finalAmountUsdValue,
-    rate_irr_per_usd: dollarPrice,
     status: "pending",
     provider: "peykan",
-    raw_callback: callback_url,
-    user_challenge_id: userChallengeId,
+    raw_callback: { callback_url, rate_irr_per_usd: dollarPrice },
+    UserChallenge: userChallengeId,
   });
 
   const body = {
@@ -124,8 +127,8 @@ async function paykanService({
 
     const { token, ref_num } = resp.data;
 
-    payment.ref_num = ref_num || null;
-    await payment.save();
+    // مدل Payment ستون ref_num ندارد؛ شناسه‌ی درگاه در provider_payment_id می‌نشیند
+    await payment.update({ provider_payment_id: ref_num || null });
 
     const redirectUrl = `${PAYKAN_BASE}/pgw/pay/${token}`;
 

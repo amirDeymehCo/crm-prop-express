@@ -58,10 +58,10 @@ async function createReplacementChallenge({
 }) {
   const startingBalance = Number(plan.balance);
 
+  // مانده = فقط قسط دوم؛ در پرداخت یکجا چیزی بعد از سفارش اول نمی‌ماند.
+  // (هم‌راستا با CreateCh)
   const remainingUsd =
-    paymentPlan === "installment"
-      ? Number(pricing.second.totalUsd)
-      : Number(pricing.payableUsd);
+    paymentPlan === "installment" ? Number(pricing.second.totalUsd) : 0;
 
   return UserChallenge.create(
     {

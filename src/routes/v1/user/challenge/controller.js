@@ -720,8 +720,10 @@ const Controller = class extends Controllers {
           callback_url:
             "https://api-crm.myprop.trade/api/v1/global/callback-peykan-challenge",
           type: "challenge_purchase",
-          base_amount_usd:
-            userChallenge?.paykanService || userChallenge?.amount_usd || 0,
+          // ⚠️ سفارش از قبل ساخته شده؛ اگر createOrder را false نکنیم
+          // paykanService یک سفارش تکراری می‌سازد و این یکی pending می‌ماند.
+          createOrder: false,
+          orderSelect: order,
         });
 
         return this.response({
@@ -1209,10 +1211,10 @@ const Controller = class extends Controllers {
 
           type: "challenge_purchase",
 
-          base_amount_usd: amountUsd,
-
-          // اگر paykanService این را قبول می‌کند
-          orderId: order.id,
+          // ⚠️ سفارش قسط دوم بالاتر ساخته/آپدیت شده؛ همان را به درگاه بده
+          // وگرنه paykanService سفارش تکراری می‌سازد.
+          createOrder: false,
+          orderSelect: order,
         });
 
         return this.response({

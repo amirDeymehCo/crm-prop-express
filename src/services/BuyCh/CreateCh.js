@@ -236,6 +236,7 @@ function buildPriceSummary({
   discount,
   final_base_amount,
   final_insurance_amount,
+  second_installment_amount = 0,
   // all price
   challengeBasePriceUsd,
   insuranceFeeUsd,
@@ -245,7 +246,10 @@ function buildPriceSummary({
     Number(final_insurance_amount || 0) +
     Number(floatingRiskFee || 0);
 
+  // مبلغ سفارشِ همین لحظه (قسط اول یا کل مبلغ)
   const finalPrice = Math.max(basePrice - Number(discount || 0), 0);
+
+  const secondInstallment = Number(second_installment_amount || 0);
 
   return {
     price_based: Number(final_base_amount),
@@ -254,6 +258,13 @@ function buildPriceSummary({
     discount_usd: Number(discount || 0),
     final_price_usd: finalPrice,
     floating_risk_fee_usd: Number(floatingRiskFee || 0),
+
+    // مجموع چیزی که کاربر در کل این چالش می‌پردازد (هر دو قسط، بعد از تخفیف)
+    total_payable_usd: Number((finalPrice + secondInstallment).toFixed(2)),
+
+    // مبلغی که بعد از سفارش اول باقی می‌ماند
+    remaining_after_first_usd: secondInstallment,
+
     // all price
     challengeBasePriceUsd,
     insuranceFeeUsd,
@@ -375,16 +386,13 @@ async function createUserChallengeRecord({
   console.log("prices=>", prices);
   const setting = await Setting.findByPk(1, { transaction });
 
-  console.log("prices?.total_all_price>", prices?.total_all_price);
-  console.log("prices?.final_price_usd>", prices?.final_price_usd);
-  console.log(
-    "prices?.total_all_price - prices?.final_price_us>",
-    Number(prices?.total_all_price) - Number(prices?.final_price_usd),
-  );
+  // مانده = فقط قسط دوم. قبلاً اشتباهاً مبلغ قسط اول (بعد از تخفیف) اینجا
+  // می‌نشست؛ اگر کوپن روی قسط اول اعمال شده بود، قسط دوم کمتر از مقدار
+  // واقعی از کاربر گرفته می‌شد.
+  const remaining_amount_usd = Number(prices?.remaining_after_first_usd || 0);
 
-  const remaining_amount_usd = Number(prices?.final_price_usd);
-
-    console.log("remaining_amount_usd>", remaining_amount_usd);
+  console.log("total_payable_usd>", prices?.total_payable_usd);
+  console.log("remaining_amount_usd>", remaining_amount_usd);
 
   const userChallenge = await UserChallenge.create(
     {
@@ -427,8 +435,8 @@ async function createUserChallengeRecord({
 
       // payment type files
       payment_plan: payment_type,
-      total_price_usd: prices?.final_price_usd,
-      total_price_irr: prices?.final_price_usd * setting.dollar_price * 10,
+      total_price_usd: prices?.total_payable_usd,
+      total_price_irr: prices?.total_payable_usd * setting.dollar_price * 10,
       remaining_amount_usd,
       remaining_amount_irr:
         remaining_amount_usd *
@@ -617,12 +625,14 @@ async function purchaseChallenge(req, res, next) {
     // 1) set final prices
     let final_base_amount = 0;
     let final_insurance_amount = 0;
-    let final_total_amount = 0;
+
+    // مبلغی که بعد از سفارش اول هنوز بدهکار می‌ماند (قسط دوم).
+    // برای پرداخت یکجا صفر است.
+    let second_installment_amount = 0;
 
     if (req?.body?.payment_type === "full") {
       final_base_amount = challengeBasePriceUsd;
       final_insurance_amount = insuranceFeeUsd;
-      final_total_amount = grossPriceUsd;
     } else if (req?.body?.payment_type === "installment") {
       const amounts = splitInstallmentAmount({
         totalBaseUsd: challengeBasePriceUsd,
@@ -637,7 +647,7 @@ async function purchaseChallenge(req, res, next) {
 
       final_base_amount = amounts?.first?.baseUsd;
       final_insurance_amount = amounts?.first?.insuranceUsd;
-      final_total_amount = amounts?.first?.totalUsd;
+      second_installment_amount = Number(amounts?.second?.totalUsd || 0);
     }
 
     // coupon validation
@@ -654,6 +664,7 @@ async function purchaseChallenge(req, res, next) {
       discount,
       final_base_amount,
       final_insurance_amount,
+      second_installment_amount,
 
       // all price
       challengeBasePriceUsd,
