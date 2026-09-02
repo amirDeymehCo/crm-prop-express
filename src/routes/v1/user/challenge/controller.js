@@ -1082,8 +1082,8 @@ const Controller = class extends Controllers {
         await payWithWallet({
           userId: req.user.id,
 
-          // ID واقعی Order
-          orderId: order.id,
+          // payWithWallet با gateway_order_id کار می‌کند، نه با id عددی
+          orderId: order.gateway_order_id,
 
           amountUsd,
 
