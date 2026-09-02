@@ -37,8 +37,10 @@ const Controller = class extends Controllers {
     if (!order)
       return this.response({ status: 400, res, message: "سفارشی یافت نشد" });
 
+    // هر تلاش پرداخت یک Payment جدید با همین order_id می‌سازد ⇒ آخری ملاک است
     const payment = await Payment.findOne({
       where: { order_id: data.order_id },
+      order: [["id", "DESC"]],
     });
     if (!payment)
       return this.response({ status: 400, res, message: "پرداختی یافت نشد" });
@@ -56,43 +58,79 @@ const Controller = class extends Controllers {
       refNum: data?.ref_num,
       trackingCode: data?.tracking_code,
     });
-    // باید از API درگاه نتیجه قطعی بگیری
-    if (verify?.status !== "CONFIRMED") {
-      await payment.update({
-        status: "failed",
-        meta: JSON.stringify({ data, verify }),
+
+    // 4) مبلغ تاییدشده باید با مبلغ سفارش بخواند.
+    // (اگر درگاه مبلغ برنگرداند از این چک عبور می‌کنیم تا جریان نشکند.)
+    const verifiedAmountIrr = Number(verify?.amount);
+    const expectedAmountIrr = Number(order.amount_irr);
+
+    const amountMismatch =
+      verify?.status === "CONFIRMED" &&
+      Number.isFinite(verifiedAmountIrr) &&
+      verifiedAmountIrr > 0 &&
+      Number.isFinite(expectedAmountIrr) &&
+      expectedAmountIrr > 0 &&
+      verifiedAmountIrr !== expectedAmountIrr;
+
+    if (amountMismatch) {
+      console.error("callbackPeykan AMOUNT MISMATCH:", {
+        orderId,
+        expectedAmountIrr,
+        verifiedAmountIrr,
       });
-      await order.update({ status: "failed" });
+    }
+
+    if (verify?.status !== "CONFIRMED" || amountMismatch) {
+      // مدل Payment ستون meta ندارد؛ پیلود در raw_callback ذخیره می‌شود
+      const failMeta = { data, verify, amount_mismatch: amountMismatch };
+
+      await payment.update({ status: "failed", raw_callback: failMeta });
+      await order.update({ status: "failed", meta: failMeta });
+
       return res.redirect(
-        baseSite + `/account/wallet?status=${verify?.status}`,
+        baseSite +
+          `/account/wallet?status=${amountMismatch ? "AMOUNT_MISMATCH" : verify?.status}`,
       );
     }
 
-    // 4) مبلغ verify باید با مبلغ سفارش/پرداخت match شود (خیلی مهم)
-    // اگر واحدها فرق دارن (ریال/تومان/...) اینجا normalize کن
-    // if (verify.amount !== order.amount_irr) ...
-
-    // 5) اعمال شارژ: transaction + idempotency روی tracking_code
+    // 5) اعمال شارژ: transaction + idempotency روی ref_num
     await sequelize.transaction(async (t) => {
-      // دوباره داخل تراکنش چک کن (برای همزمانی)
+      // سفارش و پرداخت را داخل تراکنش قفل کن و دوباره چک کن،
+      // چون بالا بدون قفل و خارج از تراکنش خوانده شده بودند.
+      const lockedOrder = await Order.findOne({
+        where: { id: order.id },
+        transaction: t,
+        lock: t.LOCK.UPDATE,
+      });
+
+      const lockedPayment = await Payment.findOne({
+        where: { id: payment.id },
+        transaction: t,
+        lock: t.LOCK.UPDATE,
+      });
+
+      if (!lockedOrder || !lockedPayment) return;
+      if (lockedOrder.status === "paid" || lockedPayment.status === "paid") {
+        return;
+      }
+
       const alreadyTx = await WalletTransaction.findOne({
-        where: { ref_id: data.ref_num }, // یا tracking_code
+        where: { ref_id: data.ref_num },
         transaction: t,
         lock: t.LOCK.UPDATE,
       });
       if (alreadyTx) return;
 
-      await payment.update(
+      await lockedPayment.update(
         {
           status: "paid",
           provider_payment_id: data?.tracking_code,
-          meta: JSON.stringify({ data, verify }),
-          paid_at: new Date(),
+          raw_callback: { data, verify, paid_at: new Date() },
         },
         { transaction: t },
       );
 
-      await order.update(
+      await lockedOrder.update(
         {
           status: "paid",
           paid_at: new Date(),
@@ -102,29 +140,39 @@ const Controller = class extends Controllers {
       );
 
       const wallet = await Wallet.findOne({
-        where: { user_id: order.user_id },
+        where: { user_id: lockedOrder.user_id },
         transaction: t,
         lock: t.LOCK.UPDATE,
       });
 
-      const amountUSD = Number(payment.amount_usd);
+      if (!wallet) {
+        const err = new Error("کیف پول کاربر یافت نشد");
+        err.status = 400;
+        throw err;
+      }
+
+      const amountUSD = Number(lockedPayment.amount_usd || 0);
+      const balanceBefore = Number(wallet.balance || 0);
 
       await WalletTransaction.create(
         {
+          user_id: lockedOrder.user_id,
           type: "deposit",
           amount: amountUSD,
-          balance_before: wallet.balance,
-          balance_after: Number(wallet.balance) + amountUSD,
+          balance_before: balanceBefore,
+          balance_after: balanceBefore + amountUSD,
           ref_id: data.ref_num,
           status: "completed",
-          meta: JSON.stringify({ data, verify }),
+          meta: { data, verify },
           wallet_id: wallet.id,
         },
         { transaction: t },
       );
 
-      wallet.balance = Number(wallet.balance) + Number(amountUSD);
-      await wallet.save({ transaction: t });
+      await wallet.update(
+        { balance: balanceBefore + amountUSD },
+        { transaction: t },
+      );
     });
 
     return res.redirect(baseSite + `/account/wallet?status=${verify?.status}`);

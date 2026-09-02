@@ -345,13 +345,15 @@ async function finalizeChallengeAfterPaid({
   //   { transaction: t },
   // );
 
+  // ⚠️ gateway_order_id نباید عوض شود: کلید پیوند سفارش با Payment و تنها
+  // راه پیدا کردن سفارش در کال‌بک‌های تکراری است. قبلاً با trackingCode
+  // بازنویسی می‌شد و کال‌بک دوم «سفارشی یافت نشد» می‌گرفت.
   await order.update(
     {
       status: "paid",
-      gateway_order_id: trackingCode || orderId,
-      gateway_payment_id: refNum || null,
+      gateway_payment_id: refNum || trackingCode || null,
       paid_at: new Date(),
-      meta: JSON.stringify({ trackingCode, refNum, orderId }),
+      meta: { trackingCode, refNum, orderId },
     },
     { transaction: t },
   );
