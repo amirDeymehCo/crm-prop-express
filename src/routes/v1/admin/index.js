@@ -16,6 +16,7 @@ const walletWithdrawRouter = require("./walletWithdraw");
 const analysisPanel = require("./analysisPanel");
 const customerLists = require("./customerLists");
 const setting = require("./setting");
+const profitWithdraw = require("./ProfitWithdraw");
 
 router.use("/analysis", analysisRouter);
 router.use("/users", usersRouter);
@@ -33,5 +34,6 @@ router.use("/wallet-withdraw", walletWithdrawRouter);
 router.use("/analysis-panel", analysisPanel);
 router.use("/customer-lists", customerLists);
 router.use("/setting", setting);
+router.use("/profit-withdraw", profitWithdraw);
 
 module.exports = router;
