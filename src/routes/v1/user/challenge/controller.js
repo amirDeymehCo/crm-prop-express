@@ -519,11 +519,12 @@ const Controller = class extends Controllers {
           });
         }
 
-        const usage = await CouponUsage.findOne({
+        // ⚠️ CouponUsage ستون used_count ندارد؛ قبلاً NaN می‌شد و
+        // مقایسه‌ی NaN >= n همیشه false بود ⇒ سقف هر کاربر هیچ‌وقت اعمال نمی‌شد.
+        userUsageCount = await CouponUsage.count({
           where: { coupon_id: coupon.id, user_id: userId },
         });
 
-        userUsageCount = Number(usage?.used_count);
         if (userUsageCount >= Number(coupon.max_uses_per_user)) {
           return res.status(400).json({
             ok: false,

@@ -21,6 +21,7 @@ const Controller = class extends Controllers {
           attributes: ["id", "avatar", "firstname", "lastname", "mobile"],
         },
       ],
+      order: [["createdAt", "DESC"]],
     });
 
     this.response({

@@ -153,13 +153,19 @@ function calculateFloatingRiskFee(plan, floatingRiskEnabled) {
 
 // -------- کوپن تخفیف ---------- //
 // تغییر: به جای insuranceFee، basePrice را پاس می‌دهیم چون fee ریسک شناور هم داخل basePrice است
-async function validateAndApplyCoupon({ couponCode, plan, user, basePrice }) {
+async function validateAndApplyCoupon({
+  couponCode,
+  plan,
+  user,
+  basePrice,
+  orderTotalUsd,
+}) {
   if (!couponCode) {
     return { coupon: null, discount: 0 };
   }
 
   const coupon = await Coupon.findOne({
-    where: { code: couponCode, is_active: true },
+    where: { code: String(couponCode).trim(), is_active: true },
     // transaction,
   });
 
@@ -181,9 +187,41 @@ async function validateAndApplyCoupon({ couponCode, plan, user, basePrice }) {
     throw err;
   }
 
+  // ⚠️ کوپن اختصاصی یک کاربر
+  if (coupon.user_id && Number(coupon.user_id) !== Number(user.id)) {
+    const err = new Error("این کد برای حساب شما صادر نشده است");
+    err.status = 400;
+    throw err;
+  }
+
+  // ⚠️ محدود به نوع چالش خاص (این چک اصلاً وجود نداشت و کوپنِ مخصوص
+  // یک نوع چالش روی همه‌ی انواع دیگر هم اعمال می‌شد)
+  if (
+    coupon.challenge_type_id &&
+    Number(coupon.challenge_type_id) !== Number(plan.challenge_type_id)
+  ) {
+    const err = new Error("این کد برای این نوع چالش قابل استفاده نیست");
+    err.status = 400;
+    throw err;
+  }
+
   // محدود به پلن خاص
-  if (coupon.challenge_plan_id && coupon.challenge_plan_id !== plan.id) {
+  if (
+    coupon.challenge_plan_id &&
+    Number(coupon.challenge_plan_id) !== Number(plan.id)
+  ) {
     const err = new Error("این کد برای این چالش قابل استفاده نیست");
+    err.status = 400;
+    throw err;
+  }
+
+  // حداقل مبلغ سفارش — قبل از محاسبه‌ی تخفیف و روی کل مبلغ سفارش
+  const orderTotal = Number(orderTotalUsd ?? basePrice);
+  if (
+    coupon.min_order_amount_usd &&
+    orderTotal < Number(coupon.min_order_amount_usd)
+  ) {
+    const err = new Error("مبلغ سفارش برای استفاده از این کد کافی نیست");
     err.status = 400;
     throw err;
   }
@@ -207,24 +245,24 @@ async function validateAndApplyCoupon({ couponCode, plan, user, basePrice }) {
     throw err;
   }
 
-  let discount = 0;
-  if (coupon.type === "percent") {
-    discount = Number(basePrice) * (Number(coupon.value) / 100);
-  } else if (coupon.type === "fixed") {
-    discount = Number(coupon.value);
-  }
+  const couponValue = Number(coupon.value);
 
-  discount = Math.min(Number(discount), Number(basePrice));
-
-  // حداقل مبلغ سفارش
-  if (
-    coupon.min_order_amount_usd &&
-    Number(basePrice) < coupon.min_order_amount_usd
-  ) {
-    const err = new Error("مبلغ سفارش برای استفاده از این کد کافی نیست");
+  if (!Number.isFinite(couponValue) || couponValue <= 0) {
+    const err = new Error("مقدار کد تخفیف معتبر نیست");
     err.status = 400;
     throw err;
   }
+
+  let discount = 0;
+  if (coupon.type === "percent") {
+    // درصد نباید از ۱۰۰ بیشتر باشد
+    const percent = Math.min(couponValue, 100);
+    discount = Number(basePrice) * (percent / 100);
+  } else if (coupon.type === "fixed") {
+    discount = couponValue;
+  }
+
+  discount = Math.max(Math.min(Number(discount), Number(basePrice)), 0);
 
   return { coupon, discount };
 }
@@ -460,9 +498,47 @@ async function registerCouponUsage({
 }) {
   if (!coupon) return;
 
+  // ⚠️ سقف‌ها اینجا دوباره چک می‌شوند، نه فقط در validateAndApplyCoupon.
+  // آن‌جا خارج از تراکنش و بدون قفل خوانده می‌شود، پس دو درخواست همزمان
+  // می‌توانستند هر دو از سقف رد شوند و کوپن بیش از حد مجاز مصرف شود.
+  // با قفل کردن ردیف کوپن، درخواست دوم پشت اولی صف می‌کشد و مقدار
+  // به‌روزِ used_count را می‌بیند.
+  const lockedCoupon = await Coupon.findByPk(coupon.id, {
+    transaction,
+    lock: transaction.LOCK.UPDATE,
+  });
+
+  if (!lockedCoupon || !lockedCoupon.is_active) {
+    const err = new Error("کد تخفیف نامعتبر است");
+    err.status = 400;
+    throw err;
+  }
+
+  if (
+    lockedCoupon.max_uses &&
+    Number(lockedCoupon.used_count) >= Number(lockedCoupon.max_uses)
+  ) {
+    const err = new Error("سقف استفاده از این کد پر شده است");
+    err.status = 400;
+    throw err;
+  }
+
+  if (lockedCoupon.max_uses_per_user) {
+    const userUsageCount = await CouponUsage.count({
+      where: { coupon_id: lockedCoupon.id, user_id: user.id },
+      transaction,
+    });
+
+    if (userUsageCount >= Number(lockedCoupon.max_uses_per_user)) {
+      const err = new Error("شما قبلا از این کد استفاده کرده‌اید");
+      err.status = 400;
+      throw err;
+    }
+  }
+
   await CouponUsage.create(
     {
-      coupon_id: coupon.id,
+      coupon_id: lockedCoupon.id,
       user_id: user.id,
       user_challenge_id: userChallenge.id,
       discount_amount_usd: Number(discount || 0),
@@ -470,7 +546,7 @@ async function registerCouponUsage({
     { transaction },
   );
 
-  await coupon.increment("used_count", { by: 1, transaction });
+  await lockedCoupon.increment("used_count", { by: 1, transaction });
 }
 
 // -------- ساخت سفارش / پرداخت ---------- //
@@ -656,6 +732,11 @@ async function purchaseChallenge(req, res, next) {
       plan,
       user,
       basePrice: final_base_amount,
+      // مبلغ کل همین سفارش (پایه + بیمه + fee ریسک شناور) برای چک حداقل مبلغ
+      orderTotalUsd:
+        Number(final_base_amount) +
+        Number(final_insurance_amount || 0) +
+        Number(floatingRiskFeeUsd || 0),
     });
 
     if (req?.body?.payment_type === "installment" && coupon) {
@@ -759,7 +840,11 @@ async function purchaseChallenge(req, res, next) {
 
     return result;
   } catch (err) {
-    next(err);
+    // ⚠️ قبلاً next(err) صدا زده می‌شد: هم error handler اکسپرس پاسخ
+    // می‌فرستاد و هم فراخواننده (که undefined می‌گرفت) پاسخ دوم را
+    // ⇒ ERR_HTTP_HEADERS_SENT و گم شدن پیام واقعی خطا.
+    // فراخواننده‌ها catch دارند و err.status/err.message را برمی‌گردانند.
+    throw err;
   }
 }
 
