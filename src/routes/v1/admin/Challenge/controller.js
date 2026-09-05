@@ -355,9 +355,15 @@ const Controller = class extends Controllers {
           break;
 
         case "real":
+          // پرداخت کامل → مستقیم ریل.
+          // قسطی → فقط وقتی قسط دوم پرداخت شده باشد؛ وگرنه اول باید
+          // به «در انتظار قسط دوم» برود.
           if (userCh?.payment_plan === "full") {
             phaseIndex = 3;
-          } else if (userCh?.second_paymnet_paid_at) {
+          } else if (
+            userCh?.second_payment_paid_at ||
+            userCh?.payment_status === "fully_paid"
+          ) {
             phaseIndex = 3;
           } else phaseIndex = null;
           break;

@@ -361,6 +361,31 @@ async function finalizeChallengeAfterPaid({
   console.log("ensure account instance exists (phase1)");
 
   const targetPhaseIndex = current_phase_index;
+
+  // ⚠️ گروهِ حساب باید از فازِ مقصد بیاید، نه از فازِ فعلیِ چالش.
+  // userChallenge.ChallengePhase روی current_phase_id جوین می‌خورد که
+  // همیشه روی فاز ۱ مانده بود؛ در نتیجه حساب قسط دوم (ریل) در گروهِ
+  // فاز ۱ ساخته می‌شد.
+  const targetPhase =
+    (await ChallengePhase.findOne({
+      where: {
+        challenge_plan_id: userChallenge.challenge_plan_id,
+        phase_index: targetPhaseIndex,
+        platform,
+      },
+      attributes: ["id", "group"],
+      transaction: t,
+    })) ||
+    (await ChallengePhase.findOne({
+      where: {
+        challenge_plan_id: userChallenge.challenge_plan_id,
+        phase_index: targetPhaseIndex,
+      },
+      attributes: ["id", "group"],
+      transaction: t,
+    }));
+
+  const targetGroup = targetPhase?.group || userChallenge?.ChallengePhase?.group;
   // 5) ensure account instance exists (phase1)
   const acc = await getOrCreatePhase1AccountInstance({
     userChallenge,
@@ -480,7 +505,7 @@ async function finalizeChallengeAfterPaid({
 
     current_phase_index: targetPhaseIndex,
 
-    current_phase_id: userChallenge.current_phase_id,
+    current_phase_id: targetPhase?.id || userChallenge.current_phase_id,
 
     current_account_instance_id: acc.id,
 
@@ -529,7 +554,7 @@ async function finalizeChallengeAfterPaid({
     plan: userChallenge.ChallengePlan,
     orderKey,
     t,
-    group: userChallenge?.ChallengePhase?.group,
+    group: targetGroup,
     platform,
     user: user,
   });
