@@ -41,15 +41,15 @@ async function shahkarInquiry(mobile, nationalCode) {
     }
 
     const response = await axios.post(
-      "https://api.zibal.ir/v1/facility/shahkarInquiry",
+      "https://service.zohal.io/api/v0/services/inquiry/shahkar",
       {
         mobile,
-        nationalCode,
+        national_code: nationalCode,
       },
       {
         headers: {
           "Content-Type": "application/json",
-          Authorization: "Bearer 5c3629a47797455e850d1e66211b281e",
+          Authorization: "Bearer a66fb1556550fac91de5cbddfbc77f461b4abada",
         },
         timeout: 10000,
       },
