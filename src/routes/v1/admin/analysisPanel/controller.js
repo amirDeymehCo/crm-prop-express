@@ -172,9 +172,7 @@ const Controller = class extends Controllers {
     challengeTypes.forEach((item) => {
       labels.push(item.name);
       data.push(
-        metric === "amount"
-          ? num(item.total_amount)
-          : num(item.total_count),
+        metric === "amount" ? num(item.total_amount) : num(item.total_count),
       );
     });
 
@@ -199,26 +197,42 @@ const Controller = class extends Controllers {
 
     const rows = await q(
       `
-        SELECT
-          p.id,
-          p.title,
-          p.balance,
-          COUNT(DISTINCT uc.id) AS created_count,
-          COUNT(DISTINCT CASE WHEN paid.user_challenge_id IS NOT NULL
-                              THEN uc.id END) AS paid_count
-        FROM challengeplans p
-        LEFT JOIN user_challenges uc
-          ON uc.challenge_plan_id = p.id
-         AND uc.createdAt BETWEEN :startDate AND :endDate
-        LEFT JOIN (
-          SELECT DISTINCT o.user_challenge_id
-          FROM orders o
-          WHERE ${PAID_ORDER_SQL}
-        ) paid ON paid.user_challenge_id = uc.id
-        GROUP BY p.id, p.title, p.balance
-        HAVING created_count > 0
-        ORDER BY (paid_count / NULLIF(created_count,0)) DESC
-      `,
+      SELECT
+        p.id,
+        CONCAT_WS(' ', NULLIF(TRIM(t.name), ''), NULLIF(TRIM(p.title), '')) AS title,
+        p.balance,
+        COUNT(DISTINCT uc.id) AS created_count,
+        COUNT(DISTINCT CASE
+          WHEN paid.user_challenge_id IS NOT NULL
+          THEN uc.id
+        END) AS paid_count
+      FROM challengeplans p
+
+      LEFT JOIN challengetypes t
+        ON t.id = p.challenge_type_id
+
+      LEFT JOIN user_challenges uc
+        ON uc.challenge_plan_id = p.id
+       AND uc.createdAt BETWEEN :startDate AND :endDate
+
+      LEFT JOIN (
+        SELECT DISTINCT o.user_challenge_id
+        FROM orders o
+        WHERE ${PAID_ORDER_SQL}
+      ) paid
+        ON paid.user_challenge_id = uc.id
+
+      GROUP BY
+        p.id,
+        t.name,
+        p.title,
+        p.balance
+
+      HAVING created_count > 0
+
+      ORDER BY
+        (paid_count / NULLIF(created_count, 0)) DESC
+    `,
       { startDate, endDate },
     );
 
@@ -238,7 +252,12 @@ const Controller = class extends Controllers {
       status: 200,
       data: {
         labels: items.map((i) => i.title),
-        datasets: [{ label: "نرخ خرید", data: items.map((i) => i.rate) }],
+        datasets: [
+          {
+            label: "نرخ خرید",
+            data: items.map((i) => i.rate),
+          },
+        ],
         items,
         best_rate: best?.rate ?? 0,
         best_title: best?.title ?? null,
@@ -256,33 +275,53 @@ const Controller = class extends Controllers {
 
     const rows = await q(
       `
-        SELECT
-          p.id,
-          p.title,
-          p.balance,
-          COUNT(DISTINCT uc.id) AS created_count,
-          COUNT(DISTINCT o.user_challenge_id) AS paid_count,
-          COALESCE(SUM(o.final_amount_usd),0) AS revenue_usd,
-          COALESCE(SUM(o.final_amount_irr),0) AS revenue_irr
-        FROM challengeplans p
-        LEFT JOIN user_challenges uc
-          ON uc.challenge_plan_id = p.id
-         AND uc.createdAt BETWEEN :startDate AND :endDate
-        LEFT JOIN orders o
-          ON o.user_challenge_id = uc.id
-         AND ${PAID_ORDER_SQL}
-        GROUP BY p.id, p.title, p.balance
-        HAVING created_count > 0
-        ORDER BY (paid_count / NULLIF(created_count,0)) DESC, revenue_usd DESC
-        LIMIT 1
-      `,
+      SELECT
+        p.id,
+        CONCAT_WS(' ', NULLIF(TRIM(t.name), ''), NULLIF(TRIM(p.title), '')) AS title,
+        p.balance,
+        COUNT(DISTINCT uc.id) AS created_count,
+        COUNT(DISTINCT o.user_challenge_id) AS paid_count,
+        COALESCE(SUM(o.final_amount_usd), 0) AS revenue_usd,
+        COALESCE(SUM(o.final_amount_irr), 0) AS revenue_irr
+
+      FROM challengeplans p
+
+      LEFT JOIN challengetypes t
+        ON t.id = p.challenge_type_id
+
+      LEFT JOIN user_challenges uc
+        ON uc.challenge_plan_id = p.id
+       AND uc.createdAt BETWEEN :startDate AND :endDate
+
+      LEFT JOIN orders o
+        ON o.user_challenge_id = uc.id
+       AND ${PAID_ORDER_SQL}
+
+      GROUP BY
+        p.id,
+        t.name,
+        p.title,
+        p.balance
+
+      HAVING created_count > 0
+
+      ORDER BY
+        (paid_count / NULLIF(created_count, 0)) DESC,
+        revenue_usd DESC
+
+      LIMIT 1
+    `,
       { startDate, endDate },
     );
 
     const best = rows[0];
 
     if (!best) {
-      return this.response({ res, status: 200, data: null });
+      return this.response({
+        res,
+        status: 200,
+        data: null,
+      });
     }
 
     return this.response({
@@ -345,20 +384,58 @@ const Controller = class extends Controllers {
 
     const rows = await q(
       `
-        SELECT
-          ${byType ? "t.id AS id, t.name AS title" : "p.id AS id, p.title AS title"},
-          COALESCE(SUM(o.final_amount_usd),0) AS revenue_usd,
-          COALESCE(SUM(o.final_amount_irr),0) AS revenue_irr,
-          COUNT(DISTINCT o.id) AS orders_count
-        FROM orders o
-        JOIN user_challenges uc ON uc.id = o.user_challenge_id
-        JOIN challengeplans p   ON p.id = uc.challenge_plan_id
-        ${byType ? "JOIN challengetypes t ON t.id = p.challenge_type_id" : ""}
-        WHERE ${PAID_ORDER_SQL}
-          AND o.paid_at BETWEEN :startDate AND :endDate
-        GROUP BY id, title
-        ORDER BY revenue_usd DESC
-      `,
+      SELECT
+        ${
+          byType
+            ? `
+              t.id AS id,
+              t.name AS title
+            `
+            : `
+              p.id AS id,
+              CONCAT_WS(
+                ' ',
+                NULLIF(TRIM(t.name), ''),
+                NULLIF(TRIM(p.title), '')
+              ) AS title
+            `
+        },
+
+        COALESCE(SUM(o.final_amount_usd), 0) AS revenue_usd,
+        COALESCE(SUM(o.final_amount_irr), 0) AS revenue_irr,
+        COUNT(DISTINCT o.id) AS orders_count
+
+      FROM orders o
+
+      JOIN user_challenges uc
+        ON uc.id = o.user_challenge_id
+
+      JOIN challengeplans p
+        ON p.id = uc.challenge_plan_id
+
+      JOIN challengetypes t
+        ON t.id = p.challenge_type_id
+
+      WHERE ${PAID_ORDER_SQL}
+        AND o.paid_at BETWEEN :startDate AND :endDate
+
+      ${
+        byType
+          ? `
+            GROUP BY
+              t.id,
+              t.name
+          `
+          : `
+            GROUP BY
+              p.id,
+              t.name,
+              p.title
+          `
+      }
+
+      ORDER BY revenue_usd DESC
+    `,
       { startDate, endDate },
     );
 
@@ -370,6 +447,7 @@ const Controller = class extends Controllers {
     }));
 
     const totalUsd = items.reduce((a, i) => a + i.revenue.usd, 0);
+
     const totalIrr = items.reduce((a, i) => a + i.revenue.irr, 0);
 
     return this.response({
@@ -377,10 +455,16 @@ const Controller = class extends Controllers {
       status: 200,
       data: {
         labels: items.map((i) => i.title),
+
         datasets: [
-          { label: "درآمد (تومان)", data: items.map((i) => i.revenue.toman) },
+          {
+            label: "درآمد (تومان)",
+            data: items.map((i) => i.revenue.toman),
+          },
         ],
+
         items,
+
         total: money(totalUsd, totalIrr, dollarPrice),
       },
     });
@@ -621,42 +705,77 @@ const Controller = class extends Controllers {
 
     const rows = await q(
       `
-        SELECT
-          p.id,
-          p.title,
-          p.balance,
-          COUNT(DISTINCT uc.id) AS created_count,
-          COUNT(DISTINCT o.user_challenge_id) AS paid_count,
-          COALESCE(SUM(o.final_amount_usd),0) AS revenue_usd,
-          COALESCE(SUM(o.final_amount_irr),0) AS revenue_irr
-        FROM challengeplans p
-        LEFT JOIN user_challenges uc
-          ON uc.challenge_plan_id = p.id
-         AND uc.createdAt BETWEEN :startDate AND :endDate
-        LEFT JOIN orders o
-          ON o.user_challenge_id = uc.id
-         AND ${PAID_ORDER_SQL}
-        GROUP BY p.id, p.title, p.balance
-        HAVING created_count > 0
-        ORDER BY revenue_usd DESC
-        LIMIT :limit
-      `,
-      { startDate, endDate, limit: safeLimit(limit) },
+      SELECT
+        p.id,
+        CONCAT_WS(
+          ' ',
+          NULLIF(TRIM(t.name), ''),
+          NULLIF(TRIM(p.title), '')
+        ) AS title,
+        p.balance,
+
+        COUNT(DISTINCT uc.id) AS created_count,
+
+        COUNT(DISTINCT o.user_challenge_id) AS paid_count,
+
+        COALESCE(SUM(o.final_amount_usd), 0) AS revenue_usd,
+
+        COALESCE(SUM(o.final_amount_irr), 0) AS revenue_irr
+
+      FROM challengeplans p
+
+      LEFT JOIN challengetypes t
+        ON t.id = p.challenge_type_id
+
+      LEFT JOIN user_challenges uc
+        ON uc.challenge_plan_id = p.id
+       AND uc.createdAt BETWEEN :startDate AND :endDate
+
+      LEFT JOIN orders o
+        ON o.user_challenge_id = uc.id
+       AND ${PAID_ORDER_SQL}
+
+      GROUP BY
+        p.id,
+        t.name,
+        p.title,
+        p.balance
+
+      HAVING created_count > 0
+
+      ORDER BY revenue_usd DESC
+
+      LIMIT :limit
+    `,
+      {
+        startDate,
+        endDate,
+        limit: safeLimit(limit),
+      },
     );
 
     const items = rows.map((r, index) => ({
       rank: index + 1,
+
       challenge_plan_id: r.id,
+
       title: r.title,
+
       balance: num(r.balance),
+
       success_purchase_count: num(r.paid_count),
+
       purchase_rate: pct(r.paid_count, r.created_count),
+
       revenue: money(r.revenue_usd, r.revenue_irr, dollarPrice),
     }));
 
-    return this.response({ res, status: 200, data: items });
+    return this.response({
+      res,
+      status: 200,
+      data: items,
+    });
   }
-
   // ==========================================================
   // ۱۳) عملکرد پشتیبان‌ها — تیکت‌های بسته / در انتظار / باز
   // ==========================================================
@@ -752,7 +871,9 @@ const Controller = class extends Controllers {
       status: 200,
       data: {
         labels: rows.map((r) => r.label),
-        datasets: [{ label: "درآمد (تومان)", data: points.map((p) => p.toman) }],
+        datasets: [
+          { label: "درآمد (تومان)", data: points.map((p) => p.toman) },
+        ],
         total: money(totalUsd, totalIrr, dollarPrice),
         best_month_toman: toToman(best),
         average_toman: toToman(average),
@@ -849,38 +970,44 @@ const Controller = class extends Controllers {
     const { range = "1m" } = req.query;
     const { startDate, endDate } = getRange(range);
 
-    const [row] = await q(
+    const rows = await q(
       `
-        SELECT
-          COUNT(id) AS total,
-          SUM(CASE WHEN status IN ('phase1','phase2','real') THEN 1 ELSE 0 END) AS active_count,
-          SUM(CASE WHEN status IN ('pending_payment','pending','payment_phase2',
-                                   'pending_payment_real','pending_payment_insurance')
-                   THEN 1 ELSE 0 END) AS pending_count,
-          SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END) AS closed_count
-        FROM user_challenges
-        WHERE createdAt BETWEEN :startDate AND :endDate
-      `,
+      SELECT
+        status,
+        COUNT(id) AS total
+      FROM user_challenges
+      WHERE createdAt BETWEEN :startDate AND :endDate
+      GROUP BY status
+      ORDER BY total DESC
+    `,
       { startDate, endDate },
     );
 
-    const total = num(row?.total);
-    const active = num(row?.active_count);
-    const pending = num(row?.pending_count);
-    const closed = num(row?.closed_count);
+    const total = rows.reduce((sum, row) => sum + num(row.total), 0);
+
+    const items = rows.map((row) => ({
+      key: row.status,
+      title: row.status,
+      count: num(row.total),
+      percent: pct(row.total, total),
+    }));
 
     return this.response({
       res,
       status: 200,
       data: {
         total,
-        labels: ["فعال", "در انتظار بررسی", "رد شده"],
-        datasets: [{ label: "چالش‌ها", data: [active, pending, closed] }],
-        items: [
-          { key: "active", title: "فعال", count: active, percent: pct(active, total) },
-          { key: "pending", title: "در انتظار بررسی", count: pending, percent: pct(pending, total) },
-          { key: "closed", title: "رد شده", count: closed, percent: pct(closed, total) },
+
+        labels: items.map((item) => item.title),
+
+        datasets: [
+          {
+            label: "چالش‌ها",
+            data: items.map((item) => item.count),
+          },
         ],
+
+        items,
       },
     });
   }
