@@ -55,7 +55,9 @@ async function shahkarInquiry(mobile, nationalCode) {
       },
     );
 
-    const matched = response?.data?.data?.matched;
+    console.log(response);
+
+    const matched = response?.data?.response_body?.data?.matched;
 
     if (matched === true) {
       return {
