@@ -109,6 +109,7 @@ const Controller = class extends Controllers {
       attributes: {
         exclude: ["refresh_token", "refresh_token_expires_at"],
       },
+      
     });
     if (!user)
       return this.response({
@@ -127,11 +128,13 @@ const Controller = class extends Controllers {
     // messages
     const messages = await SmsMessage.findAll({
       where: { user_id: user?.id },
+      order: [["createdAt", "DESC"]],
     });
 
     // calls
     const calls = await Call.findAll({
       where: { user_id: user?.id },
+      order: [["createdAt", "DESC"]],
     });
 
     // // transactions
@@ -167,6 +170,7 @@ const Controller = class extends Controllers {
           include: [ChallengeType],
         },
       ],
+      order: [["createdAt", "DESC"]],
     });
 
     const walletTx = await WalletTransaction.findAll({
@@ -210,6 +214,7 @@ const Controller = class extends Controllers {
           },
         },
       ],
+      order: [["createdAt", "DESC"]],
     });
 
     // normalize orders
@@ -259,6 +264,7 @@ const Controller = class extends Controllers {
           },
         },
       ],
+      order: [["createdAt", "DESC"]],
     });
 
     const listUsersRefral = await User.findAll({
@@ -309,6 +315,7 @@ const Controller = class extends Controllers {
     const tickets = await Ticket.findAll({
       where: { user_id: user?.id, type: "ticket" },
       attributes: ["id", "title", "status", "type", "createdAt"],
+      order: [["createdAt", "DESC"]],
     });
 
     this.response({
