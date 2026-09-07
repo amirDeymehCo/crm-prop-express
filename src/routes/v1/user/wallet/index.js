@@ -44,6 +44,10 @@ router
     Controller.validationBody,
     asyncHandler(Controller.widthdrawRequest),
   )
+  .get(
+    "/widthdraw-list",
+    asyncHandler(Controller.withdrawList),
+  )
   .get("/transactionsList", asyncHandler(Controller.transactionsList))
   .get("/states", asyncHandler(Controller.states));
 

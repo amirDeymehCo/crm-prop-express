@@ -229,6 +229,13 @@ const Controller = class extends Controllers {
       message: "کد تایید به تلفن همراه شما ارسال شد",
     });
   }
+  async withdrawList(req, res) {
+    const list = await founcList(WidthdrawRequest, req, {
+      user_id: req?.user?.id,
+    });
+
+    this.response({ res, data: list });
+  }
   async widthdrawRequest(req, res) {
     const { wallet_address, amount_usd } = req?.body;
 
