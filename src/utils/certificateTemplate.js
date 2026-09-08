@@ -52,7 +52,7 @@ module.exports.getCertificateHTML = ({
       text-align: center;
       font-size: 18px;
       left: 50%;
-      transform: translateX(53%);
+      transform: translateX(58%);
     }
 
     .date {
