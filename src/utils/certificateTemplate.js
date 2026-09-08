@@ -51,7 +51,7 @@ module.exports.getCertificateHTML = ({
       top: 514px;
       text-align: center;
       font-size: 18px;
-      left: 50%;
+      left: 54%;
       transform: translateX(58%);
     }
 
