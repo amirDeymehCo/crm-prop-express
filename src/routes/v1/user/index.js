@@ -8,6 +8,7 @@ const profileRouter = require("./profile");
 const certificatesRouter = require("./certificates");
 const ticketsRouter = require("./tickets");
 const challengeRouter = require("./challenge");
+const tasksRouter = require("./tasks");
 
 router.use("/listFinds", listFindsRouter);
 router.use("/auth", authRouter);
@@ -17,5 +18,6 @@ router.use("/requestWidthdraw", requestWidthdrawRouter);
 router.use("/wallet", walletRouter);
 router.use("/profile", profileRouter);
 router.use("/certificates", certificatesRouter);
+router.use("/tasks", tasksRouter);
 
 module.exports = router;

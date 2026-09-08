@@ -48,11 +48,11 @@ module.exports.getCertificateHTML = ({
 
     .profit {
       position: absolute;
-      top: 512px;
+      top: 514px;
       text-align: center;
       font-size: 18px;
       left: 50%;
-      transform: translateX(51%);
+      transform: translateX(53%);
     }
 
     .date {
