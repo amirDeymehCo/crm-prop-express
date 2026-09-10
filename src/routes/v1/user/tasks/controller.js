@@ -338,6 +338,7 @@ const Controller = class extends Controllers {
         valid_from: now,
         valid_to: validTo,
         is_active: true,
+        challenge_type_id: 2,
       };
       if (tier.discount_percent == "100") {
         copunData.challenge_type_id = 3;
