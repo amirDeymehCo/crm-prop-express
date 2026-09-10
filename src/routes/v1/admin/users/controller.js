@@ -14,6 +14,9 @@ const ChallengeType = require("../../../../models/Challenge/ChallengeType");
 const Admin = require("../../../../models/Admin");
 const UserNote = require("../../../../models/UserNote");
 const UserDevice = require("../../../../models/UserDevice");
+const TaskDefinition = require("../../../../models/Task/TaskDefinition");
+const TaskSubmission = require("../../../../models/Task/TaskSubmission");
+const { getUserPointsStatus } = require("../../../../services/TaskPoints");
 const founcList = require("../../../../utils/List");
 const sequelize = require("../../../../../db");
 const { Op, fn, col, literal } = require("sequelize");
@@ -517,6 +520,244 @@ const Controller = class extends Controllers {
         status: 500,
         message: "خطا در دریافت لیست دستگاه‌های کاربر",
       });
+    }
+  }
+
+  // ==========================================================
+  // تسک‌های امتیازی یک کاربر
+  // ==========================================================
+
+  /**
+   * لیست همه‌ی تسک‌های فعال به همراه وضعیت این کاربر روی هرکدام،
+   * و امتیاز/تخفیف فعلی‌اش.
+   */
+  async listUserTasks(req, res) {
+    const userId = Number(req.params.user_id);
+
+    const user = await User.findByPk(userId, {
+      attributes: ["id", "firstname", "lastname", "mobile"],
+    });
+
+    if (!user) {
+      return this.response({ res, status: 404, message: "کاربر یافت نشد" });
+    }
+
+    const [pointsStatus, tasks, submissions] = await Promise.all([
+      getUserPointsStatus(userId),
+      TaskDefinition.findAll({
+        where: { is_active: true },
+        order: [
+          ["sort_order", "ASC"],
+          ["id", "ASC"],
+        ],
+      }),
+      TaskSubmission.findAll({
+        where: { user_id: userId },
+        include: [{ model: Admin, attributes: ["id", "name"] }],
+        order: [["id", "DESC"]],
+      }),
+    ]);
+
+    const byTask = new Map();
+    submissions.forEach((s) => {
+      const list = byTask.get(s.task_definition_id) || [];
+      list.push(s);
+      byTask.set(s.task_definition_id, list);
+    });
+
+    const items = tasks.map((task) => {
+      const mine = byTask.get(task.id) || [];
+
+      return {
+        task_id: task.id,
+        code: task.code,
+        title: task.title,
+        category: task.category,
+        points: Number(task.points),
+        is_repeatable: task.is_repeatable,
+        requires_payout: task.requires_payout,
+
+        status: mine[0]?.status ?? "not_started",
+        earned_points: mine
+          .filter((s) => s.status === "approved")
+          .reduce((a, s) => a + Number(s.awarded_points || 0), 0),
+        submissions: mine.map((s) => ({
+          id: s.id,
+          status: s.status,
+          note: s.note,
+          files: s.files,
+          awarded_points: Number(s.awarded_points || 0),
+          admin_note: s.admin_note,
+          admin: s.Admin ? { id: s.Admin.id, name: s.Admin.name } : null,
+          createdAt: s.createdAt,
+          reviewed_at: s.reviewed_at,
+        })),
+      };
+    });
+
+    return this.response({
+      res,
+      status: 200,
+      data: {
+        user,
+        points: pointsStatus.points,
+        current_discount_percent: pointsStatus.current_discount_percent,
+        next_tier: pointsStatus.next_tier,
+        tasks: items,
+      },
+    });
+  }
+
+  /**
+   * تغییر وضعیت یک تسک برای کاربر.
+   *
+   * body:
+   *   user_id        (الزامی)
+   *   task_id        (الزامی مگر submission_id بدهی)
+   *   submission_id  (اختیاری — برای تسک تکرارشونده که چند ثبت دارد)
+   *   status         approved | rejected | pending
+   *   points         (اختیاری — پیش‌فرض امتیاز خود تسک)
+   *   admin_note     (اختیاری)
+   *
+   * اگر کاربر اصلاً ثبتی برای این تسک نداشته باشد، ادمین می‌تواند
+   * مستقیم تاییدش کند و یک رکورد ساخته می‌شود (اعطای دستی امتیاز).
+   */
+  async changeUserTaskStatus(req, res) {
+    const {
+      user_id,
+      task_id,
+      submission_id,
+      status,
+      points,
+      admin_note = null,
+    } = req.body;
+
+    if (!["approved", "rejected", "pending"].includes(status)) {
+      return this.response({
+        res,
+        status: 400,
+        message: "وضعیت ارسالی معتبر نیست",
+      });
+    }
+
+    if (!user_id || (!task_id && !submission_id)) {
+      return this.response({
+        res,
+        status: 400,
+        message: "شناسه کاربر و شناسه تسک الزامی است",
+      });
+    }
+
+    const t = await sequelize.transaction();
+
+    try {
+      let submission = null;
+
+      if (submission_id) {
+        submission = await TaskSubmission.findByPk(submission_id, {
+          transaction: t,
+          lock: t.LOCK.UPDATE,
+        });
+
+        if (!submission || Number(submission.user_id) !== Number(user_id)) {
+          await t.rollback();
+          return this.response({
+            res,
+            status: 404,
+            message: "ثبت تسک برای این کاربر یافت نشد",
+          });
+        }
+      }
+
+      const taskId = submission?.task_definition_id ?? task_id;
+
+      const task = await TaskDefinition.findByPk(taskId, { transaction: t });
+
+      if (!task) {
+        await t.rollback();
+        return this.response({ res, status: 404, message: "تسک یافت نشد" });
+      }
+
+      // اگر submission مشخص نشده، آخرین ثبت همین تسک را بردار
+      if (!submission) {
+        submission = await TaskSubmission.findOne({
+          where: { user_id, task_definition_id: task.id },
+          order: [["id", "DESC"]],
+          transaction: t,
+          lock: t.LOCK.UPDATE,
+        });
+      }
+
+      const awarded =
+        status === "approved"
+          ? points != null
+            ? Number(points)
+            : Number(task.points || 0)
+          : 0;
+
+      if (status === "approved" && !Number.isFinite(awarded)) {
+        await t.rollback();
+        return this.response({
+          res,
+          status: 400,
+          message: "مقدار امتیاز معتبر نیست",
+        });
+      }
+
+      let created = false;
+
+      if (!submission) {
+        // کاربر خودش ثبت نکرده؛ ادمین دستی اعمال می‌کند
+        submission = await TaskSubmission.create(
+          {
+            user_id,
+            task_definition_id: task.id,
+            status,
+            note: null,
+            files: null,
+            awarded_points: awarded,
+            admin_id: req?.admin?.id ?? null,
+            admin_note,
+            reviewed_at: new Date(),
+          },
+          { transaction: t },
+        );
+
+        created = true;
+      } else {
+        await submission.update(
+          {
+            status,
+            awarded_points: awarded,
+            admin_id: req?.admin?.id ?? null,
+            admin_note,
+            reviewed_at: status === "pending" ? null : new Date(),
+          },
+          { transaction: t },
+        );
+      }
+
+      await t.commit();
+
+      const pointsStatus = await getUserPointsStatus(user_id);
+
+      return this.response({
+        res,
+        status: 200,
+        message: created
+          ? `تسک به‌صورت دستی برای کاربر ثبت و ${awarded} امتیاز اعمال شد`
+          : "وضعیت تسک کاربر تغییر کرد",
+        data: {
+          submission_id: submission.id,
+          task_id: task.id,
+          status,
+          awarded_points: awarded,
+          user_points: pointsStatus,
+        },
+      });
+    } catch (err) {
+      if (!t.finished) await t.rollback();
+      throw err;
     }
   }
 };

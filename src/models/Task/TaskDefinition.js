@@ -8,6 +8,13 @@ const sequelize = require("../../../db");
 const TaskDefinition = sequelize.define(
   "TaskDefinition",
   {
+    // شناسه‌ی ثابت و یکتا؛ seed بر اساس همین کار می‌کند تا تکراری ساخته نشود
+    code: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+    },
+
     title: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -68,6 +75,13 @@ const TaskDefinition = sequelize.define(
       type: DataTypes.BOOLEAN,
       allowNull: false,
       defaultValue: true,
+    },
+
+    // فقط کاربری که حداقل یک برداشت سودِ پرداخت‌شده دارد اجازه دارد
+    requires_payout: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
     },
 
     sort_order: {

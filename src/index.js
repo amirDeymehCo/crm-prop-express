@@ -374,6 +374,13 @@ async function initDatabase() {
     // await initRbac();
     // }
 
+    // تسک‌های امتیازی و پله‌های تخفیف (idempotent)
+    if (process.env.INIT_TASKS === "true") {
+      await require("./configs/tasksInit")({
+        overwrite: process.env.INIT_TASKS_OVERWRITE === "true",
+      });
+    }
+
     /**
      * Cron jobs را بعد از آماده شدن DB فعال کن
      */

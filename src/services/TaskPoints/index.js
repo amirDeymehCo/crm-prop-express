@@ -1,20 +1,42 @@
 const { fn, col } = require("sequelize");
 const TaskSubmission = require("../../models/Task/TaskSubmission");
 const DiscountTier = require("../../models/Task/DiscountTier");
+const PointsRedemption = require("../../models/Task/PointsRedemption");
 
 /**
- * امتیاز فعلی کاربر = مجموع امتیاز ثبت‌های تاییدشده.
- * جایی ذخیره نمی‌شود تا هیچ‌وقت با رکوردها ناهماهنگ نشود.
+ * موجودی امتیاز کاربر = مجموع امتیاز ثبت‌های تاییدشده − امتیاز خرج‌شده.
+ * هیچ ستون موجودی‌ای ذخیره نمی‌شود تا هیچ‌وقت با رکوردها ناهماهنگ نشود.
  */
-async function getUserPoints(userId, transaction = null) {
-  const row = await TaskSubmission.findOne({
-    where: { user_id: userId, status: "approved" },
-    attributes: [[fn("COALESCE", fn("SUM", col("awarded_points")), 0), "total"]],
-    raw: true,
-    transaction,
-  });
+async function getUserPointsBreakdown(userId, transaction = null) {
+  const [earnedRow, spentRow] = await Promise.all([
+    TaskSubmission.findOne({
+      where: { user_id: userId, status: "approved" },
+      attributes: [
+        [fn("COALESCE", fn("SUM", col("awarded_points")), 0), "total"],
+      ],
+      raw: true,
+      transaction,
+    }),
+    PointsRedemption.findOne({
+      where: { user_id: userId },
+      attributes: [
+        [fn("COALESCE", fn("SUM", col("points_spent")), 0), "total"],
+      ],
+      raw: true,
+      transaction,
+    }),
+  ]);
 
-  return Number(row?.total || 0);
+  const earned = Number(earnedRow?.total || 0);
+  const spent = Number(spentRow?.total || 0);
+
+  return { earned, spent, balance: earned - spent };
+}
+
+/** فقط موجودی قابل استفاده */
+async function getUserPoints(userId, transaction = null) {
+  const { balance } = await getUserPointsBreakdown(userId, transaction);
+  return balance;
 }
 
 /**
@@ -38,10 +60,12 @@ async function getTiers(transaction = null) {
  * وضعیت امتیاز و تخفیف کاربر: تخفیف فعلی، پله‌ی بعدی و فاصله تا آن.
  */
 async function getUserPointsStatus(userId, transaction = null) {
-  const [points, tiers] = await Promise.all([
-    getUserPoints(userId, transaction),
+  const [breakdown, tiers] = await Promise.all([
+    getUserPointsBreakdown(userId, transaction),
     getTiers(transaction),
   ]);
+
+  const points = breakdown.balance;
 
   const reached = tiers.filter((t) => points >= t.min_points);
   const current = reached.length ? reached[reached.length - 1] : null;
@@ -49,6 +73,8 @@ async function getUserPointsStatus(userId, transaction = null) {
 
   return {
     points,
+    earned_points: breakdown.earned,
+    spent_points: breakdown.spent,
     current_discount_percent: current?.discount_percent ?? 0,
     next_tier: next
       ? {
@@ -64,4 +90,9 @@ async function getUserPointsStatus(userId, transaction = null) {
   };
 }
 
-module.exports = { getUserPoints, getTiers, getUserPointsStatus };
+module.exports = {
+  getUserPoints,
+  getUserPointsBreakdown,
+  getTiers,
+  getUserPointsStatus,
+};

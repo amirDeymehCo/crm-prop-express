@@ -40,6 +40,19 @@ router
     "/user-tracks/:user_id",
     can("user.read"),
     asyncHandler(Controller.listUserDevices),
+  )
+  // tasks & points
+  .get(
+    "/tasks/:user_id",
+    can("user.read"),
+    asyncHandler(Controller.listUserTasks),
+  )
+  .post(
+    "/change-task-status",
+    can("user.read"),
+    validator.changeTaskStatus(),
+    Controller.validationBody,
+    asyncHandler(Controller.changeUserTaskStatus),
   );
 
 module.exports = router;

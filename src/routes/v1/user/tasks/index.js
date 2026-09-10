@@ -15,6 +15,12 @@ router
   // تاریخچه‌ی ثبت‌ها
   .get("/my-submissions", asyncHandler(Controller.mySubmissions))
 
+  // کدهای تخفیفی که از امتیاز ساخته شده
+  .get("/my-coupons", asyncHandler(Controller.myCoupons))
+
+  // تبدیل امتیاز به کد تخفیف اختصاصی
+  .post("/generate-coupon", asyncHandler(Controller.generateCoupon))
+
   // ثبت انجام تسک + مدرک
   .post(
     "/submit",

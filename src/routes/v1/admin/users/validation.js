@@ -24,4 +24,42 @@ module.exports = new (class {
         .withMessage("رمز عبور شما باید بشتر از 3 رقم باشد"),
     ];
   }
+
+  changeTaskStatus() {
+    return [
+      body("user_id")
+        .notEmpty()
+        .withMessage("شناسه کاربر الزامی است")
+        .bail()
+        .isInt({ min: 1 })
+        .withMessage("شناسه کاربر معتبر نیست"),
+
+      body("status")
+        .notEmpty()
+        .withMessage("وضعیت الزامی است")
+        .bail()
+        .isIn(["approved", "rejected", "pending"])
+        .withMessage("وضعیت ارسالی معتبر نیست"),
+
+      body("task_id")
+        .optional({ nullable: true, checkFalsy: true })
+        .isInt({ min: 1 })
+        .withMessage("شناسه تسک معتبر نیست"),
+
+      body("submission_id")
+        .optional({ nullable: true, checkFalsy: true })
+        .isInt({ min: 1 })
+        .withMessage("شناسه ثبت تسک معتبر نیست"),
+
+      body("points")
+        .optional({ nullable: true })
+        .isInt({ min: 0 })
+        .withMessage("امتیاز باید عدد صحیح و مثبت باشد"),
+
+      body("admin_note")
+        .optional({ nullable: true, checkFalsy: true })
+        .isLength({ max: 1000 })
+        .withMessage("یادداشت نباید بیشتر از ۱۰۰۰ کاراکتر باشد"),
+    ];
+  }
 })();
