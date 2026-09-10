@@ -40,6 +40,7 @@ const Ticket = sequelize.define(
         "request_widthdraw",
         "real_account",
         "kyc",
+        "tasks",
       ),
       allowNull: false,
     },
