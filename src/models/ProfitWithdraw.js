@@ -23,6 +23,11 @@ const ProfitWithdraw = sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
+    date_deposit: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: DataTypes.NOW,
+    },
   },
   {
     tableName: "profit_withdraw",

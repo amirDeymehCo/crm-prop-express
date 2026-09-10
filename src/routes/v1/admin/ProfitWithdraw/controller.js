@@ -35,6 +35,7 @@ const Controller = class extends Controllers {
       user_challenge_id: userChallenge?.id,
       user_id: userChallenge?.user_id,
       admin_id: req?.admin?.id,
+      date_deposit: req?.body?.date_deposit,
     });
 
     this.response({
@@ -70,6 +71,7 @@ const Controller = class extends Controllers {
         user_challenge_id: userChallenge?.id,
         user_id: userChallenge?.user_id,
         admin_id: req?.admin?.id,
+        date_deposit: req?.body?.date_deposit,
       },
       { where: { id: req?.params?.id } },
     );
