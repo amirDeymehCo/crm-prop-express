@@ -65,7 +65,7 @@ async function paykanService({
     : Math.round(discountUsdValue * dollarPrice) * 10;
 
   const finalAmountIrr = hasExistingOrder
-    ? Number(order.final_amount_irr || order.amount_irr || 0)
+    ? Number(order.amount_usd || order.final_amount_usd || 0) * dollarPrice * 10
     : Math.round(finalAmountUsdValue * dollarPrice) * 10;
 
   if (hasExistingOrder && !(finalAmountIrr > 0)) {
