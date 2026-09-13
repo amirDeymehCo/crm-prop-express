@@ -8,20 +8,20 @@ const can = require("../../../../middlewares/can");
 router
   .post(
     "/",
-    can("JUST_SUPER"),
+    can("profit.record"),
     validator.createRecord(),
     Controller.validationBody,
     asyncHandler(Controller.createRecord),
   )
   .post(
     "/:id",
-    can("JUST_SUPER"),
+    can("profit.record"),
     validator.createRecord(),
     Controller.validationBody,
     asyncHandler(Controller.editRecord),
   )
-  .get("/", can("JUST_SUPER"), asyncHandler(Controller.listRocrods))
-  .get("/:id", can("JUST_SUPER"), asyncHandler(Controller.findRecord))
-  .delete("/:id", can("JUST_SUPER"), asyncHandler(Controller.deleteRecord));
+  .get("/", can("profit.record"), asyncHandler(Controller.listRocrods))
+  .get("/:id", can("profit.record"), asyncHandler(Controller.findRecord))
+  .delete("/:id", can("profit.record"), asyncHandler(Controller.deleteRecord));
 
 module.exports = router;
