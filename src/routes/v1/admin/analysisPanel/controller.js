@@ -71,7 +71,396 @@ function money(usd, irr, dollarPrice) {
   };
 }
 
+/**
+ * فیلتر تب نوع چالش (Flex و ...). مقدار خالی یا "all" یعنی همه.
+ * خروجی تکه SQL + replacement، روی alias `uc` (user_challenges).
+ */
+function challengeTypeFilter(value) {
+  const id = Number(value);
+
+  if (!value || value === "all" || !Number.isInteger(id) || id < 1) {
+    return { sql: "", params: {}, challenge_type_id: null };
+  }
+
+  return {
+    sql: " AND uc.challenge_type_id = :challengeTypeId",
+    params: { challengeTypeId: id },
+    challenge_type_id: id,
+  };
+}
+
+// چالشی که حداقل قسط اول / پرداخت کاملش انجام شده (یعنی فروش واقعی)
+const SOLD_CHALLENGE_SQL = `
+  uc.payment_status IN ('paid_first_payment','pending_second_payment','fully_paid')
+`;
+
+// تاریخ فروش: زمان پرداخت اول؛ برای رکوردهای قدیمی که خالی است، زمان ساخت
+const SOLD_AT_SQL = "COALESCE(uc.first_payment_paid_at, uc.createdAt)";
+
+// چالش جایگزینی که سیستم بیمه ساخته (InsuranceReload)
+const REPLACEMENT_SQL = `
+  JSON_EXTRACT(uc.rules_snapshot, '$.meta.created_by_insurance') = CAST('true' AS JSON)
+`;
+
 const Controller = class extends Controllers {
+  // ==========================================================
+  // تب‌های نوع چالش برای فیلتر بخش‌های قسطی/بیمه
+  // ==========================================================
+  async challengeTypeTabs(req, res) {
+    const types = await ChallengeType.findAll({
+      attributes: ["id", "name", "is_active"],
+      order: [["id", "ASC"]],
+    });
+
+    return this.response({
+      res,
+      status: 200,
+      data: [
+        { id: "all", name: "همه" },
+        ...types.map((t) => ({
+          id: t.id,
+          name: t.name,
+          is_active: t.is_active,
+        })),
+      ],
+    });
+  }
+
+  // ==========================================================
+  // فروش قسطی در برابر نقدی + وضعیت پرداخت قسط دوم
+  //
+  // ?range=  &challenge_type_id=<id|all>
+  // ==========================================================
+  async paymentPlanStats(req, res) {
+    const { range = "1m", challenge_type_id } = req.query;
+    const { startDate, endDate, prevStartDate, prevEndDate, format } =
+      getRange(range);
+    const filter = challengeTypeFilter(challenge_type_id);
+    const dollarPrice = await getDollarPrice();
+
+    const summarySql = (from, to) => `
+      SELECT
+        COUNT(uc.id) AS sold_count,
+        SUM(uc.payment_plan = 'full') AS full_count,
+        SUM(uc.payment_plan = 'installment') AS installment_count,
+
+        SUM(uc.payment_plan = 'installment' AND uc.payment_status = 'fully_paid')
+          AS second_paid_count,
+        SUM(uc.payment_plan = 'installment' AND uc.payment_status = 'pending_second_payment')
+          AS second_pending_count,
+        SUM(uc.payment_plan = 'installment' AND uc.payment_status = 'paid_first_payment')
+          AS first_only_count,
+
+        -- قسطی‌هایی که قبل از رسیدن به قسط دوم رد شدند
+        SUM(uc.payment_plan = 'installment'
+            AND uc.payment_status <> 'fully_paid'
+            AND uc.status = 'closed') AS installment_closed_count,
+
+        COALESCE(SUM(CASE WHEN uc.payment_plan = 'full'
+                          THEN uc.paid_amount_usd END), 0) AS full_revenue_usd,
+        COALESCE(SUM(CASE WHEN uc.payment_plan = 'installment'
+                          THEN uc.paid_amount_usd END), 0) AS installment_revenue_usd,
+
+        -- مبلغی که هنوز از قسطی‌های در انتظار قسط دوم طلب داریم
+        COALESCE(SUM(CASE WHEN uc.payment_plan = 'installment'
+                           AND uc.payment_status = 'pending_second_payment'
+                          THEN uc.remaining_amount_usd END), 0) AS outstanding_usd
+      FROM user_challenges uc
+      WHERE ${SOLD_CHALLENGE_SQL}
+        AND ${SOLD_AT_SQL} BETWEEN ${from} AND ${to}
+        ${filter.sql}
+    `;
+
+    const [[row], [prev], series] = await Promise.all([
+      q(summarySql(":startDate", ":endDate"), {
+        startDate,
+        endDate,
+        ...filter.params,
+      }),
+      q(summarySql(":prevStartDate", ":prevEndDate"), {
+        prevStartDate,
+        prevEndDate,
+        ...filter.params,
+      }),
+      q(
+        `
+          SELECT
+            DATE_FORMAT(${SOLD_AT_SQL}, :format) AS label,
+            SUM(uc.payment_plan = 'full') AS full_count,
+            SUM(uc.payment_plan = 'installment') AS installment_count
+          FROM user_challenges uc
+          WHERE ${SOLD_CHALLENGE_SQL}
+            AND ${SOLD_AT_SQL} BETWEEN :startDate AND :endDate
+            ${filter.sql}
+          GROUP BY label
+          ORDER BY label ASC
+        `,
+        { startDate, endDate, format, ...filter.params },
+      ),
+    ]);
+
+    const sold = num(row?.sold_count);
+    const full = num(row?.full_count);
+    const installment = num(row?.installment_count);
+    const secondPaid = num(row?.second_paid_count);
+    const secondPending = num(row?.second_pending_count);
+    const firstOnly = num(row?.first_only_count);
+
+    return this.response({
+      res,
+      status: 200,
+      data: {
+        challenge_type_id: filter.challenge_type_id,
+
+        sold_count: sold,
+        growth: growthOf(sold, prev?.sold_count),
+
+        full: {
+          count: full,
+          percent: pct(full, sold),
+          revenue: money(row?.full_revenue_usd, 0, dollarPrice),
+        },
+
+        installment: {
+          count: installment,
+          percent: pct(installment, sold),
+          revenue: money(row?.installment_revenue_usd, 0, dollarPrice),
+
+          // از قسطی‌ها چند نفر قسط دوم را دادند
+          second_paid_count: secondPaid,
+          second_paid_percent: pct(secondPaid, installment),
+
+          // به ریل رسیده ولی قسط دوم را نداده
+          second_pending_count: secondPending,
+          second_pending_percent: pct(secondPending, installment),
+
+          // هنوز در فاز ۱/۲ هستند
+          first_only_count: firstOnly,
+          first_only_percent: pct(firstOnly, installment),
+
+          closed_before_second_count: num(row?.installment_closed_count),
+
+          outstanding: money(row?.outstanding_usd, 0, dollarPrice),
+        },
+
+        // دونات قسطی/نقدی
+        split_chart: {
+          labels: ["نقدی", "قسطی"],
+          datasets: [{ label: "نوع پرداخت", data: [full, installment] }],
+        },
+
+        // دونات وضعیت قسط دوم
+        second_installment_chart: {
+          labels: ["قسط دوم پرداخت شده", "در انتظار قسط دوم", "فقط قسط اول"],
+          datasets: [
+            {
+              label: "وضعیت قسط دوم",
+              data: [secondPaid, secondPending, firstOnly],
+            },
+          ],
+        },
+
+        // روند زمانی
+        trend_chart: {
+          labels: series.map((r) => r.label),
+          datasets: [
+            { label: "نقدی", data: series.map((r) => num(r.full_count)) },
+            {
+              label: "قسطی",
+              data: series.map((r) => num(r.installment_count)),
+            },
+          ],
+        },
+      },
+    });
+  }
+
+  // ==========================================================
+  // آمار بیمه
+  //  - چند چالش با بیمه فروخته شد
+  //  - برای چند تا بیمه فعال شد (رد شدند و چالش جایگزین ساخته شد)
+  //  - چند چالش جایگزین واقعاً پرداخت شد
+  //
+  // ?range=  &challenge_type_id=<id|all>
+  // ==========================================================
+  async insuranceStats(req, res) {
+    const { range = "1m", challenge_type_id } = req.query;
+    const { startDate, endDate, prevStartDate, prevEndDate, format } =
+      getRange(range);
+    const filter = challengeTypeFilter(challenge_type_id);
+    const dollarPrice = await getDollarPrice();
+
+    const soldSql = (from, to) => `
+      SELECT
+        COUNT(uc.id) AS sold_count,
+        SUM(uc.has_insurance = 1) AS insured_count,
+        SUM(uc.has_insurance = 1 AND uc.insurance_status = 'used') AS activated_count,
+        SUM(uc.has_insurance = 1 AND uc.insurance_status = 'active'
+            AND uc.status = 'closed') AS closed_not_activated_count,
+        SUM(uc.has_insurance = 1 AND uc.insurance_status = 'active'
+            AND uc.status <> 'closed') AS still_covered_count,
+        COALESCE(SUM(uc.paid_insurance_amount_usd), 0) AS insurance_revenue_usd
+      FROM user_challenges uc
+      WHERE ${SOLD_CHALLENGE_SQL}
+        AND ${SOLD_AT_SQL} BETWEEN ${from} AND ${to}
+        ${filter.sql}
+    `;
+
+    const [[sold], [prev], [replacement], byPhase, series] = await Promise.all(
+      [
+        q(soldSql(":startDate", ":endDate"), {
+          startDate,
+          endDate,
+          ...filter.params,
+        }),
+
+        q(soldSql(":prevStartDate", ":prevEndDate"), {
+          prevStartDate,
+          prevEndDate,
+          ...filter.params,
+        }),
+
+        // چالش‌های جایگزینی که در این بازه ساخته شدند
+        q(
+          `
+            SELECT
+              COUNT(uc.id) AS created_count,
+              SUM(${SOLD_CHALLENGE_SQL}) AS paid_count,
+              SUM(uc.status IN ('phase1','phase2','real')) AS active_count,
+              COALESCE(SUM(uc.discount_usd), 0) AS discount_given_usd,
+              COALESCE(SUM(uc.paid_amount_usd), 0) AS revenue_usd
+            FROM user_challenges uc
+            WHERE ${REPLACEMENT_SQL}
+              AND uc.createdAt BETWEEN :startDate AND :endDate
+              ${filter.sql}
+          `,
+          { startDate, endDate, ...filter.params },
+        ),
+
+        // بیمه در کدام مرحله فعال شد (۴۰٪ / ۳۰٪ / ۲۰٪)
+        q(
+          `
+            SELECT
+              CAST(JSON_EXTRACT(uc.rules_snapshot, '$.meta.insurance_failed_phase_index') AS UNSIGNED) AS phase_index,
+              COUNT(uc.id) AS total,
+              COALESCE(SUM(uc.discount_usd), 0) AS discount_usd
+            FROM user_challenges uc
+            WHERE ${REPLACEMENT_SQL}
+              AND uc.createdAt BETWEEN :startDate AND :endDate
+              ${filter.sql}
+            GROUP BY phase_index
+            ORDER BY phase_index ASC
+          `,
+          { startDate, endDate, ...filter.params },
+        ),
+
+        q(
+          `
+            SELECT
+              DATE_FORMAT(${SOLD_AT_SQL}, :format) AS label,
+              SUM(uc.has_insurance = 1) AS insured_count,
+              SUM(uc.has_insurance = 0) AS uninsured_count
+            FROM user_challenges uc
+            WHERE ${SOLD_CHALLENGE_SQL}
+              AND ${SOLD_AT_SQL} BETWEEN :startDate AND :endDate
+              ${filter.sql}
+            GROUP BY label
+            ORDER BY label ASC
+          `,
+          { startDate, endDate, format, ...filter.params },
+        ),
+      ],
+    );
+
+    const soldCount = num(sold?.sold_count);
+    const insured = num(sold?.insured_count);
+    const activated = num(sold?.activated_count);
+    const created = num(replacement?.created_count);
+    const replacementPaid = num(replacement?.paid_count);
+
+    const PHASE_TITLE = { 1: "مرحله اول", 2: "مرحله دوم", 3: "مرحله ریل" };
+
+    const phases = byPhase.map((r) => ({
+      phase_index: num(r.phase_index),
+      title: PHASE_TITLE[num(r.phase_index)] || `مرحله ${r.phase_index}`,
+      count: num(r.total),
+      percent: pct(r.total, created),
+      discount: money(r.discount_usd, 0, dollarPrice),
+    }));
+
+    return this.response({
+      res,
+      status: 200,
+      data: {
+        challenge_type_id: filter.challenge_type_id,
+
+        sold_count: soldCount,
+
+        // خرید با بیمه
+        insured: {
+          count: insured,
+          percent_of_sales: pct(insured, soldCount),
+          growth: growthOf(insured, prev?.insured_count),
+          revenue: money(sold?.insurance_revenue_usd, 0, dollarPrice),
+
+          // بیمه مصرف شد (رد شد و چالش جایگزین گرفت)
+          activated_count: activated,
+          activated_percent: pct(activated, insured),
+
+          // رد شد ولی بیمه اجرا نشد (مثلاً ادمین run_insurance نزد)
+          closed_not_activated_count: num(sold?.closed_not_activated_count),
+
+          // هنوز در حال چالش و تحت پوشش
+          still_covered_count: num(sold?.still_covered_count),
+        },
+
+        // چالش‌های جایگزین ساخته‌شده توسط بیمه
+        replacement: {
+          created_count: created,
+          paid_count: replacementPaid,
+          paid_percent: pct(replacementPaid, created),
+          unpaid_count: created - replacementPaid,
+          active_count: num(replacement?.active_count),
+          discount_given: money(replacement?.discount_given_usd, 0, dollarPrice),
+          revenue: money(replacement?.revenue_usd, 0, dollarPrice),
+          by_phase: phases,
+        },
+
+        insured_split_chart: {
+          labels: ["با بیمه", "بدون بیمه"],
+          datasets: [
+            { label: "خرید", data: [insured, soldCount - insured] },
+          ],
+        },
+
+        replacement_chart: {
+          labels: ["پرداخت شده", "پرداخت نشده"],
+          datasets: [
+            {
+              label: "چالش جایگزین",
+              data: [replacementPaid, created - replacementPaid],
+            },
+          ],
+        },
+
+        by_phase_chart: {
+          labels: phases.map((p) => p.title),
+          datasets: [{ label: "فعال‌سازی بیمه", data: phases.map((p) => p.count) }],
+        },
+
+        trend_chart: {
+          labels: series.map((r) => r.label),
+          datasets: [
+            { label: "با بیمه", data: series.map((r) => num(r.insured_count)) },
+            {
+              label: "بدون بیمه",
+              data: series.map((r) => num(r.uninsured_count)),
+            },
+          ],
+        },
+      },
+    });
+  }
   // ==========================================================
   // ۱) نرخ کاربران جدید — نمودار خطی
   // ==========================================================

@@ -27,6 +27,12 @@ router
   .get("/rejection-reasons", asyncHandler(Controller.rejectionReasons))
   .get("/real-reach-rate", asyncHandler(Controller.realReachRate));
 
+// قسطی/نقدی و بیمه — با فیلتر ?challenge_type_id=<id|all>
+router
+  .get("/challenge-type-tabs", asyncHandler(Controller.challengeTypeTabs))
+  .get("/payment-plan-stats", asyncHandler(Controller.paymentPlanStats))
+  .get("/insurance-stats", asyncHandler(Controller.insuranceStats));
+
 // درآمد
 router
   .get("/revenue-trend", asyncHandler(Controller.revenueTrend))
