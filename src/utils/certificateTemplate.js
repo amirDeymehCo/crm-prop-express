@@ -46,13 +46,20 @@ module.exports.getCertificateHTML = ({
       font-weight: 500;
     }
 
+    /* "Total Profit:" label in the background ends at x=584px, baseline y=533px.
+       The number starts right after it and grows to the right, so any length stays attached. */
     .profit {
       position: absolute;
-      top: 514px;
-      text-align: center;
-      font-size: 18px;
-      left: 51.5%;
-      transform: translateX(58%);
+      left: 596px;
+      top: 533px;
+      margin-top: -0.3465em; /* line-height:0 puts the baseline 0.3465em below top (Arial metrics) */
+      line-height: 0;
+      white-space: nowrap;
+      font-size: 36px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: #3ee0b5;
+      text-shadow: 0 0 18px rgba(62, 224, 181, 0.45);
     }
 
     .date {
@@ -75,9 +82,7 @@ module.exports.getCertificateHTML = ({
   <div class="certificate">
     <div class="name">${fullName}</div>
 
-    <div class="profit">
-   <b>${total_profit}</b>
-    </div>
+    <div class="profit">${total_profit}</div>
 
     <div class="qr">
       <img src="${qrData}" width="90" />
