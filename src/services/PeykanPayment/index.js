@@ -57,15 +57,19 @@ async function paykanService({
     : Math.max(Number(amountUsd || 0) - Number(discountUsd || 0), 0);
 
   const amountIrr = hasExistingOrder
-    ? Number(order.amount_irr || 0)
+    ? Math.round(Number(order.amount_irr || 0))
     : Math.round(amountUsdValue * dollarPrice) * 10;
 
   const discountIrr = hasExistingOrder
-    ? Number(order.discount_irr || 0)
+    ? Math.round(Number(order.discount_irr || 0))
     : Math.round(discountUsdValue * dollarPrice) * 10;
 
   const finalAmountIrr = hasExistingOrder
-    ? Number(order.amount_usd || order.final_amount_usd || 0) * dollarPrice * 10
+    ? Math.round(
+        Number(order.final_amount_usd ?? order.amount_usd ?? 0) *
+          dollarPrice *
+          10,
+      )
     : Math.round(finalAmountUsdValue * dollarPrice) * 10;
 
   if (hasExistingOrder && !(finalAmountIrr > 0)) {
@@ -143,7 +147,7 @@ async function paykanService({
   const body = {
     merchant_id: process.env.PAYKAN_MERCHANT_ID,
     order_id: orderId,
-    amount: finalAmountIrr,
+    amount: Math.round(finalAmountIrr),
     callback_url,
     callback_method: "GET",
     description: `شناسه سفارش: ${userChallengeId ?? orderId}`,
