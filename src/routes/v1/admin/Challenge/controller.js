@@ -929,8 +929,6 @@ const Controller = class extends Controllers {
         .map(
           (item, index) => `
           <tr>
-            <td class="center">${index + 1}</td>
-            <td>${item.id ?? "-"}</td>
             <td>${item.gateway_order_id ?? "-"}</td>
             <td>${getUserFullName(item)}</td>
             <td>${item.gateway || "-"}</td>
@@ -1132,8 +1130,6 @@ const Controller = class extends Controllers {
             <table>
               <thead>
                 <tr>
-                  <th style="width: 40px;">#</th>
-                  <th style="width: 70px;">ID</th>
                   <th style="width: 70px;">شماره سفارش</th>
                   <th style="width: 140px;">نام کاربر</th>
                   <th style="width: 90px;">درگاه</th>
