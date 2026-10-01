@@ -10,6 +10,7 @@ router
     "/callback-paykan-challenge-insurance",
     asyncHandler(Controller.callbackBuyCh),
   )
+  .all("/callback-peykan-recovery", asyncHandler(Controller.callbackRecovery))
   .get("/getPlansList", asyncHandler(Controller.getPlansList))
   .get("/getPhase/:planId", asyncHandler(Controller.getPhase))
   .post("/isLogined", asyncHandler(Controller.isLogined));

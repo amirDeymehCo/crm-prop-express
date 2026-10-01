@@ -18,6 +18,10 @@ const {
   finalizeChallengeAfterPaid,
 } = require("../../../../services/ChallengeFinalize");
 const { getSessionStatus } = require("../../../../services/IsLoginedUser");
+const {
+  finalizeRecoveryAfterPaid,
+  notifyPhpRecoveryPaid,
+} = require("../../../../services/Recovery");
 const baseSite = process.env.FRONT_BASE_URL;
 
 const Controller = class extends Controllers {
@@ -481,6 +485,183 @@ const Controller = class extends Controllers {
         res,
         status: err.status || 500,
         message: err?.message || "خطای سرور در پردازش پرداخت",
+      });
+    }
+  }
+  /**
+   * کال‌بک درگاه پیکان برای فاکتورهای «بازیابی حساب».
+   *
+   * جدا از callbackBuyCh است چون آن یکی چالش را فاینالایز می‌کند و حساب جدید
+   * می‌سازد؛ بازیابی باید همان حساب قبلی را احیا کند.
+   */
+  async callbackRecovery(req, res) {
+    try {
+      const data = Object.keys(req.body || {}).length ? req.body : req.query;
+
+      const orderId = data?.order_id;
+      const trackingCode = data?.tracking_code || null;
+      const refNum = data?.ref_num || null;
+
+      if (!orderId) {
+        return this.response({
+          res,
+          status: 400,
+          message: "order_id ارسال نشده است",
+        });
+      }
+
+      const order = await Order.findOne({
+        where: { gateway_order_id: orderId },
+      });
+
+      if (!order) {
+        return this.response({ res, status: 400, message: "سفارشی یافت نشد" });
+      }
+
+      if (order.type !== "challenge_recovery") {
+        return this.response({
+          res,
+          status: 400,
+          message: "این سفارش از نوع بازیابی حساب نیست",
+        });
+      }
+
+      // هر تلاش پرداخت یک Payment جدید با همین order_id می‌سازد ⇒ آخری ملاک است
+      const payment = await Payment.findOne({
+        where: { order_id: orderId },
+        order: [["id", "DESC"]],
+      });
+
+      if (!payment) {
+        return this.response({ res, status: 400, message: "پرداختی یافت نشد" });
+      }
+
+      if (order.status === "paid" || payment.status === "paid") {
+        return res.redirect(
+          baseSite + "/account/challenges?recovery=already_paid",
+        );
+      }
+
+      const verify = await verifyWithGateway({
+        amount: order.amount_irr,
+        cardNo: data?.card_no,
+        orderId,
+        refNum,
+        trackingCode,
+      });
+
+      const normalizedStatus = normalizeGatewayStatus(
+        verify?.status || data?.status,
+      );
+
+      const verifiedAmountIrr = Number(verify?.amount);
+      const expectedAmountIrr = Number(order.amount_irr);
+
+      const amountMismatch =
+        normalizedStatus === "confirmed" &&
+        Number.isFinite(verifiedAmountIrr) &&
+        verifiedAmountIrr > 0 &&
+        Number.isFinite(expectedAmountIrr) &&
+        expectedAmountIrr > 0 &&
+        verifiedAmountIrr !== expectedAmountIrr;
+
+      if (amountMismatch) {
+        console.error("callbackRecovery AMOUNT MISMATCH:", {
+          orderId,
+          expectedAmountIrr,
+          verifiedAmountIrr,
+        });
+      }
+
+      if (normalizedStatus !== "confirmed" || amountMismatch) {
+        const failMeta = { data, verify, amount_mismatch: amountMismatch };
+
+        await sequelize.transaction(async (t) => {
+          await Payment.update(
+            { status: "failed", raw_callback: failMeta },
+            { where: { id: payment.id }, transaction: t },
+          );
+
+          await Order.update(
+            { status: "failed", meta: { ...(order.meta || {}), ...failMeta } },
+            { where: { id: order.id }, transaction: t },
+          );
+        });
+
+        return res.redirect(
+          baseSite +
+            `/account/challenges?recovery=failed&status=${amountMismatch ? "AMOUNT_MISMATCH" : verify?.status}`,
+        );
+      }
+
+      let notifyRecoveryId = null;
+
+      await sequelize.transaction(async (t) => {
+        const lockedOrder = await Order.findOne({
+          where: { id: order.id },
+          transaction: t,
+          lock: t.LOCK.UPDATE,
+        });
+
+        if (!lockedOrder) {
+          const err = new Error("سفارش یافت نشد");
+          err.status = 400;
+          throw err;
+        }
+
+        // کال‌بک ممکن است همزمان دو بار بیاید
+        if (lockedOrder.status === "paid") return;
+
+        const lockedPayment = await Payment.findOne({
+          where: { id: payment.id },
+          transaction: t,
+          lock: t.LOCK.UPDATE,
+        });
+
+        if (!lockedPayment) {
+          const err = new Error("پرداخت یافت نشد");
+          err.status = 400;
+          throw err;
+        }
+
+        if (lockedPayment.status === "paid") return;
+
+        const result = await finalizeRecoveryAfterPaid({
+          order: lockedOrder,
+          transaction: t,
+          trackingCode,
+          refNum,
+        });
+
+        await lockedPayment.update(
+          {
+            status: "paid",
+            provider_payment_id: trackingCode,
+            raw_callback: { data, verify, paid_at: new Date() },
+          },
+          { transaction: t },
+        );
+
+        if (result?.notify) {
+          notifyRecoveryId = result.recovery_id;
+        }
+      });
+
+      if (notifyRecoveryId) {
+        // اطلاع‌رسانی به PHP بعد از commit و بدون بلوکه کردن redirect
+        notifyPhpRecoveryPaid(notifyRecoveryId).catch((err) =>
+          console.error("[recovery] notify error:", err?.message),
+        );
+      }
+
+      return res.redirect(baseSite + "/account/challenges?recovery=success");
+    } catch (err) {
+      console.error("callbackRecovery ERROR:", err);
+
+      return this.response({
+        res,
+        status: err.status || 500,
+        message: err?.message || "خطای سرور در پردازش پرداخت بازیابی",
       });
     }
   }

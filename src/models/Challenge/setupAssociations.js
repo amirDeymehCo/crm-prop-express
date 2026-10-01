@@ -1,6 +1,7 @@
 const User = require("../User");
 const Admin = require("../Admin");
 const ChallengeRejection = require("../ChallengeRejection");
+const ChallengeRecovery = require("../ChallengeRecovery");
 
 const ChallengeType = require("./ChallengeType");
 const ChallengePlan = require("./ChallengePlan");
@@ -183,6 +184,28 @@ function setupChallengeAssociations() {
   });
   ChallengeRejection.belongsTo(UserChallenge, {
     foreignKey: "user_challenge_id",
+  });
+
+  // بازیابی حساب
+  User.hasMany(ChallengeRecovery, {
+    foreignKey: "user_id",
+  });
+  ChallengeRecovery.belongsTo(User, {
+    foreignKey: "user_id",
+  });
+
+  UserChallenge.hasMany(ChallengeRecovery, {
+    foreignKey: "user_challenge_id",
+  });
+  ChallengeRecovery.belongsTo(UserChallenge, {
+    foreignKey: "user_challenge_id",
+  });
+
+  AccountInstance.hasMany(ChallengeRecovery, {
+    foreignKey: "account_instance_id",
+  });
+  ChallengeRecovery.belongsTo(AccountInstance, {
+    foreignKey: "account_instance_id",
   });
 }
 

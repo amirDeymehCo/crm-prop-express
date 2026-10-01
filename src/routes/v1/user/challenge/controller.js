@@ -27,6 +27,17 @@ const { Op } = require("sequelize");
 const {
   fetchFullAccountAnalysis,
 } = require("../../../..//services/AnalysisUser/accountAnalysisService");
+const ChallengeRecovery = require("../../../../models/ChallengeRecovery");
+const {
+  listUserRecoveries,
+  attachRecoveryToChallenges,
+  getOpenRecoveryMap,
+  getPayableRecoveryOrder,
+  payRecoveryWithWallet,
+  finalizeRecoveryAfterPaid,
+  notifyPhpRecoveryPaid,
+  RECOVERY_STATUS,
+} = require("../../../../services/Recovery");
 
 const Controller = class extends Controllers {
   async getPlansList(req, res) {
@@ -368,7 +379,13 @@ const Controller = class extends Controllers {
         "createdAt",
         "updatedAt",
       ],
+      order: [["id", "ASC"]],
     });
+
+    // فاکتور بازِ بازیابی را روی همین لیست سوار می‌کنیم تا دکمه‌ی
+    // «بازیابی حساب» بدون درخواست دوم قابل ساخت باشد (برای چالش‌های
+    // بدون فاکتور، مقدار null است).
+    list.items = await attachRecoveryToChallenges(list.items);
 
     this.response({ res, message: "لیست چالش های کاربر", data: list });
   }
@@ -412,11 +429,16 @@ const Controller = class extends Controllers {
           "کاربر مای پراپ، چالشی با این شناسه یافت نشد لطفا دوباره امتحان کنید",
       });
 
+    const recoveryMap = await getOpenRecoveryMap([singleCh.id]);
+
     this.response({
       res,
       status: 200,
       message: "اطلاعات چالش",
-      data: singleCh,
+      data: {
+        ...singleCh.toJSON(),
+        recovery: recoveryMap.get(singleCh.id) ?? null,
+      },
     });
   }
   async checkCopun(req, res) {
@@ -1327,6 +1349,208 @@ const Controller = class extends Controllers {
       message: "اطلاعات اکانت شما",
       data: { dataAccount },
     });
+  }
+
+  /**
+   * GET /api/v1/user/challenge/recovery-offers
+   *
+   * فاکتورهای بازِ «بازیابی حساب» کاربر — همان چیزی که دکمه‌ی بازیابی در لیست
+   * چالش‌ها از آن تغذیه می‌شود.
+   */
+  async recoveryOffers(req, res) {
+    const data = await listUserRecoveries(req.user.id);
+
+    return this.response({
+      res,
+      message: "لیست فاکتورهای بازیابی حساب",
+      data,
+    });
+  }
+
+  /**
+   * POST /api/v1/user/challenge/pay-recovery
+   * body: { recovery_id, gateway: "wallet" | "peykan" | "nowpayments" }
+   *
+   * پرداخت فاکتوری که ادمین‌های سمت PHP برای بازیابی حساب ثبت کرده‌اند.
+   * عمداً از payPendingChallenge جداست: آن مسیر چالش را فاینالایز می‌کند و
+   * حساب جدید می‌سازد، در حالی که بازیابی باید همان حساب قبلی را احیا کند.
+   */
+  async payRecovery(req, res) {
+    const t = await sequelize.transaction();
+
+    let notifyRecoveryId = null;
+
+    try {
+      const { recovery_id, gateway } = req.body || {};
+
+      if (!recovery_id) {
+        await t.rollback();
+
+        return this.response({
+          res,
+          status: 400,
+          message: "شناسه فاکتور بازیابی ارسال نشده است",
+        });
+      }
+
+      const recovery = await ChallengeRecovery.findOne({
+        where: {
+          id: recovery_id,
+          user_id: req.user.id,
+          status: [
+            RECOVERY_STATUS.PENDING_PAYMENT,
+            RECOVERY_STATUS.PARTIALLY_PAID,
+          ],
+        },
+        transaction: t,
+        lock: t.LOCK.UPDATE,
+      });
+
+      if (!recovery) {
+        await t.rollback();
+
+        return this.response({
+          res,
+          status: 400,
+          message: "فاکتور بازیابی قابل پرداختی پیدا نشد",
+        });
+      }
+
+      // مهلت فقط روی فاکتورِ دست‌نخورده معنی دارد؛ اگر قسط اول پرداخت شده
+      // نباید کاربر را وسط راه رها کنیم.
+      if (
+        recovery.status === RECOVERY_STATUS.PENDING_PAYMENT &&
+        recovery.expires_at &&
+        new Date(recovery.expires_at).getTime() < Date.now()
+      ) {
+        await recovery.update(
+          { status: RECOVERY_STATUS.EXPIRED },
+          { transaction: t },
+        );
+
+        await Order.update(
+          { status: "expired" },
+          {
+            where: {
+              order_group_id: recovery.order_group_id,
+              status: "pending",
+            },
+            transaction: t,
+          },
+        );
+
+        await t.commit();
+
+        return this.response({
+          res,
+          status: 400,
+          message: "مهلت این فاکتور بازیابی تمام شده است",
+        });
+      }
+
+      const order = await getPayableRecoveryOrder({
+        recovery,
+        transaction: t,
+      });
+
+      const amountUsd = Number(order.final_amount_usd ?? order.amount_usd ?? 0);
+
+      // پرداخت با کیف پول
+      if (gateway === "wallet") {
+        await payRecoveryWithWallet({
+          userId: req.user.id,
+          order,
+          transaction: t,
+        });
+
+        const result = await finalizeRecoveryAfterPaid({
+          order,
+          transaction: t,
+          trackingCode: `WALLET-${Date.now()}`,
+        });
+
+        await t.commit();
+
+        if (result.notify) {
+          notifyRecoveryId = result.recovery_id;
+        }
+
+        if (notifyRecoveryId) {
+          // اطلاع‌رسانی به PHP نباید پاسخ کاربر را بلوکه یا fail کند
+          notifyPhpRecoveryPaid(notifyRecoveryId).catch((err) =>
+            console.error("[recovery] notify error:", err?.message),
+          );
+        }
+
+        return this.response({
+          res,
+          message: result.revived
+            ? "پرداخت موفق بود و حساب شما بازیابی شد"
+            : "پرداخت موفق بود",
+          data: {
+            recovery_id: recovery.id,
+            user_challenge_id: recovery.user_challenge_id,
+            fully_paid: result.fully_paid,
+            revived: result.revived,
+          },
+        });
+      }
+
+      // درگاه‌ها: قبل از redirect باید تراکنش بسته شود
+      await t.commit();
+
+      if (gateway === "peykan") {
+        const callbackBase =
+          process.env.CRM_API_BASE_URL || "https://api-crm.myprop.trade/api/v1";
+
+        const { redirectUrl } = await paykanService({
+          userId: req.user.id,
+          amountUsd,
+          userChallenge: recovery.user_challenge_id,
+          callback_url: `${callbackBase}/global/callback-peykan-recovery`,
+          type: "challenge_recovery",
+          // سفارش از قبل ساخته شده؛ بدون این دو، paykanService یک سفارش
+          // تکراری می‌سازد و فاکتور اصلی pending می‌ماند.
+          createOrder: false,
+          orderSelect: order,
+        });
+
+        return this.response({
+          res,
+          message: "در حال انتقال به درگاه...",
+          data: { url: redirectUrl },
+        });
+      }
+
+      if (gateway === "nowpayments") {
+        const { invoiceUrl } = await createDepositUSDInvoice({
+          amountUsd,
+          user: req.user,
+        });
+
+        return this.response({
+          res,
+          message: "در حال انتقال به درگاه...",
+          data: { url: invoiceUrl },
+        });
+      }
+
+      return this.response({
+        res,
+        status: 400,
+        message: "درگاه نامعتبر است",
+      });
+    } catch (err) {
+      console.error("payRecovery ERROR:", err);
+
+      if (!t.finished) await t.rollback();
+
+      return this.response({
+        res,
+        status: err.status || 500,
+        message: err.message || "خطای سرور",
+      });
+    }
   }
 };
 

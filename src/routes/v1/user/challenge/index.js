@@ -41,6 +41,13 @@ router
   .get(
     "/get-analysis-data/:mt_login",
     asyncHandler(Controller.getAnalysisData),
+  )
+  // بازیابی حساب
+  .get("/recovery-offers", asyncHandler(Controller.recoveryOffers))
+  .post(
+    "/pay-recovery",
+    Controller.validationBody,
+    asyncHandler(Controller.payRecovery),
   );
 
 module.exports = router;

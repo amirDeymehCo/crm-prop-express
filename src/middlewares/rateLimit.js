@@ -75,8 +75,28 @@ const userStrictLimiter = rateLimit({
     },
 });
 
+/**
+ * 🤝 Partner routes (server-to-server از پنل PHP)
+ *
+ * سرویس PHP از یک IP ثابت می‌آید و ممکن است دسته‌ای صدا بزند؛
+ * سقف globalLimiter برای آن خیلی کم است. (در src/index.js مسیر partner از
+ * لیمیتر گلوبال مستثنا شده و فقط این رویش اعمال می‌شود.)
+ */
+const partnerLimiter = rateLimit({
+    windowMs: 5 * 60 * 1000,
+    max: Number(process.env.PARTNER_RATE_LIMIT || 600),
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req, res) => ipKeyGenerator(req, res),
+    message: {
+        status: 429,
+        message: "تعداد درخواست‌ها بیش از حد مجاز است.",
+    },
+});
+
 module.exports = {
     globalLimiter,
+    partnerLimiter,
     authLimiter,
     otpLimiter,
     userStrictLimiter,

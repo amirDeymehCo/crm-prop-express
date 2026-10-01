@@ -18,6 +18,7 @@ const Order = sequelize.define(
         "wallet_deposit",
         "wallet_withdraw",
         "challenge_insurance_repurchase",
+        "challenge_recovery",
       ),
       allowNull: false,
     },

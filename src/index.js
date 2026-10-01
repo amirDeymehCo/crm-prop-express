@@ -171,8 +171,16 @@ app.use(
 
 /**
  * Global Rate Limit
+ *
+ * مسیر partner (سرویس‌به‌سرویس با پنل PHP) از یک IP ثابت می‌آید و
+ * با سقف ۲۰۰ درخواستی گلوبال زود می‌خورد به دیوار؛ لیمیتر اختصاصی
+ * خودش در routes/v1/partner اعمال می‌شود.
  */
-app.use(globalLimiter);
+app.use((req, res, next) => {
+  if (req.path.startsWith("/api/v1/partner")) return next();
+
+  return globalLimiter(req, res, next);
+});
 
 /**
  * پاکسازی query string
