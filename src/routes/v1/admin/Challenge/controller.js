@@ -929,10 +929,8 @@ const Controller = class extends Controllers {
         .map(
           (item, index) => `
           <tr>
-            <td>${item.gateway_order_id ?? "-"}</td>
             <td>${getUserFullName(item)}</td>
             <td>${item.gateway || "-"}</td>
-            <td>${item.type || "-"}</td>
             <td>
               <span class="badge badge-${item.status || "default"}">
                 ${item.status || "-"}
@@ -1130,10 +1128,8 @@ const Controller = class extends Controllers {
             <table>
               <thead>
                 <tr>
-                  <th style="width: 70px;">شماره سفارش</th>
                   <th style="width: 140px;">نام کاربر</th>
                   <th style="width: 90px;">درگاه</th>
-                  <th style="width: 90px;">نوع</th>
                   <th style="width: 90px;">وضعیت</th>
                   <th style="width: 95px;">مبلغ دلاری</th>
                   <th style="width: 110px;">مبلغ ریالی</th>

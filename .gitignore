@@ -2,3 +2,9 @@
 /out
 /uploads
 /all-permissions.json
+
+# Backup system: the live config holds production SSH details, and keys must
+# never be committed. Copy backup.config.example.psd1 on the backup server.
+/backup/backup.config.psd1
+/backup/*.pub
+/backup/id_*
