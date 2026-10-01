@@ -10,10 +10,15 @@ const {
 const {
   round2,
   normalizeLogins,
-  getBasePriceUsd,
   findAccountsByLogins,
   fullName,
 } = require("./helpers");
+
+const {
+  buildFallbackPlanMatcher,
+  needsFallbackPlan,
+  resolveChallengePricing,
+} = require("./pricing");
 
 /**
  * دلیل اینکه یک حساب قابل بازیابی نیست — همین کدها عیناً به PHP برمی‌گردند.
@@ -107,22 +112,56 @@ async function lookupRecoveryAccounts({ mt_logins }) {
     }
   }
 
-  // آخرین سفارش پرداخت‌شده‌ی هر چالش — «قیمتی که دفعه‌ی قبل داد»
+  // همه‌ی سفارش‌های پرداخت‌شده — مبنای «چقدر تا امروز داده»
   const paidOrders = challengeIds.length
     ? await Order.findAll({
         where: { user_challenge_id: challengeIds, status: "paid" },
-        attributes: ["id", "user_challenge_id", "final_amount_usd", "paid_at"],
+        attributes: [
+          "id",
+          "user_challenge_id",
+          "type",
+          "gateway",
+          "amount_usd",
+          "discount_usd",
+          "final_amount_usd",
+          "coupon_code_snapshot",
+          "paid_at",
+        ],
         order: [["id", "DESC"]],
       })
     : [];
 
-  const lastPaidByChallenge = new Map();
+  const paidByChallenge = new Map();
 
   for (const order of paidOrders) {
-    if (!lastPaidByChallenge.has(order.user_challenge_id)) {
-      lastPaidByChallenge.set(order.user_challenge_id, order);
+    const list = paidByChallenge.get(order.user_challenge_id) || [];
+    list.push(order);
+    paidByChallenge.set(order.user_challenge_id, list);
+  }
+
+  // سفارش‌های دستی: نه اسنپ‌شات قیمت دارند نه پلنِ قیمت‌دار؛ برای آن‌ها پلن را
+  // از روی تایپ + بالانسِ حساب پیدا می‌کنیم.
+  const fallbackNeeds = [];
+
+  for (const account of byLogin.values()) {
+    const challenge = account.UserChallenge;
+
+    if (!challenge) continue;
+
+    const needs = needsFallbackPlan({
+      userChallenge: challenge,
+      plan: challenge.ChallengePlan,
+    });
+
+    if (needs) {
+      fallbackNeeds.push({
+        challengeTypeId: Number(challenge.challenge_type_id),
+        balanceUsd: Number(account.starting_balance_usd || 0),
+      });
     }
   }
+
+  const matchPlan = await buildFallbackPlanMatcher(fallbackNeeds);
 
   const items = logins.map((login) => {
     const account = byLogin.get(login);
@@ -140,7 +179,14 @@ async function lookupRecoveryAccounts({ mt_logins }) {
     const plan = challenge.ChallengePlan;
     const user = account.User;
     const recovery = recoveryByChallenge.get(challenge.id) || null;
-    const lastPaid = lastPaidByChallenge.get(challenge.id) || null;
+
+    const pricing = resolveChallengePricing({
+      userChallenge: challenge,
+      plan,
+      account,
+      paidOrders: paidByChallenge.get(challenge.id) || [],
+      matchPlan,
+    });
 
     let reason = null;
 
@@ -184,15 +230,7 @@ async function lookupRecoveryAccounts({ mt_logins }) {
         starting_balance_usd: Number(account.starting_balance_usd || 0),
       },
 
-      pricing: {
-        // قیمت پایه‌ی پلن در لحظه‌ی خرید
-        original_price_usd: getBasePriceUsd(challenge, plan),
-        // مجموع چیزی که تا امروز بابت این چالش پرداخت کرده
-        paid_total_usd: round2(challenge.paid_amount_usd || 0),
-        // آخرین فاکتور پرداخت‌شده
-        last_paid_amount_usd: lastPaid ? round2(lastPaid.final_amount_usd) : null,
-        last_paid_at: lastPaid?.paid_at ?? null,
-      },
+      pricing,
 
       open_recovery: recovery
         ? {

@@ -149,6 +149,8 @@ const Controller = class extends Controllers {
     const listChats = await Message.findAll({
       where: { ticket_id: findTicket?.id },
       include: [{ model: Admin, attributes: ["id", "name"] }],
+      // ترتیب مکالمه: قدیم→جدید (برعکس بقیه لیست‌ها) تا پیام‌ها پشت سر هم خوانده شوند
+      order: [["createdAt", "ASC"]],
     });
 
     this.response({
@@ -249,7 +251,9 @@ const Controller = class extends Controllers {
     });
   }
   async autoMessages(req, res) {
-    const list = await AutoMessage.findAll();
+    const list = await AutoMessage.findAll({
+      order: [["createdAt", "DESC"]],
+    });
 
     this.response({ res, status: 200, data: list });
   }
@@ -261,6 +265,7 @@ const Controller = class extends Controllers {
   async notesList(req, res) {
     const list = await TicketNots.findAll({
       where: { ticket_id: req?.params?.id },
+      order: [["createdAt", "DESC"]],
       include: [
         {
           model: Admin,
@@ -326,6 +331,7 @@ const Controller = class extends Controllers {
   async adminLists(req, res) {
     const list = await Admin.findAll({
       attributes: ["id", "name", "mobile"],
+      order: [["createdAt", "DESC"]],
       // where: { role: "support" },
     });
 

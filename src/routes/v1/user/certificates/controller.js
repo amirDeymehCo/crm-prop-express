@@ -10,6 +10,7 @@ const Controller = class extends Controllers {
   async list(req, res) {
     const listCarts = await Certificates.findAll({
       where: { user_id: req?.user?.id },
+      order: [["createdAt", "DESC"]],
     });
 
     this.response({ res, status: 200, data: listCarts });
@@ -65,6 +66,7 @@ const Controller = class extends Controllers {
           [Op.gt]: 1,
         },
       },
+      order: [["createdAt", "DESC"]],
       attributes: ["id", "current_phase_index"],
       include: [
         {

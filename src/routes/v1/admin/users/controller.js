@@ -446,6 +446,7 @@ const Controller = class extends Controllers {
   async listNots(req, res) {
     const nots = await UserNote.findAll({
       where: { user_id: req?.params?.user_id },
+      order: [["createdAt", "DESC"]],
       include: [
         {
           model: Admin,

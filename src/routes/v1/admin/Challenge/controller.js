@@ -715,6 +715,7 @@ const Controller = class extends Controllers {
   async rejectedRasions(req, res) {
     const list = await ChallengeRejectReason.findAll({
       where: { is_active: 1 },
+      order: [["createdAt", "DESC"]],
     });
 
     this.response({ res, status: 200, data: list });
@@ -857,6 +858,7 @@ const Controller = class extends Controllers {
   async notsList(req, res) {
     const notsList = await ChallengeNote.findAll({
       where: { user_challenge_id: req?.params?.user_challenge_id },
+      order: [["createdAt", "DESC"]],
     });
 
     this.response({ res, data: notsList });

@@ -673,6 +673,8 @@ const Controller = class extends Controllers {
           model: ChallengePlan,
         },
       ],
+      // هم‌راستا با همین اندپوینت در user/challenge: پلن‌ها بر اساس بالانس
+      order: [[{ model: ChallengePlan }, "balance", "ASC"]],
     });
 
     listTypes.forEach((type) => {
@@ -703,6 +705,8 @@ const Controller = class extends Controllers {
 
     const details = await ChallengePhase?.findAll({
       where,
+      // فازها ترتیب معنادار دارند (1، 2، ریل) و نباید برعکس شوند
+      order: [["phase_index", "ASC"]],
     });
 
     this.response({

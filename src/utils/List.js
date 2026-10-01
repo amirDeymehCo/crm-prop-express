@@ -10,6 +10,9 @@ const founcList = async (model, req, where = {}, otherProps = {}) => {
     limit,
     offset,
     distinct: true,
+    // پیش‌فرض مرتب‌سازی: جدیدترین رکورد اول. اگر کالر order خودش را بدهد،
+    // با spread پایین جایگزین همین مقدار می‌شود.
+    order: [["createdAt", "DESC"]],
     ...otherProps,
   });
 

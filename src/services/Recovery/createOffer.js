@@ -18,11 +18,16 @@ const {
   round2,
   parseJsonField,
   getDollarPrice,
-  getBasePriceUsd,
   buildRecoveryPricing,
   getLastGateway,
   findAccountByLogin,
 } = require("./helpers");
+
+const {
+  buildFallbackPlanMatcher,
+  needsFallbackPlan,
+  resolveChallengePricing,
+} = require("./pricing");
 
 /**
  * فاکتور یک قسط (یا کل مبلغ در پرداخت یکجا).
@@ -221,6 +226,44 @@ async function createRecoveryOffer({
       transaction: t,
     });
 
+    // قیمت قبلی را از هر منبعی که در دسترس است بازسازی می‌کنیم؛ برای
+    // سفارش‌های دستیِ مهاجرت‌شده از روی تایپ + بالانس حساب.
+    const matchPlan = needsFallbackPlan({ userChallenge, plan })
+      ? await buildFallbackPlanMatcher(
+          [
+            {
+              challengeTypeId: Number(userChallenge.challenge_type_id),
+              balanceUsd: Number(account.starting_balance_usd || 0),
+            },
+          ],
+          t,
+        )
+      : null;
+
+    const purchaseOrders = await Order.findAll({
+      where: { user_challenge_id: userChallenge.id, status: "paid" },
+      attributes: [
+        "id",
+        "type",
+        "gateway",
+        "amount_usd",
+        "discount_usd",
+        "final_amount_usd",
+        "coupon_code_snapshot",
+        "paid_at",
+      ],
+      order: [["id", "DESC"]],
+      transaction: t,
+    });
+
+    const previousPricing = resolveChallengePricing({
+      userChallenge,
+      plan,
+      account,
+      paidOrders: purchaseOrders,
+      matchPlan,
+    });
+
     const dollarPrice = await getDollarPrice(t);
 
     const planMode =
@@ -252,7 +295,7 @@ async function createRecoveryOffer({
         status: RECOVERY_STATUS.PENDING_PAYMENT,
         payment_plan: planMode,
 
-        previous_price_usd: getBasePriceUsd(userChallenge, plan),
+        previous_price_usd: previousPricing.original_price_usd,
         offer_price_usd: pricing.totalUsd,
         offer_price_irr: pricing.totalIrr,
 
@@ -271,6 +314,12 @@ async function createRecoveryOffer({
           dollar_price_at_offer: dollarPrice,
           replaced_recovery_ids: cancelledIds,
           platform: account.platform,
+          // ردِ اینکه «قیمت قبلی» از کجا آمده — برای سفارش‌های دستی مهم است
+          previous_price_source: previousPricing.price_source,
+          previous_list_total_usd: previousPricing.list_total_usd,
+          previous_paid_total_usd: previousPricing.paid_total_usd,
+          previous_paid_source: previousPricing.paid_source,
+          previous_price_is_estimated: previousPricing.is_estimated,
         },
       },
       { transaction: t },
@@ -316,6 +365,10 @@ async function createRecoveryOffer({
       status: recovery.status,
       payment_plan: planMode,
       previous_price_usd: round2(recovery.previous_price_usd),
+      previous_price_source: previousPricing.price_source,
+      previous_list_total_usd: previousPricing.list_total_usd,
+      previous_paid_total_usd: previousPricing.paid_total_usd,
+      previous_price_is_estimated: previousPricing.is_estimated,
       offer_price_usd: pricing.totalUsd,
       offer_price_irr: pricing.totalIrr,
       first_amount_usd: pricing.first.totalUsd,

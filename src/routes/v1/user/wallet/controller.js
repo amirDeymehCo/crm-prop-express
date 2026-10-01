@@ -395,6 +395,7 @@ const Controller = class extends Controllers {
 
     const walletTx = await WalletTransaction.findAll({
       where: walletWhere,
+      order: [["createdAt", "DESC"]],
       attributes: [
         "id",
         "type",
@@ -415,6 +416,7 @@ const Controller = class extends Controllers {
 
     const orders = await Order.findAll({
       where: orderWhere,
+      order: [["createdAt", "DESC"]],
       attributes: [
         "id",
         ["type", "type"],
@@ -430,7 +432,7 @@ const Controller = class extends Controllers {
     let items = [...walletTx, ...orders];
 
     // 5. sort (newest first)
-    items.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    items.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
     // 6. pagination (in-memory)
     const totalCount = items.length;

@@ -64,6 +64,8 @@ const Controller = class extends Controllers {
   async getPhase(req, res) {
     const details = await ChallengePhase?.findAll({
       where: { challenge_plan_id: req?.params?.planId },
+      // فازها ترتیب معنادار دارند (1، 2، ریل) و نباید برعکس شوند
+      order: [["phase_index", "ASC"]],
     });
 
     this.response({

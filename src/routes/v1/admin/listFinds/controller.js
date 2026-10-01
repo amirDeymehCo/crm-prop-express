@@ -85,7 +85,9 @@ const Controller = class extends Controllers {
     });
   }
   async rejectedOptions(req, res) {
-    const options = await CallRejectReason.findAll();
+    const options = await CallRejectReason.findAll({
+      order: [["createdAt", "DESC"]],
+    });
 
     const newFormat = options?.map((e) => ({
       id: e?.id,
@@ -95,7 +97,9 @@ const Controller = class extends Controllers {
     this.response({ res, data: newFormat });
   }
   async resultOptions(req, res) {
-    const options = await CallResultOption.findAll();
+    const options = await CallResultOption.findAll({
+      order: [["createdAt", "DESC"]],
+    });
 
     const newFormat = options?.map((e) => ({
       id: e?.id,
@@ -112,6 +116,7 @@ const Controller = class extends Controllers {
 
     const list = await UserChallenges.findAll({
       where,
+      order: [["createdAt", "DESC"]],
       attributes: ["id", "status", "current_phase_index"],
       include: [
         {
@@ -213,7 +218,9 @@ const Controller = class extends Controllers {
   }
 
   async typeChallenge(req, res) {
-    const list = await ChallengeType.findAll();
+    const list = await ChallengeType.findAll({
+      order: [["createdAt", "DESC"]],
+    });
 
     const newList = list?.map((e, i) => ({ value: e?.id, label: e?.name }));
     this.response({ res, data: newList });
@@ -222,6 +229,7 @@ const Controller = class extends Controllers {
     const list = await ChallengePlan.findAll({
       where: { challenge_type_id: req?.params?.type },
       attributes: ["id", "title", "balance"],
+      order: [["createdAt", "DESC"]],
     });
 
     const newList = list?.map((e, i) => ({
@@ -232,7 +240,9 @@ const Controller = class extends Controllers {
     this.response({ res, data: newList });
   }
   async admins(req, res) {
-    const adminsList = await Admin.findAll();
+    const adminsList = await Admin.findAll({
+      order: [["createdAt", "DESC"]],
+    });
 
     const newFormat = adminsList?.map((e, i) => ({
       value: e?.id,

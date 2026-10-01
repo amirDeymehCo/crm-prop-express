@@ -60,6 +60,8 @@ const getAll = async ({
     where: filters,
     limit: limit,
     offset: offset,
+    // پیش‌فرض مرتب‌سازی: جدیدترین رکورد اول (قابل override با otherProps)
+    order: [["createdAt", "DESC"]],
     ...otherProps,
   });
 

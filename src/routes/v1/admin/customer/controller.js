@@ -33,6 +33,7 @@ const Controller = class extends Controllers {
     const userChallenge = await UserChallenge.findAll({
       where: { user_id: findUser?.id },
       attributes: { exclude: ["mt_password", "mt_server", "in_password"] },
+      order: [["createdAt", "DESC"]],
     });
 
     this.response({
@@ -473,6 +474,7 @@ const Controller = class extends Controllers {
   async userChallenges(req, res) {
     const list = await UserChallenge.findAll({
       where: { user_id: req?.params?.user_id },
+      order: [["createdAt", "DESC"]],
       include: [
         {
           model: ChallengePlan,
@@ -493,6 +495,7 @@ const Controller = class extends Controllers {
   async historyCalls(req, res) {
     const callsList = await Call.findAll({
       where: { user_id: req?.params?.user_id },
+      order: [["createdAt", "DESC"]],
       include: [
         { model: Admin, attributes: ["id", "name", "avatar"], as: "admin" },
       ],
@@ -503,6 +506,7 @@ const Controller = class extends Controllers {
   async historyMessages(req, res) {
     const messagesList = await SmsMessage.findAll({
       where: { user_id: req?.params?.user_id },
+      order: [["createdAt", "DESC"]],
       include: [
         { model: Admin, attributes: ["id", "name", "avatar"], as: "admin" },
       ],

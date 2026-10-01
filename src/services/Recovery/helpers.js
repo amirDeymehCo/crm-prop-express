@@ -170,6 +170,9 @@ async function findAccountsByLogins(logins, transaction) {
           "status",
           "current_phase_index",
           "platform",
+          // برای پیدا کردن پلن جایگزین در سفارش‌های دستی
+          "challenge_type_id",
+          "challenge_plan_id",
           "payment_plan",
           "payment_status",
           "price_usd",
@@ -178,6 +181,9 @@ async function findAccountsByLogins(logins, transaction) {
           "paid_base_amount_usd",
           "has_insurance",
           "insurance_status",
+          // برای بازسازی مبلغ کل
+          "insurance_fee_usd",
+          "floating_risk_enabled",
           "rules_snapshot",
           "ended_at",
           "updatedAt",
@@ -185,7 +191,19 @@ async function findAccountsByLogins(logins, transaction) {
         include: [
           {
             model: ChallengePlan,
-            attributes: ["id", "title", "balance", "price_usd"],
+            attributes: [
+              "id",
+              "title",
+              "balance",
+              "price_usd",
+              // لازم برای محاسبه‌ی حق بیمه و هزینه ریسک شناور وقتی روی
+              // خود چالش ذخیره نشده‌اند (سفارش‌های دستی)
+              "allow_insurance",
+              "insurance_fee_type",
+              "insurance_value",
+              "has_floating_risk",
+              "floating_risk_fee",
+            ],
             include: [{ model: ChallengeType, attributes: ["id", "name"] }],
           },
         ],

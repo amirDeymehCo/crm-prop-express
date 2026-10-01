@@ -1,5 +1,6 @@
 const constants = require("./constants");
 const helpers = require("./helpers");
+const pricing = require("./pricing");
 const { lookupRecoveryAccounts, INELIGIBLE } = require("./lookupAccounts");
 const {
   createRecoveryOffer,
@@ -28,6 +29,16 @@ const { payRecoveryWithWallet } = require("./walletPay");
 module.exports = {
   ...constants,
   helpers,
+  pricing,
+
+  // محاسبه‌ی قیمت (مخصوصاً سفارش‌های دستی با مبلغ صفر)
+  PRICE_SOURCE: pricing.PRICE_SOURCE,
+  PAID_SOURCE: pricing.PAID_SOURCE,
+  resolveChallengePricing: pricing.resolveChallengePricing,
+  buildFallbackPlanMatcher: pricing.buildFallbackPlanMatcher,
+  needsFallbackPlan: pricing.needsFallbackPlan,
+  calcInsuranceFeeUsd: pricing.calcInsuranceFeeUsd,
+  calcFloatingRiskFeeUsd: pricing.calcFloatingRiskFeeUsd,
 
   // API ۱ — استعلام دسته‌ای برای تیم فروش
   lookupRecoveryAccounts,

@@ -11,6 +11,7 @@ const Controller = class extends Controllers {
 
         const list = await UserChallenges.findAll({
             where,
+            order: [["createdAt", "DESC"]],
             attributes: ["id", "status", "current_phase_index"], include: [{
                 model: ChallengePlan,
                 attributes: ["id", "title", "balance"],

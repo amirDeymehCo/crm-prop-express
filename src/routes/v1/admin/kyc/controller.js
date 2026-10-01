@@ -109,6 +109,8 @@ const Controller = class extends Controllers {
       });
     const listChats = await Message.findAll({
       where: { ticket_id: findTicket?.id },
+      // ترتیب مکالمه: قدیم→جدید (برعکس بقیه لیست‌ها) تا پیام‌ها پشت سر هم خوانده شوند
+      order: [["createdAt", "ASC"]],
     });
 
     this.response({

@@ -112,9 +112,17 @@ POST /api/v1/partner/recovery/accounts
         },
         "pricing": {
           "original_price_usd": 10,
+          "price_source": "rules_snapshot",
+          "insurance_fee_usd": 3,
+          "floating_risk_fee_usd": 0,
+          "list_total_usd": 13,
           "paid_total_usd": 6.5,
+          "paid_source": "orders",
           "last_paid_amount_usd": 3.25,
-          "last_paid_at": "2026-08-02T08:00:00.000Z"
+          "last_paid_at": "2026-08-02T08:00:00.000Z",
+          "is_estimated": false,
+          "balance_usd": 10000,
+          "pricing_plan_id": 4
         },
         "open_recovery": null
       },
@@ -149,9 +157,50 @@ POST /api/v1/partner/recovery/accounts
 
 - خروجی عمداً سبک است (بدون `rules_snapshot` و بدون تاریخچه) چون روی لیست‌های
   چندصدتایی صدا زده می‌شود. اگر فیلد دیگری لازم داشتید بگویید اضافه کنیم.
-- `pricing.original_price_usd` قیمت پایه‌ی پلن **در لحظه‌ی خرید** است (اسنپ‌شات)،
-  نه قیمت امروزِ پلن. همین عددی است که فروشنده باید روی آن تخفیف بدهد.
-- `pricing.paid_total_usd` مجموع چیزی است که کاربر تا امروز بابت این چالش داده.
+### بلوک `pricing` — مهم
+
+بخشی از چالش‌ها دستی از سیستم قبلی وارد شده‌اند و سفارششان با مبلغ صفر ثبت شده.
+برای آن‌ها هیچ رکورد پرداخت واقعی وجود ندارد، پس قیمت از روی **پلن + تایپ + بالانسِ
+حساب** بازسازی می‌شود تا کارشناس فروش هیچ‌وقت عدد صفر نبیند.
+
+| فیلد | معنی |
+|---|---|
+| `original_price_usd` | قیمت پایه‌ی پلن — **همان عددی که باید روی آن تخفیف داد** |
+| `price_source` | این قیمت از کجا آمده (جدول پایین) |
+| `insurance_fee_usd` | حق بیمه‌ی این چالش (۰ اگر بیمه نداشته) |
+| `floating_risk_fee_usd` | هزینه‌ی ریسک شناور (فقط وقتی کاربر آن را خاموش کرده باشد) |
+| `list_total_usd` | **کل مبلغی که این چالش در می‌آید** = پایه + بیمه + ریسک شناور |
+| `paid_total_usd` | مجموع پرداخت‌های واقعی برای خرید اصلی |
+| `paid_source` | `orders` \| `challenge_row` \| `none` |
+| `last_paid_amount_usd` | آخرین فاکتور پرداخت‌شده (`null` اگر نبوده) |
+| `is_estimated` | **`true` یعنی هیچ پرداخت واقعی پیدا نشد** و عددها از پلن بازسازی شده‌اند |
+| `balance_usd` | بالانسی که قیمت بر اساس آن حساب شده |
+| `pricing_plan_id` | پلنی که برای محاسبه استفاده شد (ممکن است با `challenge_plan_id` فرق کند) |
+
+**مقادیر `price_source` به ترتیب اولویت:**
+
+| مقدار | معنی | اتکا |
+|---|---|---|
+| `rules_snapshot` | اسنپ‌شات لحظه‌ی خرید روی خود چالش | دقیق‌ترین |
+| `plan` | قیمت فعلی پلنِ متصل به چالش | خوب |
+| `plan_by_type_balance` | پلن از روی `challenge_type_id` + بالانس حساب پیدا شد — **حالت سفارش‌های دستی** | محاسبه‌شده |
+| `challenge_row` | ستون `price_usd` خود چالش (فقط خرید یکجا) | ضعیف |
+| `unknown` | هیچ منبعی نبود؛ `original_price_usd` صفر است | قیمت دستی بدهید |
+
+**چند نکته‌ی ریز ولی مهم:**
+
+- `original_price_usd` قیمت **پایه** است، بدون بیمه. اگر می‌خواهید بگویید «قبلاً
+  چقدر داده بود»، `list_total_usd` یا `paid_total_usd` را نگاه کنید نه این را.
+- وقتی `price_source` برابر `challenge_row` است فقط برای خرید یکجا برگردانده
+  می‌شود؛ در خرید قسطی این ستون مبلغ **قسط اول** را نگه می‌دارد نه کل قیمت، پس
+  عمداً استفاده نمی‌شود و به جایش `unknown` برمی‌گردد.
+- `paid_total_usd` سفارش‌های خودِ **بازیابی** را حساب نمی‌کند، تا مبنای تخفیف
+  همان خرید اصلی بماند.
+- سفارش‌های دستی اغلب `final_amount_usd = 0` دارند ولی مبلغ واقعی در
+  `amount_usd` مانده؛ این حالت تشخیص داده و درست جمع زده می‌شود. در عوض سفارشِ
+  رایگانِ واقعی (کوپن ۱۰۰٪) همان صفر می‌ماند.
+- اگر `is_estimated: true` بود یعنی این کاربر عملاً رکورد پرداختی ندارد — خوب است
+  در پنل فروش با یک نشانه مشخص شود تا کارشناس بداند عدد تخمینی است.
 - ترتیب `items` دقیقاً همان ترتیب `mt_logins` ارسالی است.
 
 ---
@@ -200,6 +249,10 @@ POST /api/v1/partner/recovery/offers
     "status": "pending_payment",
     "payment_plan": "installment",
     "previous_price_usd": 10,
+    "previous_price_source": "rules_snapshot",
+    "previous_list_total_usd": 13,
+    "previous_paid_total_usd": 13,
+    "previous_price_is_estimated": false,
     "offer_price_usd": 7,
     "offer_price_irr": 6300000,
     "first_amount_usd": 3.5,
@@ -226,6 +279,10 @@ POST /api/v1/partner/recovery/offers
   `409` با `code: "recovery_in_progress"`.
 - اگر چالش `closed` نباشد → `409` با `code: "challenge_not_closed"`.
 - اگر لاگین پیدا نشود → `404` با `code: "account_not_found"`.
+
+`previous_*` ها همان اعداد بلوک `pricing` در API ۱ هستند که در لحظه‌ی ساخت
+فاکتور قفل می‌شوند؛ برای سفارش‌های دستی هم محاسبه می‌شوند و روی رکورد بازیابی
+ذخیره می‌مانند تا بعداً بشود فهمید تخفیف روی چه مبنایی داده شده.
 
 **درباره‌ی اقساط**
 

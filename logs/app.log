@@ -2403,3 +2403,7 @@
 {"level":30,"time":1787483487900,"pid":7512,"hostname":"abi-computer","msg":"DB Connected"}
 {"level":30,"time":1787483496695,"pid":7512,"hostname":"abi-computer","msg":"DB Sync done"}
 {"level":30,"time":1787483496695,"pid":7512,"hostname":"abi-computer","msg":"Database initialized successfully"}
+{"level":30,"time":1790851356887,"pid":10784,"hostname":"abi-computer","msg":"Server running on port 8078"}
+{"level":30,"time":1790851356939,"pid":10784,"hostname":"abi-computer","msg":"DB Connected"}
+{"level":30,"time":1790851357043,"pid":10784,"hostname":"abi-computer","msg":"Cron jobs loaded"}
+{"level":30,"time":1790851357043,"pid":10784,"hostname":"abi-computer","msg":"Database initialized successfully"}
