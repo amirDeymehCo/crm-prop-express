@@ -18,8 +18,26 @@ const CALLBACK_STATUS = {
 // نوع Order ای که برای بازیابی ساخته می‌شود
 const RECOVERY_ORDER_TYPE = "challenge_recovery";
 
-// فقط چالشی که در این وضعیت باشد قابل بازیابی است
+// وضعیتی که «رد شده» محسوب می‌شود
 const RECOVERABLE_CHALLENGE_STATUS = "closed";
+
+/**
+ * آیا چالش حتماً باید در پنل ما "closed" باشد تا بتوان برایش فاکتور بازیابی زد؟
+ *
+ * ⚠️ فعلاً false است، به درخواست تیم: ممکن است چالشی سمت cTrader رد شده باشد
+ * ولی در پنل ما هنوز به closed تغییر نکرده باشد. تا وقتی آن دو طرف هماهنگ
+ * نشده‌اند، شرط برداشته شده.
+ *
+ * وقتی هماهنگ‌سازی cTrader ↔ پنل انجام شد، این را true کنید؛ هم createOffer
+ * دوباره ۴۰۹ می‌دهد و هم lookup دوباره eligible=false برمی‌گرداند. جای دیگری
+ * لازم نیست عوض شود.
+ *
+ * نکته‌ی امنیتیِ باقی‌مانده: گیتِ واقعی «وجود داشتن حساب» است. فاکتور فقط وقتی
+ * ساخته می‌شود که یک account_instance با آن لاگین پیدا شود، و چالش‌هایی که هرگز
+ * پرداخت/فعال نشده‌اند حسابی ندارند — پس با برداشتن این شرط هم چالشِ
+ * پرداخت‌نشده بازیابی نمی‌خورد.
+ */
+const REQUIRE_CLOSED_CHALLENGE = false;
 
 // حداکثر تعداد mt_login در یک درخواست استعلام
 const MAX_LOOKUP_LOGINS = 200;
@@ -51,6 +69,7 @@ module.exports = {
   CALLBACK_STATUS,
   RECOVERY_ORDER_TYPE,
   RECOVERABLE_CHALLENGE_STATUS,
+  REQUIRE_CLOSED_CHALLENGE,
   MAX_LOOKUP_LOGINS,
   PHASE_STATUS,
   PHASE_TITLE,

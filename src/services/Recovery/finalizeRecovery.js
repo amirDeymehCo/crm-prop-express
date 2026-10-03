@@ -48,6 +48,15 @@ async function reviveChallenge({ recovery, transaction }) {
       })
     : null;
 
+  // اگر چالش هنوز بسته نشده بوده (شرط closed برداشته شده)، احیا عملاً دارد یک
+  // چالشِ زنده را به فاز اسنپ‌شات‌شده و بالانس اولیه برمی‌گرداند. جلویش را
+  // نمی‌گیریم، ولی ردش را نگه می‌داریم.
+  if (userChallenge.status !== "closed") {
+    console.warn(
+      `[recovery] reviving a non-closed challenge: uc=${userChallenge.id} status=${userChallenge.status} recovery=${recovery.id}`,
+    );
+  }
+
   const phaseIndex = Number(recovery.phase_index || 1);
 
   const phaseId = await findPhaseId({

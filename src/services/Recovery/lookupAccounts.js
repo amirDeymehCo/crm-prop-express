@@ -4,6 +4,7 @@ const Order = require("../../models/Order");
 const {
   RECOVERY_STATUS,
   RECOVERABLE_CHALLENGE_STATUS,
+  REQUIRE_CLOSED_CHALLENGE,
   MAX_LOOKUP_LOGINS,
 } = require("./constants");
 
@@ -28,6 +29,14 @@ const INELIGIBLE = {
   CHALLENGE_NOT_FOUND: "challenge_not_found",
   CHALLENGE_NOT_CLOSED: "challenge_not_closed",
   RECOVERY_IN_PROGRESS: "recovery_in_progress",
+};
+
+/**
+ * هشدارهای غیرِبازدارنده — `eligible` را false نمی‌کنند، فقط به کارشناس فروش
+ * می‌گویند حواسش باشد.
+ */
+const WARNING = {
+  CHALLENGE_NOT_CLOSED: "challenge_not_closed",
 };
 
 /**
@@ -167,13 +176,25 @@ async function lookupRecoveryAccounts({ mt_logins }) {
     const account = byLogin.get(login);
 
     if (!account) {
-      return { mt_login: login, found: false, eligible: false, reason: INELIGIBLE.ACCOUNT_NOT_FOUND };
+      return {
+        mt_login: login,
+        found: false,
+        eligible: false,
+        reason: INELIGIBLE.ACCOUNT_NOT_FOUND,
+        warning: null,
+      };
     }
 
     const challenge = account.UserChallenge;
 
     if (!challenge) {
-      return { mt_login: login, found: false, eligible: false, reason: INELIGIBLE.CHALLENGE_NOT_FOUND };
+      return {
+        mt_login: login,
+        found: false,
+        eligible: false,
+        reason: INELIGIBLE.CHALLENGE_NOT_FOUND,
+        warning: null,
+      };
     }
 
     const plan = challenge.ChallengePlan;
@@ -188,20 +209,27 @@ async function lookupRecoveryAccounts({ mt_logins }) {
       matchPlan,
     });
 
+    const isClosed = challenge.status === RECOVERABLE_CHALLENGE_STATUS;
+
     let reason = null;
 
-    if (challenge.status !== RECOVERABLE_CHALLENGE_STATUS) {
+    if (REQUIRE_CLOSED_CHALLENGE && !isClosed) {
       reason = INELIGIBLE.CHALLENGE_NOT_CLOSED;
     } else if (recovery && recovery.status === RECOVERY_STATUS.PARTIALLY_PAID) {
       // قسط اول پرداخت شده؛ تا تسویه نشود فاکتور جدید معنی ندارد
       reason = INELIGIBLE.RECOVERY_IN_PROGRESS;
     }
 
+    // بازدارنده نیست، فقط هشدار: چالش در پنل ما رد نشده. تا وقتی cTrader و پنل
+    // هماهنگ نشده‌اند، کارشناس فروش باید این را ببیند.
+    const warning = isClosed ? null : WARNING.CHALLENGE_NOT_CLOSED;
+
     return {
       mt_login: login,
       found: true,
       eligible: reason === null,
       reason,
+      warning,
 
       user: {
         id: user?.id ?? challenge.user_id,
@@ -261,4 +289,4 @@ async function lookupRecoveryAccounts({ mt_logins }) {
   };
 }
 
-module.exports = { lookupRecoveryAccounts, INELIGIBLE };
+module.exports = { lookupRecoveryAccounts, INELIGIBLE, WARNING };

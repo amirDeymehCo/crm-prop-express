@@ -11,6 +11,7 @@ const {
   RECOVERY_STATUS,
   RECOVERY_ORDER_TYPE,
   RECOVERABLE_CHALLENGE_STATUS,
+  REQUIRE_CLOSED_CHALLENGE,
   PHASE_TITLE,
 } = require("./constants");
 
@@ -185,10 +186,19 @@ async function createRecoveryOffer({
       });
     }
 
-    if (userChallenge.status !== RECOVERABLE_CHALLENGE_STATUS) {
+    const isClosed = userChallenge.status === RECOVERABLE_CHALLENGE_STATUS;
+
+    // شرط «حتماً رد شده باشد» فعلاً برداشته شده — به constants.js نگاه کن.
+    if (REQUIRE_CLOSED_CHALLENGE && !isClosed) {
       throw Object.assign(
         new Error("این چالش رد نشده است و قابل بازیابی نیست"),
         { status: 409, code: "challenge_not_closed" },
+      );
+    }
+
+    if (!isClosed) {
+      console.warn(
+        `[recovery] offer on a non-closed challenge: uc=${userChallenge.id} status=${userChallenge.status} login=${mt_login}`,
       );
     }
 
@@ -320,6 +330,10 @@ async function createRecoveryOffer({
           previous_paid_total_usd: previousPricing.paid_total_usd,
           previous_paid_source: previousPricing.paid_source,
           previous_price_is_estimated: previousPricing.is_estimated,
+          // وضعیت چالش در لحظه‌ی ثبت فاکتور — برای هماهنگ‌سازی بعدیِ
+          // cTrader با پنل لازم می‌شود
+          challenge_status_at_offer: userChallenge.status,
+          challenge_was_closed: isClosed,
         },
       },
       { transaction: t },
@@ -349,7 +363,10 @@ async function createRecoveryOffer({
           (agent ? ` — کارشناس: ${agent}` : "") +
           (cancelledIds.length
             ? ` — فاکتور قبلی شماره ${cancelledIds.join(", ")} باطل شد`
-            : ""),
+            : "") +
+          (isClosed
+            ? ""
+            : ` — ⚠️ چالش در پنل وضعیت «${userChallenge.status}» داشت و رد نشده بود`),
       },
       { transaction: t },
     );
@@ -363,6 +380,8 @@ async function createRecoveryOffer({
       mt_login: recovery.mt_login,
       phase_index: phaseIndex,
       status: recovery.status,
+      challenge_status: userChallenge.status,
+      challenge_was_closed: isClosed,
       payment_plan: planMode,
       previous_price_usd: round2(recovery.previous_price_usd),
       previous_price_source: previousPricing.price_source,
