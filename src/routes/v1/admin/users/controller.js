@@ -66,7 +66,7 @@ const Controller = class extends Controllers {
         "kyc_steep",
         "kyc_status",
       ],
-      order: [["id", "ASC"]],
+      order: [["createdAt", "DESC"]],
     });
 
     this.response({ res, message: "لیست کاربران", data: list });

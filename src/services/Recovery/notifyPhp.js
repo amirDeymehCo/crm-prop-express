@@ -2,19 +2,25 @@ const axios = require("axios");
 const axiosRetry = require("axios-retry").default;
 
 const ChallengeRecovery = require("../../models/ChallengeRecovery");
-const User = require("../../models/User");
-const AccountInstance = require("../../models/Challenge/AccountInstance");
 
-const { CALLBACK_STATUS, RECOVERY_STATUS } = require("./constants");
+const { CALLBACK_STATUS } = require("./constants");
 const { parseJsonField } = require("./helpers");
 
 /**
  * فراخوانی سرویس PHP بعد از پرداخت موفق بازیابی.
  *
- * ⚠️ آدرس و کلید این سرویس هنوز از تیم PHP نرسیده است. تا وقتی
- * PHP_RECOVERY_CALLBACK_URL ست نشده باشد، رکورد روی callback_status = "pending"
- * می‌ماند و با retryPendingCallbacks بعداً ارسال می‌شود — پرداخت کاربر به‌هیچ‌وجه
- * به این فراخوانی گره نخورده است.
+ * قرارداد (از تیم PHP):
+ *
+ *   POST https://propmanager.myprop.trade/api/recovery/paid
+ *   X-API-Key: <همان PARTNER_API_KEY>
+ *   { "mt_login": "520114" }
+ *
+ * بدنه عمداً دقیقاً همین یک فیلد است و نه بیشتر. اگر بعداً فیلد دیگری خواستند
+ * (مثلاً phase_index یا recovery_id) فقط buildPayload عوض می‌شود.
+ *
+ * تا وقتی PHP_RECOVERY_CALLBACK_URL ست نشده باشد، رکورد روی
+ * callback_status = "pending" می‌ماند و با retryPendingCallbacks بعداً ارسال
+ * می‌شود — پرداخت کاربر به‌هیچ‌وجه به این فراخوانی گره نخورده است.
  */
 const client = axios.create({
   timeout: Number(process.env.PHP_RECOVERY_TIMEOUT || 15000),
@@ -32,70 +38,23 @@ axiosRetry(client, {
 });
 
 /**
- * بدنه‌ای که به PHP پست می‌شود.
+ * بدنه‌ای که به PHP پست می‌شود — عیناً قرارداد بالا.
  *
- * اگر تیم PHP ساختار دیگری خواست، فقط همین تابع باید عوض شود.
+ * sync است و هیچ کوئری‌ای نمی‌زند؛ mt_login روی خود رکورد بازیابی اسنپ‌شات شده.
  */
-async function buildPayload(recovery) {
-  const [user, account] = await Promise.all([
-    User.findByPk(recovery.user_id, {
-      attributes: ["id", "firstname", "lastname", "mobile", "email", "legacy_user_id"],
-    }),
-    recovery.account_instance_id
-      ? AccountInstance.findByPk(recovery.account_instance_id, {
-          attributes: [
-            "id",
-            "platform",
-            "mt_login",
-            "platform_login",
-            "mt_server",
-            "mt_group",
-            "starting_balance_usd",
-          ],
-        })
-      : null,
-  ]);
+function buildPayload(recovery) {
+  return { mt_login: recovery.mt_login };
+}
 
-  return {
-    event: "challenge_recovery_paid",
-
-    recovery_id: recovery.id,
-    external_ref: recovery.external_ref,
-
-    mt_login: recovery.mt_login,
-    platform: account?.platform ?? null,
-    mt_server: account?.mt_server ?? null,
-    mt_group: account?.mt_group ?? null,
-
-    user_challenge_id: recovery.user_challenge_id,
-    account_instance_id: recovery.account_instance_id,
-
-    // فازی که حساب باید در آن ادامه پیدا کند
-    phase_index: recovery.phase_index,
-    starting_balance_usd: account
-      ? Number(account.starting_balance_usd || 0)
-      : null,
-
-    user: {
-      id: user?.id ?? recovery.user_id,
-      full_name: [user?.firstname, user?.lastname].filter(Boolean).join(" "),
-      mobile: user?.mobile ?? null,
-      email: user?.email ?? null,
-      legacy_user_id: user?.legacy_user_id ?? null,
-    },
-
-    payment: {
-      payment_plan: recovery.payment_plan,
-      offer_price_usd: Number(recovery.offer_price_usd),
-      paid_amount_usd: Number(recovery.paid_amount_usd),
-      fully_paid: recovery.status === RECOVERY_STATUS.PAID,
-      first_paid_at: recovery.first_paid_at,
-      second_paid_at: recovery.second_paid_at,
-    },
-
-    revived_at: recovery.revived_at,
-    sent_at: new Date().toISOString(),
-  };
+/**
+ * کلیدی که در هدر X-API-Key فرستاده می‌شود.
+ *
+ * طبق تصمیم خودِ تیم، همان PARTNER_API_KEY است. اگر روزی خواستند کلید
+ * رفت‌و‌برگشت جدا باشد، فقط PHP_RECOVERY_API_KEY را در .env پر کنید و همین
+ * تابع ترجیحش می‌دهد — جای دیگری لازم نیست عوض شود.
+ */
+function outboundApiKey() {
+  return process.env.PHP_RECOVERY_API_KEY || process.env.PARTNER_API_KEY || null;
 }
 
 /**
@@ -128,13 +87,14 @@ async function notifyPhpRecoveryPaid(recoveryId) {
     return { ok: false, reason: "callback_url_not_configured" };
   }
 
-  const payload = await buildPayload(recovery);
+  const payload = buildPayload(recovery);
 
   try {
     const headers = {};
+    const apiKey = outboundApiKey();
 
-    if (process.env.PHP_RECOVERY_API_KEY) {
-      headers["X-API-Key"] = process.env.PHP_RECOVERY_API_KEY;
+    if (apiKey) {
+      headers["X-API-Key"] = apiKey;
     }
 
     const { status, data } = await client.post(url, payload, { headers });
@@ -203,4 +163,9 @@ async function retryPendingCallbacks({ limit = 50 } = {}) {
   };
 }
 
-module.exports = { notifyPhpRecoveryPaid, retryPendingCallbacks, buildPayload };
+module.exports = {
+  notifyPhpRecoveryPaid,
+  retryPendingCallbacks,
+  buildPayload,
+  outboundApiKey,
+};

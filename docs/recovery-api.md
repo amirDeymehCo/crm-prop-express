@@ -15,9 +15,9 @@
 5. بلافاصله بعد از آن، ما **API ۳** (که PHP باید بدهد) را صدا می‌زنیم تا شما
    ریست حساب را سمت پلتفرم معاملاتی انجام دهید.
 
-> ⚠️ آدرس API ۳ هنوز نرسیده. تا وقتی `PHP_RECOVERY_CALLBACK_URL` ست نشده باشد،
-> پرداخت‌ها کامل انجام می‌شوند و اطلاع‌رسانی‌ها در صف می‌مانند؛ بعداً با یک
-> درخواست (`/recovery/callbacks/retry`) همه‌شان ارسال می‌شوند.
+> آدرس API ۳ تنظیم شده: `https://propmanager.myprop.trade/api/recovery/paid`.
+> اگر این سرویس موقتاً بالا نباشد، پرداخت‌ها کامل انجام می‌شوند و اطلاع‌رسانی‌ها در
+> صف می‌مانند؛ با `POST /recovery/callbacks/retry` همه‌شان دوباره ارسال می‌شوند.
 
 ---
 
@@ -361,67 +361,44 @@ POST /api/v1/partner/recovery/offers/{recovery_id}/cancel
 
 ---
 
-## API ۳ — چیزی که **شما** باید بدهید
+## API ۳ — فراخوانی سمت PHP (قرارداد نهایی)
 
-بعد از پرداخت موفق و احیای حساب، ما این درخواست را به آدرسی که بدهید می‌فرستیم:
+بعد از پرداخت موفق و احیای حساب، ما **دقیقاً** این درخواست را می‌فرستیم:
 
-```
-POST <PHP_RECOVERY_CALLBACK_URL>
-X-API-Key: <PHP_RECOVERY_API_KEY>
+```http
+POST https://propmanager.myprop.trade/api/recovery/paid
+X-API-Key: <همان PARTNER_API_KEY>
 Content-Type: application/json
+
+{ "mt_login": "520114" }
 ```
 
-```json
-{
-  "event": "challenge_recovery_paid",
-  "recovery_id": 14,
-  "external_ref": "php-offer-991",
+بدنه عمداً فقط همین یک فیلد است. تست‌شده روی سیم:
 
-  "mt_login": "520114",
-  "platform": "ctrader",
-  "mt_server": "MyProp-Live",
-  "mt_group": "real\\MyProp\\P2",
-
-  "user_challenge_id": 1902,
-  "account_instance_id": 3301,
-
-  "phase_index": 2,
-  "starting_balance_usd": 10000,
-
-  "user": {
-    "id": 412,
-    "full_name": "علی رضایی",
-    "mobile": "09120000000",
-    "email": "ali@example.com",
-    "legacy_user_id": "8731"
-  },
-
-  "payment": {
-    "payment_plan": "installment",
-    "offer_price_usd": 7,
-    "paid_amount_usd": 3.5,
-    "fully_paid": false,
-    "first_paid_at": "2026-10-02T09:12:00.000Z",
-    "second_paid_at": null
-  },
-
-  "revived_at": "2026-10-02T09:12:00.000Z",
-  "sent_at": "2026-10-02T09:12:01.000Z"
-}
-```
+| | |
+|---|---|
+| متد | `POST` |
+| مسیر | `/api/recovery/paid` |
+| `X-API-Key` | همان مقدار `PARTNER_API_KEY` (کلید دوطرفه است) |
+| `Content-Type` | `application/json` |
+| بدنه | `{"mt_login":"520114"}` — بدون فیلد اضافه |
 
 **انتظار ما از پاسخ شما**
 
 - کد `2xx` یعنی گرفتید. اگر بدنه‌ی JSON برگردانید و `ok` در آن `false` باشد،
   ناموفق حساب می‌شود و دوباره تلاش می‌کنیم.
 - هر کد دیگری → `callback_status` روی `failed` می‌رود و قابل ارسال مجدد است.
-- **حتماً idempotent باشد**: ممکن است یک `recovery_id` دوبار برسد.
+- **حتماً idempotent باشد**: ما تا موفق‌شدن دوباره تلاش می‌کنیم، پس ممکن است یک
+  `mt_login` چند بار برسد. چون بدنه فقط `mt_login` دارد، سمت شما راهی نیست که
+  تلاش مجدد را از یک بازیابیِ واقعاً جدید تشخیص بدهد — اگر این برایتان مهم است،
+  بگویید `recovery_id` را هم اضافه کنیم (یک خط تغییر است).
 
-**کاری که سمت شما باید انجام شود:** ریست حساب `mt_login` روی پلتفرم معاملاتی به
-`starting_balance_usd` و فعال کردن آن در گروه `phase_index`.
+**کاری که سمت شما باید انجام شود:** ریست حساب `mt_login` روی پلتفرم معاملاتی و
+فعال کردنش در فازی که قبلاً در آن بود.
 
-اگر ساختار بدنه را طور دیگری می‌خواهید، فقط تابع `buildPayload` در
-`src/services/Recovery/notifyPhp.js` باید عوض شود.
+> اگر لازم شد فیلد دیگری هم بفرستیم (مثل `phase_index`، `recovery_id` یا مبلغ
+> پرداختی)، فقط تابع `buildPayload` در
+> `src/services/Recovery/notifyPhp.js` عوض می‌شود.
 
 ### ⚠️ نکته‌ی باز درباره‌ی اقساط
 
@@ -487,7 +464,9 @@ PARTNER_RATE_LIMIT=600
 
 CRM_API_BASE_URL=https://api-crm.myprop.trade/api/v1
 
-PHP_RECOVERY_CALLBACK_URL=  # API ای که PHP می‌دهد (هنوز خالی)
+PHP_RECOVERY_CALLBACK_URL=https://propmanager.myprop.trade/api/recovery/paid
+
+# خالی بگذار: کلید ارسالی به PHP همان PARTNER_API_KEY می‌شود.
 PHP_RECOVERY_API_KEY=
 PHP_RECOVERY_TIMEOUT=15000
 ```
