@@ -162,6 +162,18 @@ const ChallengeRecovery = sequelize.define(
       allowNull: true,
     },
 
+    // ── یادآورهای پیامکی نزدیک به پایان مهلت ──
+    // هر کدام یک بار پر می‌شوند و همین جلوی ارسال تکراری را می‌گیرد.
+    reminder_5h_sent_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+
+    reminder_30m_sent_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+
     // وضعیت اطلاع‌رسانی به سرویس PHP بعد از پرداخت
     callback_status: {
       type: DataTypes.ENUM("pending", "sent", "failed", "skipped"),
@@ -199,6 +211,8 @@ const ChallengeRecovery = sequelize.define(
       { fields: ["mt_login"] },
       { fields: ["status"] },
       { fields: ["callback_status"] },
+      // کرونِ یادآور روی همین دو ستون فیلتر می‌کند
+      { fields: ["status", "expires_at"] },
       { fields: ["user_challenge_id", "status"] },
     ],
   },

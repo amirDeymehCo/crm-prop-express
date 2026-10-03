@@ -383,7 +383,7 @@ const Controller = class extends Controllers {
           },
           separate: true,
           limit: 1,
-          order: [["createdAt", "DESC"]],
+          order: [["createdAt", "ASC"]],
           required: false,
         },
       ],
@@ -400,7 +400,7 @@ const Controller = class extends Controllers {
         "createdAt",
         "updatedAt",
       ],
-      order: [["id", "ASC"]],
+      order: [["createdAt", "DESC"]],
     });
 
     // فاکتور بازِ بازیابی را روی همین لیست سوار می‌کنیم تا دکمه‌ی

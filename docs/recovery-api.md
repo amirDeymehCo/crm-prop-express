@@ -456,6 +456,94 @@ POST /api/v1/partner/recovery/callbacks/retry
 
 ---
 
+## یادآور پیامکی پایان مهلت
+
+اگر فاکتور `expires_at` داشته باشد، دو پیامک خودکار می‌رود:
+
+| مرحله | چه زمانی | ستون ضد‌تکرار |
+|---|---|---|
+| ۵ ساعته | وقتی باقی‌مانده ≤ ۵ ساعت شود | `reminder_5h_sent_at` |
+| ۳۰ دقیقه‌ای | وقتی باقی‌مانده ≤ ۳۰ دقیقه شود | `reminder_30m_sent_at` |
+
+کرون هر ۵ دقیقه اجرا می‌شود (`src/crons/RecoveryReminders`) و با
+`ENABLE_CRONS=true` فعال است.
+
+**فقط فاکتور `pending_payment` هدف است.** فاکتور `partially_paid` عمداً کنار
+گذاشته شده: کاربر قسط اول را داده و حسابش احیا شده، مهلت دیگر برایش معنی ندارد.
+
+نمونه‌ی متن (یکجا، ۴۸ دلاری):
+
+```
+حسین عزیز، می‌دونیم از دست دادن حساب 5K سخت بود.
+با 48 دلار همون حساب از همون مرحله برمی‌گرده. کمتر از ۵ ساعت فرصت داری:
+https://myprop.trade/account/challenges
+```
+
+```
+حسین عزیز، کمتر از ۳۰ دقیقه تا پایان فرصت بازیابی حساب 5K.
+با 48 دلار برمی‌گرده؛ بعدش فقط چالش جدید با قیمت کامل:
+https://myprop.trade/account/challenges
+```
+
+**نکته‌های پیاده‌سازی**
+
+- در فاکتور قسطی مبلغ **قسط اول** نوشته می‌شود نه کل مبلغ؛ نوشتن کل مبلغ نرخ
+  تبدیل را پایین می‌آورد.
+- «کمتر از ۵ ساعت» نوشته شده نه «۵ ساعت»، چون کرون هر ۵ دقیقه اجرا می‌شود.
+- اگر فاکتور از اول مهلت کوتاهی داشته باشد (مثلاً ۲۰ دقیقه)، فقط پیامک
+  ۳۰ دقیقه‌ای می‌رود و مرحله‌ی ۵ ساعته «رد شده» علامت می‌خورد.
+- قبل از ارسال، مرحله روی ستون خودش **رزرو** می‌شود (آپدیت شرطی)، پس حتی اگر
+  دو نسخه از کرون همزمان بالا باشند پیامک دو بار نمی‌رود. اگر ارسال شکست
+  بخورد رزرو آزاد می‌شود تا اجرای بعدی دوباره تلاش کند.
+- هر ارسال در جدول `SmsMessages` با `target = "recovery_reminder"` لاگ می‌شود.
+- کاربر بدون موبایل رد می‌شود و مرحله‌اش بسته می‌شود (پیامک بی‌مقصد نمی‌رود).
+- **هزینه:** هر پیامک ۳ بخش است (فارسی = ۷۰ کاراکتر در هر بخش) → ۶ بخش به ازای
+  هر کاربر. خودِ لینک ۳۹ کاراکتر است؛ اگر دامنه‌ی کوتاه‌کننده داشته باشید به
+  ۲ بخش می‌رسد. متن‌ها در `src/services/Recovery/reminders.js` قابل ویرایش‌اند.
+
+---
+
+## پنل ادمین
+
+روی لیست و جزئیات چالش‌های ادمین، اطلاع بازیابی هم برمی‌گردد.
+
+`GET /api/v1/admin/Challenge/list` — هر ردیف یک فیلد `recovery` دارد (یا `null`):
+
+```json
+{
+  "open": {
+    "recovery_id": 14,
+    "status": "pending_payment",
+    "mt_login": "520114",
+    "phase_index": 2,
+    "payment_plan": "installment",
+    "previous_price_usd": 10,
+    "offer_price_usd": 7,
+    "paid_amount_usd": 0,
+    "remaining_amount_usd": 7,
+    "agent_label": "سلیمانی",
+    "external_ref": "php-offer-991",
+    "expires_at": "2026-10-15T00:00:00.000Z",
+    "created_at": "2026-10-03T09:00:00.000Z",
+    "payable_order": { "id": 8842, "installment_number": 1, "amount_usd": 3.5, "amount_irr": 3150000 }
+  },
+  "counts": { "total": 3, "open": 1, "paid": 1, "cancelled": 1, "expired": 0 },
+  "last_paid_at": "2026-09-20T11:00:00.000Z",
+  "pending_php_callback": false
+}
+```
+
+`GET /api/v1/admin/Challenge/find/:id` — یک آرایه‌ی `recoveries` با **تاریخچه‌ی
+کامل** (شامل باطل‌شده و منقضی) تا ادمین مذاکره‌ی قیمت را دنبال کند: ۱۰ بود، شد
+۷، بعد ۵. هر آیتم همان شکل `GET /partner/recovery/offers/:id` را دارد، یعنی
+`callback_status` و `callback_last_error` هم داخلش هست.
+
+`pending_php_callback: true` یعنی حساب احیا شده ولی اطلاع‌رسانی به سرویس PHP
+نرسیده — ارزش دارد در پنل با یک نشانه مشخص شود، چون یعنی حساب کاربر سمت
+پلتفرم معاملاتی هنوز ریست نشده.
+
+---
+
 ## تنظیمات `.env`
 
 ```ini
@@ -509,6 +597,8 @@ CREATE TABLE IF NOT EXISTS `challenge_recoveries` (
   `callback_attempts` INTEGER NOT NULL DEFAULT 0,
   `callback_last_error` TEXT,
   `callback_sent_at` DATETIME,
+  `reminder_5h_sent_at` DATETIME,
+  `reminder_30m_sent_at` DATETIME,
   `meta` JSON,
   `createdAt` DATETIME NOT NULL,
   `updatedAt` DATETIME NOT NULL,
@@ -519,7 +609,8 @@ CREATE TABLE IF NOT EXISTS `challenge_recoveries` (
   KEY `cr_mt_login` (`mt_login`),
   KEY `cr_status` (`status`),
   KEY `cr_callback_status` (`callback_status`),
-  KEY `cr_challenge_status` (`user_challenge_id`,`status`)
+  KEY `cr_challenge_status` (`user_challenge_id`,`status`),
+  KEY `cr_status_expires` (`status`,`expires_at`)
 ) ENGINE=InnoDB;
 
 ALTER TABLE `orders`
@@ -531,6 +622,22 @@ ALTER TABLE `orders`
     'challenge_insurance_repurchase',
     'challenge_recovery'
   ) NOT NULL;
+
+-- اگر جدول challenge_recoveries از قبل ساخته شده، فقط این دو ستون را اضافه کن:
+ALTER TABLE `challenge_recoveries`
+  ADD COLUMN `reminder_5h_sent_at` DATETIME NULL,
+  ADD COLUMN `reminder_30m_sent_at` DATETIME NULL,
+  ADD INDEX `cr_status_expires` (`status`,`expires_at`);
+
+ALTER TABLE `SmsMessages`
+  MODIFY `target` ENUM(
+    'new_user',
+    'returning_user',
+    'discount',
+    'festival',
+    'CAMPAIGN',
+    'recovery_reminder'
+  ) NULL;
 
 ALTER TABLE `history_challenge`
   MODIFY `type` ENUM(

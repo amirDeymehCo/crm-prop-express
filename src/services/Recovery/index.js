@@ -15,6 +15,9 @@ const {
   serializeRecovery,
   getOpenRecoveryMap,
   attachRecoveryToChallenges,
+  getRecoveryAdminMap,
+  attachRecoveryToAdminChallenges,
+  listChallengeRecoveries,
 } = require("./offers");
 const {
   finalizeRecoveryAfterPaid,
@@ -25,6 +28,12 @@ const {
   retryPendingCallbacks,
 } = require("./notifyPhp");
 const { payRecoveryWithWallet } = require("./walletPay");
+const {
+  sendExpiryReminders,
+  build5hMessage,
+  build30mMessage,
+  REMINDER_STAGES,
+} = require("./reminders");
 
 module.exports = {
   ...constants,
@@ -58,10 +67,21 @@ module.exports = {
   getOpenRecoveryMap,
   attachRecoveryToChallenges,
 
+  // پنل ادمین
+  getRecoveryAdminMap,
+  attachRecoveryToAdminChallenges,
+  listChallengeRecoveries,
+
   // پرداخت و احیا
   finalizeRecoveryAfterPaid,
   reviveChallenge,
   payRecoveryWithWallet,
+
+  // یادآور پیامکی پایان مهلت
+  sendExpiryReminders,
+  build5hMessage,
+  build30mMessage,
+  REMINDER_STAGES,
 
   // API ۳ — اطلاع‌رسانی به PHP
   notifyPhpRecoveryPaid,

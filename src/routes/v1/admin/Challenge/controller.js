@@ -16,6 +16,10 @@ const ChallengeNote = require("../../../../models/ChallengeNote");
 const sequelize = require("../../../../../db");
 // const CreateMTUser = require("../../../../services/BuyCh/CreateMTUser");
 const founcList = require("../../../../utils/List");
+const {
+  attachRecoveryToAdminChallenges,
+  listChallengeRecoveries,
+} = require("../../../../services/Recovery");
 const createChFounc = require("../../../../services/BuyCh/CreateCh");
 const fs = require("fs");
 const path = require("path");
@@ -583,6 +587,10 @@ const Controller = class extends Controllers {
       order: [["createdAt", "DESC"]],
     });
 
+    // اطلاع بازیابی روی هر ردیف — فاکتور باز + شمارش تاریخچه
+    // (برای چالش‌های بدون بازیابی، null)
+    list.items = await attachRecoveryToAdminChallenges(list.items);
+
     this.response({ res, data: list });
   }
   async singleChallenge(req, res) {
@@ -646,11 +654,18 @@ const Controller = class extends Controllers {
           "ادمین مای پراپ، چالشی با این شناسه یافت نشد لطفا دوباره امتحان کنید",
       });
 
+    // تاریخچه‌ی کامل بازیابی‌ها، شامل باطل‌شده‌ها — تا ادمین مذاکره‌ی قیمت را
+    // ببیند و بفهمد اطلاع‌رسانی به PHP رفته یا گیر کرده
+    const recoveries = await listChallengeRecoveries(singleCh.id);
+
     this.response({
       res,
       status: 200,
       message: "اطلاعات چالش",
-      data: singleCh,
+      data: {
+        ...singleCh.toJSON(),
+        recoveries,
+      },
     });
   }
   async createChallenge(req, res, next) {

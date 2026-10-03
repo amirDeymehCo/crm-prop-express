@@ -394,6 +394,8 @@ async function initDatabase() {
      */
     if (process.env.ENABLE_CRONS === "true") {
       require("./crons/UpdateDollarPrice");
+      // یادآور پیامکی پایان مهلت بازیابی حساب (هر ۵ دقیقه)
+      require("./crons/RecoveryReminders");
       logger.info("Cron jobs loaded");
     }
 

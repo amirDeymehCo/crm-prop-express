@@ -394,10 +394,202 @@ async function attachRecoveryToChallenges(items) {
   });
 }
 
+/**
+ * خلاصه‌ی بازیابی برای **لیست پنل ادمین**.
+ *
+ * برعکس getOpenRecoveryMap که فقط فاکتور باز را می‌دهد، اینجا ادمین باید کل
+ * تصویر را ببیند: فاکتور باز + شمارش تاریخچه. ولی نه کامل — این روی لیست
+ * صفحه‌بندی‌شده صدا زده می‌شود، پس فقط اعداد و آخرین وضعیت برمی‌گردد.
+ *
+ * برای صفحه‌ی جزئیات از listChallengeRecoveries استفاده کن.
+ */
+async function getRecoveryAdminMap(challengeIds) {
+  const ids = [...new Set((challengeIds || []).filter(Boolean))];
+
+  if (!ids.length) return new Map();
+
+  const recoveries = await ChallengeRecovery.findAll({
+    where: { user_challenge_id: ids },
+    order: [["id", "DESC"]],
+  });
+
+  if (!recoveries.length) return new Map();
+
+  const openGroups = recoveries
+    .filter((r) => OPEN_STATUSES.includes(r.status))
+    .map((r) => r.order_group_id)
+    .filter(Boolean);
+
+  const payableOrders = openGroups.length
+    ? await Order.findAll({
+        where: {
+          order_group_id: openGroups,
+          type: RECOVERY_ORDER_TYPE,
+          status: "pending",
+        },
+        order: [
+          ["installment_number", "ASC"],
+          ["id", "ASC"],
+        ],
+      })
+    : [];
+
+  const payableByGroup = new Map();
+
+  for (const order of payableOrders) {
+    if (!payableByGroup.has(order.order_group_id)) {
+      payableByGroup.set(order.order_group_id, order);
+    }
+  }
+
+  const map = new Map();
+
+  for (const recovery of recoveries) {
+    const key = recovery.user_challenge_id;
+
+    if (!map.has(key)) {
+      map.set(key, {
+        open: null,
+        counts: { total: 0, open: 0, paid: 0, cancelled: 0, expired: 0 },
+        last_paid_at: null,
+        // اگر اطلاع‌رسانی به PHP گیر کرده، ادمین باید ببیند
+        pending_php_callback: false,
+      });
+    }
+
+    const entry = map.get(key);
+
+    entry.counts.total += 1;
+
+    if (recovery.status === RECOVERY_STATUS.PAID) entry.counts.paid += 1;
+    else if (recovery.status === RECOVERY_STATUS.CANCELLED) entry.counts.cancelled += 1;
+    else if (recovery.status === RECOVERY_STATUS.EXPIRED) entry.counts.expired += 1;
+
+    if (OPEN_STATUSES.includes(recovery.status)) {
+      entry.counts.open += 1;
+
+      // رکوردها id DESC مرتب‌اند، پس اولین بازی که دیده شود جدیدترین است
+      if (!entry.open) {
+        const payable = payableByGroup.get(recovery.order_group_id) || null;
+
+        entry.open = {
+          recovery_id: recovery.id,
+          status: recovery.status,
+          mt_login: recovery.mt_login,
+          phase_index: recovery.phase_index,
+          payment_plan: recovery.payment_plan,
+          previous_price_usd:
+            recovery.previous_price_usd == null
+              ? null
+              : round2(recovery.previous_price_usd),
+          offer_price_usd: round2(recovery.offer_price_usd),
+          paid_amount_usd: round2(recovery.paid_amount_usd),
+          remaining_amount_usd: round2(
+            Math.max(
+              Number(recovery.offer_price_usd || 0) -
+                Number(recovery.paid_amount_usd || 0),
+              0,
+            ),
+          ),
+          agent_label: recovery.agent_label,
+          external_ref: recovery.external_ref,
+          expires_at: recovery.expires_at,
+          created_at: recovery.createdAt,
+          payable_order: payable
+            ? {
+                id: payable.id,
+                installment_number: payable.installment_number,
+                amount_usd: round2(payable.final_amount_usd),
+                amount_irr: Number(payable.final_amount_irr || 0),
+              }
+            : null,
+        };
+      }
+    }
+
+    if (recovery.paid_at && !entry.last_paid_at) {
+      entry.last_paid_at = recovery.paid_at;
+    }
+
+    if (
+      recovery.revived_at &&
+      (recovery.callback_status === "pending" ||
+        recovery.callback_status === "failed")
+    ) {
+      entry.pending_php_callback = true;
+    }
+  }
+
+  return map;
+}
+
+/**
+ * فیلد recovery را به ردیف‌های لیست پنل ادمین می‌چسباند.
+ */
+async function attachRecoveryToAdminChallenges(items) {
+  const list = Array.isArray(items) ? items : [];
+
+  if (!list.length) return list;
+
+  const map = await getRecoveryAdminMap(list.map((i) => i.id));
+
+  return list.map((item) => {
+    const plain =
+      typeof item?.toJSON === "function" ? item.toJSON() : { ...item };
+
+    plain.recovery = map.get(plain.id) ?? null;
+
+    return plain;
+  });
+}
+
+/**
+ * تاریخچه‌ی کامل بازیابی‌های یک چالش — برای صفحه‌ی جزئیات پنل ادمین.
+ *
+ * همه‌ی وضعیت‌ها را برمی‌گرداند (باطل‌شده و منقضی هم)، چون ادمین باید بتواند
+ * مذاکره‌ی قیمت را دنبال کند: مثلاً ۱۰ دلار بود، شد ۷، بعد ۵.
+ */
+async function listChallengeRecoveries(challengeId) {
+  const recoveries = await ChallengeRecovery.findAll({
+    where: { user_challenge_id: challengeId },
+    order: [["id", "DESC"]],
+  });
+
+  if (!recoveries.length) return [];
+
+  const orders = await Order.findAll({
+    where: {
+      order_group_id: recoveries.map((r) => r.order_group_id).filter(Boolean),
+      type: RECOVERY_ORDER_TYPE,
+    },
+    order: [
+      ["installment_number", "ASC"],
+      ["id", "ASC"],
+    ],
+  });
+
+  const ordersByGroup = new Map();
+
+  for (const order of orders) {
+    const list = ordersByGroup.get(order.order_group_id) || [];
+    list.push(order);
+    ordersByGroup.set(order.order_group_id, list);
+  }
+
+  return recoveries.map((recovery) =>
+    serializeRecovery(recovery, {
+      orders: ordersByGroup.get(recovery.order_group_id) || [],
+    }),
+  );
+}
+
 module.exports = {
   OPEN_STATUSES,
   getOpenRecoveryMap,
   attachRecoveryToChallenges,
+  getRecoveryAdminMap,
+  attachRecoveryToAdminChallenges,
+  listChallengeRecoveries,
   serializeRecovery,
   getRecoveryOffer,
   cancelRecoveryOffer,
