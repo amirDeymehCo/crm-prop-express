@@ -573,6 +573,7 @@ const Controller = class extends Controllers {
         "status",
         "current_phase_index",
         "price_usd",
+        "paid_amount_usd",
         "floating_risk_enabled",
         "has_insurance",
         "coupon_code_snapshot",

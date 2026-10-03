@@ -94,12 +94,31 @@ const Controller = class extends Controllers {
         });
       }
 
-      // ✅ 2) اگر چالش رایگان است (final_price = 0) -> هیچ درگاهی نرو
+      // ✅ 2) مبلغ صفر -> هیچ درگاهی نرو
+      // ⛔️ «چالش رایگان» حذف شد: مبلغ صفر فقط وقتی قبول است که کد تخفیف
+      // ۱۰۰٪ کل سفارش را پوشش داده باشد. در غیر این صورت (قیمت پلن صفر،
+      // محاسبه‌ی اشتباه، دستکاری ریکوئست و ...) خرید رد می‌شود.
+      // createChFounc هم همین شرط را چک می‌کند؛ این یکی لایه‌ی دوم است تا
+      // اگر از مسیر دیگری سفارشِ صفر ساخته شد، چالش مجانی فعال نشود.
       if (amountUsd === 0) {
+        const zeroByFullCoupon =
+          Boolean(ch_data?.order?.coupon_id) &&
+          Number(ch_data?.order?.discount_usd || 0) > 0;
+
+        if (!zeroByFullCoupon) {
+          await t.rollback();
+          return this.response({
+            res,
+            status: 400,
+            message:
+              "مبلغ قابل پرداخت این چالش صفر است و امکان خرید وجود ندارد. لطفا با پشتیبانی تماس بگیرید.",
+          });
+        }
+
         const result = await finalizeChallengeAfterPaid({
           user: req?.user,
           orderId,
-          trackingCode: `COUPON-FREE-${Date.now()}`,
+          trackingCode: `COUPON-100-${Date.now()}`,
           refNum: null,
           t,
         });
@@ -109,7 +128,7 @@ const Controller = class extends Controllers {
         return this.response({
           res,
           status: 200,
-          message: "چالش با کد تخفیف رایگان شد و اکانت مرحله اول ساخته شد",
+          message: "کد تخفیف ۱۰۰٪ اعمال شد و اکانت مرحله اول چالش ساخته شد",
           data: {
             user_challenge_id: result.userChallenge.id,
             account_instance_id: result.acc.id,
@@ -685,10 +704,26 @@ const Controller = class extends Controllers {
           t,
         });
 
-      // 2) اگر رایگان
+      // 2) مبلغ صفر
+      // ⛔️ «چالش رایگان» حذف شد. سفارشی که با کد تخفیف ۱۰۰٪ صفر شده باشد
+      // همان لحظه‌ی ساخت paid می‌شود و اصلاً pending نمی‌ماند؛ پس رسیدن به
+      // اینجا با مبلغ صفر یعنی سفارش خراب است و نباید مجانی فعال شود.
       if (amountUsd === 0) {
+        const zeroByFullCoupon =
+          Boolean(order.coupon_id) && Number(order.discount_usd || 0) > 0;
+
+        if (!zeroByFullCoupon) {
+          await t.rollback();
+          return this.response({
+            res,
+            status: 400,
+            message:
+              "مبلغ این سفارش صفر است و امکان پرداخت/فعال‌سازی وجود ندارد. لطفا با پشتیبانی تماس بگیرید.",
+          });
+        }
+
         const result = await finalizePaid({
-          trackingCode: `FREE-${Date.now()}`,
+          trackingCode: `COUPON-100-${Date.now()}`,
           refNum: null,
         });
 
@@ -881,13 +916,19 @@ const Controller = class extends Controllers {
 
       const amountIrr = Number(userChallenge.remaining_amount_irr || 0);
 
-      if (!Number.isFinite(amountUsd) || amountUsd < 0) {
+      if (!Number.isFinite(amountUsd) || amountUsd <= 0) {
         await t.rollback();
 
+        // ⛔️ «چالش رایگان» حذف شد: قسط دوم صفر یعنی remaining_amount_usd
+        // خراب است (خرید اقساطی با کد تخفیف هم از اول ممنوع است)، پس نباید
+        // مرحله‌ی ریل را مجانی فعال کنیم.
         return this.response({
           res,
           status: 400,
-          message: "مبلغ قسط دوم نامعتبر است",
+          message:
+            amountUsd === 0
+              ? "مبلغ قسط دوم صفر است و امکان پرداخت وجود ندارد. لطفا با پشتیبانی تماس بگیرید."
+              : "مبلغ قسط دوم نامعتبر است",
         });
       }
 
@@ -1021,86 +1062,89 @@ const Controller = class extends Controllers {
       // }
 
       // =========================================================
-      // 7. پرداخت رایگان
+      // 7. ⛔️ پرداخت رایگان (حذف شد)
       // =========================================================
-
-      if (amountUsd === 0) {
-        await order.update(
-          {
-            status: "paid",
-            paid_at: new Date(),
-
-            gateway: "coupon_free",
-
-            meta: {
-              ...(order.meta || {}),
-              payment_type: "second_installment",
-              trackingCode: `FREE-SECOND-${Date.now()}`,
-            },
-          },
-          {
-            transaction: t,
-          },
-        );
-
-        // ---------------------------------------------
-        // UserChallenge
-        // ---------------------------------------------
-
-        console.log(
-          "Number(userChallenge.paid_amount_usd || 0) + amountUsd=>> 1111",
-          Number(userChallenge.paid_amount_usd || 0) + amountUsd,
-        );
-
-        await userChallenge.update(
-          {
-            payment_status: "fully_paid",
-            status: "real",
-            second_payment_paid_at: new Date(),
-          },
-          {
-            transaction: t,
-          },
-        );
-
-        // ---------------------------------------------
-        // فعال‌سازی Real
-        // ---------------------------------------------
-
-        const result = await finalizeChallengeAfterPaid({
-          user: req.user,
-
-          // Order داخلی
-          orderId: order.gateway_order_id,
-
-          trackingCode: `FREE-SECOND-${Date.now()}`,
-
-          refNum: null,
-
-          t,
-
-          current_phase_index: 3,
-
-          platform: userChallenge.platform || req.body.platform || "ctrader",
-        });
-
-        await t.commit();
-
-        return this.response({
-          res,
-          message: "قسط دوم با موفقیت ثبت شد و چالش فعال شد",
-          data: {
-            user_challenge_id: userChallenge.id,
-            order_id: order.id,
-
-            account_instance_id:
-              result?.acc?.id || result?.account_instance_id || null,
-
-            phase_index:
-              result?.phase_index || userChallenge.current_phase_index || 3,
-          },
-        });
-      }
+      // «چالش رایگان» کامل غیرفعال شد. قسط دومِ صفر بالاتر با خطای ۴۰۰
+      // رد می‌شود (خرید اقساطی با کد تخفیف هم از اول ممنوع است)، پس این
+      // بلاک هیچ‌وقت اجرا نمی‌شود و فقط برای تاریخچه کامنت شده است.
+      //
+      // if (amountUsd === 0) {
+      //   await order.update(
+      //     {
+      //       status: "paid",
+      //       paid_at: new Date(),
+      //
+      //       gateway: "coupon_free",
+      //
+      //       meta: {
+      //         ...(order.meta || {}),
+      //         payment_type: "second_installment",
+      //         trackingCode: `FREE-SECOND-${Date.now()}`,
+      //       },
+      //     },
+      //     {
+      //       transaction: t,
+      //     },
+      //   );
+      //
+      //   // ---------------------------------------------
+      //   // UserChallenge
+      //   // ---------------------------------------------
+      //
+      //   console.log(
+      //     "Number(userChallenge.paid_amount_usd || 0) + amountUsd=>> 1111",
+      //     Number(userChallenge.paid_amount_usd || 0) + amountUsd,
+      //   );
+      //
+      //   await userChallenge.update(
+      //     {
+      //       payment_status: "fully_paid",
+      //       status: "real",
+      //       second_payment_paid_at: new Date(),
+      //     },
+      //     {
+      //       transaction: t,
+      //     },
+      //   );
+      //
+      //   // ---------------------------------------------
+      //   // فعال‌سازی Real
+      //   // ---------------------------------------------
+      //
+      //   const result = await finalizeChallengeAfterPaid({
+      //     user: req.user,
+      //
+      //     // Order داخلی
+      //     orderId: order.gateway_order_id,
+      //
+      //     trackingCode: `FREE-SECOND-${Date.now()}`,
+      //
+      //     refNum: null,
+      //
+      //     t,
+      //
+      //     current_phase_index: 3,
+      //
+      //     platform: userChallenge.platform || req.body.platform || "ctrader",
+      //   });
+      //
+      //   await t.commit();
+      //
+      //   return this.response({
+      //     res,
+      //     message: "قسط دوم با موفقیت ثبت شد و چالش فعال شد",
+      //     data: {
+      //       user_challenge_id: userChallenge.id,
+      //       order_id: order.id,
+      //
+      //       account_instance_id:
+      //         result?.acc?.id || result?.account_instance_id || null,
+      //
+      //       phase_index:
+      //         result?.phase_index || userChallenge.current_phase_index || 3,
+      //     },
+      //   });
+      // }
 
       // =========================================================
       // 8. Wallet

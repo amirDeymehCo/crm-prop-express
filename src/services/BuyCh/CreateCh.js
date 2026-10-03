@@ -2,7 +2,9 @@
  * purchaseChallenge (FULL, FIXED)
  * ✅ insurance fee
  * ✅ coupon discount
- * ✅ free challenge (final_price_usd === 0) => swap profit targets (phase1 <-> phase2)
+ * ⛔️ free challenge (final_price_usd === 0 => swap profit targets) REMOVED
+ *    مبلغ صفر فقط با کد تخفیف ۱۰۰٪ مجاز است و چالش عادی ساخته می‌شود؛
+ *    هر مبلغ صفرِ دیگری (قیمت پلن خالی، قسط صفر، ...) خرید را رد می‌کند.
  * ✅ floating risk from plan + NEW: floating_risk_fee
  *    Policy: اگر کاربر ریسک شناور را OFF کند => floating_risk_fee به قیمت اضافه می‌شود
  *
@@ -56,7 +58,14 @@ async function getActivePlan(planId, transaction) {
   return plan;
 }
 
-function buildRulesSnapshotWithFreeLogic({ plan, isFree }) {
+// ⛔️ «چالش رایگان» حذف شد.
+// قبلاً اگر مبلغ نهایی صفر می‌شد، چالش به‌عنوان «رایگان» ساخته می‌شد و
+// profit target فاز ۱ و ۲ جابه‌جا می‌شد. همین باعث باگ می‌شد: هر جا مبلغ به
+// هر دلیلی صفر می‌شد (قیمت پلن خالی، تخفیف اشتباه، قسط صفر، ...) کاربر یک
+// چالش رایگان با قوانین جابه‌جاشده می‌گرفت.
+// الان مبلغ صفر فقط با کد تخفیف ۱۰۰٪ مجاز است و آن هم یک چالش کاملاً عادی
+// است (بدون جابه‌جایی profit target). منطق قبلی پایین کامنت شده.
+function buildRulesSnapshot({ plan }) {
   const phases = [...(plan.ChallengePhases || [])]
     .sort((a, b) => a.phase_index - b.phase_index)
     .map((p) => ({
@@ -70,18 +79,19 @@ function buildRulesSnapshotWithFreeLogic({ plan, isFree }) {
       group: p.group || null,
     }));
 
+  // ----- منطق چالش رایگان (غیرفعال شد) -----
   // فقط اگر چالش با کوپن رایگان شده
-  if (isFree) {
-    const p1 = phases.find((p) => Number(p.phase_index) === 1);
-    const p2 = phases.find((p) => Number(p.phase_index) === 2);
-
-    if (p1 && p2) {
-      [p1.profit_target_percent, p2.profit_target_percent] = [
-        p2.profit_target_percent,
-        p1.profit_target_percent,
-      ];
-    }
-  }
+  // if (isFree) {
+  //   const p1 = phases.find((p) => Number(p.phase_index) === 1);
+  //   const p2 = phases.find((p) => Number(p.phase_index) === 2);
+  //
+  //   if (p1 && p2) {
+  //     [p1.profit_target_percent, p2.profit_target_percent] = [
+  //       p2.profit_target_percent,
+  //       p1.profit_target_percent,
+  //     ];
+  //   }
+  // }
 
   return {
     plan: {
@@ -95,8 +105,9 @@ function buildRulesSnapshotWithFreeLogic({ plan, isFree }) {
     },
     phases,
     meta: {
-      is_free_challenge: isFree,
-      profit_target_swapped: isFree,
+      // همیشه false؛ دیگر چالش رایگان نداریم (حتی با کد تخفیف ۱۰۰٪)
+      is_free_challenge: false,
+      profit_target_swapped: false,
     },
   };
 }
@@ -624,6 +635,9 @@ async function createOrderRecord({
       final_amount_irr: finalAmountIrr,
 
       currency: "USD",
+      // مبلغ صفر فقط با کد تخفیف ۱۰۰٪ به اینجا می‌رسد (purchaseChallenge بقیه
+      // حالت‌ها را رد می‌کند). درگاه coupon_free یعنی «با کوپن تسویه شد»،
+      // نه «چالش رایگان» — چالش کاملاً عادی است.
       gateway: finalAmountUsd === 0 ? "coupon_free" : gateway,
       status: finalAmountUsd === 0 ? "paid" : "pending",
       gateway_order_id: orderId,
@@ -706,10 +720,18 @@ async function purchaseChallenge(req, res, next) {
     // برای پرداخت یکجا صفر است.
     let second_installment_amount = 0;
 
-    if (req?.body?.payment_type === "full") {
+    // ⚠️ اگر payment_type ارسال نشود (یا مقدار نامعتبر داشته باشد) قبلاً هیچ
+    // یک از دو شرط پایین نمی‌گرفت و مبلغ روی صفر می‌ماند ⇒ کاربر چالش رایگان
+    // می‌گرفت. این یکی از همان باگ‌های «مبلغ صفر» بود.
+    // حالا پیش‌فرض «full» است — همان فرضی که createUserChallengeRecord و
+    // finalizeChallengeAfterPaid هم دارند.
+    const paymentType =
+      req?.body?.payment_type === "installment" ? "installment" : "full";
+
+    if (paymentType === "full") {
       final_base_amount = challengeBasePriceUsd;
       final_insurance_amount = insuranceFeeUsd;
-    } else if (req?.body?.payment_type === "installment") {
+    } else if (paymentType === "installment") {
       const amounts = splitInstallmentAmount({
         totalBaseUsd: challengeBasePriceUsd,
         totalBaseIrr:
@@ -739,7 +761,7 @@ async function purchaseChallenge(req, res, next) {
         Number(floatingRiskFeeUsd || 0),
     });
 
-    if (req?.body?.payment_type === "installment" && coupon) {
+    if (paymentType === "installment" && coupon) {
       const err = new Error(
         "کاربر گرامی خرید اقساطی با کد تخفیف امکان پذیر نمیباشد",
       );
@@ -763,14 +785,43 @@ async function purchaseChallenge(req, res, next) {
     console.log("prices=>", prices);
 
     // =========================
+    // ⛔️ مبلغ صفر
+    // =========================
+    // «چالش رایگان» حذف شده است. مبلغ قابل پرداختِ صفر فقط در یک حالت مجاز
+    // است: کاربر کد تخفیف ۱۰۰٪ داشته باشد که کل مبلغ سفارش را پوشش دهد.
+    // در هر حالت دیگری (قیمت پلن صفر/خالی، محاسبه‌ی اشتباه قسط، بیمه‌ی صفر،
+    // دستکاری بادی ریکوئست و ...) خرید رد می‌شود تا کاربر چالش مجانی نگیرد.
+    //
+    // توجه: ساختِ چالش توسط ادمین از همین سرویس عبور می‌کند و سفارشش را
+    // خودش paid می‌کند؛ پس این محدودیت فقط برای خرید سمت کاربر است.
+    const isAdminCreated = Boolean(req?.admin?.id);
+
+    if (!isAdminCreated && Number(prices.final_price_usd) <= 0) {
+      const orderGrossUsd =
+        Number(prices.price_based || 0) +
+        Number(prices.insurance_amount || 0) +
+        Number(prices.floating_risk_fee_usd || 0);
+
+      const fullyCoveredByCoupon =
+        Boolean(coupon) &&
+        orderGrossUsd > 0 &&
+        Number(prices.discount_usd || 0) >= orderGrossUsd;
+
+      if (!fullyCoveredByCoupon) {
+        const err = new Error(
+          "مبلغ قابل پرداخت این چالش صفر است و امکان ثبت سفارش وجود ندارد. لطفا با پشتیبانی تماس بگیرید.",
+        );
+        err.status = 400;
+        throw err;
+      }
+    }
+
+    // =========================
     // TRANSACTION
     // =========================
 
     const result = await sequelize.transaction(async (t) => {
-      const rulesSnapshot = buildRulesSnapshotWithFreeLogic({
-        plan,
-        isFree: prices.final_price_usd === 0,
-      });
+      const rulesSnapshot = buildRulesSnapshot({ plan });
 
       const userChallenge = await createUserChallengeRecord({
         user,
@@ -782,7 +833,7 @@ async function purchaseChallenge(req, res, next) {
         transaction: t,
         admin_id: req?.admin?.id,
         platform: req?.body?.platform,
-        payment_type: req?.body?.payment_type,
+        payment_type: paymentType,
       });
 
       const floatingRiskRow = await createFloatingRiskIfProvided({
@@ -818,8 +869,8 @@ async function purchaseChallenge(req, res, next) {
         admin_id: req?.admin?.id,
         coupon,
 
-        paymentPlan: req?.body?.payment_type,
-        installmentNumber: req?.body?.payment_type === "full" ? 0 : 1,
+        paymentPlan: paymentType,
+        installmentNumber: paymentType === "full" ? 0 : 1,
         orderGroupId,
         baseAmountUsd: prices?.price_based,
         baseAmountIrr: prices?.price_based * finalDollarPrice * 10,
