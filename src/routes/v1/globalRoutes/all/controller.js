@@ -22,7 +22,22 @@ const {
   finalizeRecoveryAfterPaid,
   notifyPhpRecoveryPaid,
 } = require("../../../../services/Recovery");
+const crypto = require("crypto");
+
 const baseSite = process.env.FRONT_BASE_URL;
+
+function safeEqual(a, b) {
+  const bufA = Buffer.from(String(a));
+  const bufB = Buffer.from(String(b));
+
+  // طول‌های نابرابر را هم باید در زمان ثابت رد کنیم
+  if (bufA.length !== bufB.length) {
+    crypto.timingSafeEqual(bufA, bufA);
+    return false;
+  }
+
+  return crypto.timingSafeEqual(bufA, bufB);
+}
 
 const Controller = class extends Controllers {
   async callbackPeykan(req, res) {
@@ -720,6 +735,118 @@ const Controller = class extends Controllers {
     const result = await getSessionStatus(req.body || {});
 
     this.response({ res, data: result });
+  }
+
+  /**
+   * کم کردن موجودی ولت کاربر توسط سرویس پارتنر (پنل PHP).
+   *
+   * body: { user_id, amount, description?, reference_id?, reason? }
+   *
+   * - reason پیش‌فرض "competition" است و در لاگ تراکنش ثبت می‌شود تا بعداً
+   *   مشخص باشد این کاهش وجه برای شرکت در مسابقه بوده است.
+   * - اگر reference_id بفرستند درخواست idempotent می‌شود؛ یعنی retry سمت PHP
+   *   دوباره پول کم نمی‌کند و همان تراکنش قبلی برگردانده می‌شود.
+   */
+  async decrementWallet(req, res) {
+    const userId = Number(req.body?.user_id);
+    const amount = Number(req.body?.amount);
+    const referenceId = req.body?.reference_id
+      ? String(req.body.reference_id)
+      : null;
+    const reason = String(req.body?.reason || "competition");
+
+    if (!Number.isInteger(userId) || userId <= 0)
+      return this.response({
+        res,
+        status: 400,
+        message: "user_id نامعتبر است",
+      });
+
+    if (!Number.isFinite(amount) || amount <= 0)
+      return this.response({ res, status: 400, message: "amount نامعتبر است" });
+
+    // متن لاگ تراکنش: چرا این مبلغ کم شده است
+    const reasonLabels = {
+      competition: "کاهش موجودی بابت شرکت در مسابقه",
+      challenge: "کاهش موجودی بابت چالش",
+    };
+    const description =
+      req.body?.description ||
+      reasonLabels[reason] ||
+      `کاهش موجودی توسط سرویس پارتنر (${reason})`;
+
+    // تکرار درخواست با همان reference_id نباید دوباره پول کم کند
+    if (referenceId) {
+      const alreadyTx = await WalletTransaction.findOne({
+        where: { reference_id: referenceId },
+      });
+
+      if (alreadyTx)
+        return this.response({
+          res,
+          status: 200,
+          message: "این تراکنش قبلاً ثبت شده است",
+          data: {
+            transaction_id: alreadyTx.id,
+            balance: Number(alreadyTx.balance_after),
+            duplicate: true,
+          },
+        });
+    }
+
+    const result = await sequelize.transaction(async (t) => {
+      // قفل ردیف ولت تا دو درخواست همزمان موجودی را منفی نکنند
+      const wallet = await Wallet.findOne({
+        where: { user_id: userId },
+        transaction: t,
+        lock: t.LOCK.UPDATE,
+      });
+
+      if (!wallet)
+        throw Object.assign(new Error("ولت کاربر پیدا نشد"), { status: 404 });
+
+      const balanceBefore = Number(wallet.balance || 0);
+
+      if (balanceBefore < amount)
+        throw Object.assign(new Error("موجودی ولت کافی نیست"), {
+          status: 400,
+        });
+
+      const balanceAfter = balanceBefore - amount;
+
+      await wallet.update({ balance: balanceAfter }, { transaction: t });
+
+      const tx = await WalletTransaction.create(
+        {
+          type: "adjustment",
+          status: "completed",
+          amount,
+          balance_before: balanceBefore,
+          balance_after: balanceAfter,
+          wallet_id: wallet.id,
+          actor_type: "system",
+          reference_id: referenceId,
+          description,
+          meta: {
+            via: "partner_api",
+            partner: req.partner?.name || null,
+            reason,
+            direction: "decrement",
+            user_id: userId,
+          },
+        },
+        { transaction: t },
+      );
+
+      return { transaction_id: tx.id, balance: balanceAfter };
+    });
+
+    this.response({
+      res,
+      status: 200,
+      message: "کیف پول با موفقیت کم شد",
+      data: result,
+    });
   }
 };
 
