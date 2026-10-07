@@ -397,8 +397,6 @@ async function initDatabase() {
       require("./crons/UpdateDollarPrice");
       // یادآور پیامکی پایان مهلت بازیابی حساب (هر ۵ دقیقه)
       require("./crons/RecoveryReminders");
-      // برگشت وجه رزروهای منقضی‌شده‌ی ولت (هر دقیقه)
-      require("./crons/WalletHoldExpiry");
       logger.info("Cron jobs loaded");
     }
 

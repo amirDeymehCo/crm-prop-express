@@ -19,13 +19,6 @@ const {
 } = require("../../../../services/ChallengeFinalize");
 const { getSessionStatus } = require("../../../../services/IsLoginedUser");
 const {
-  decrementWallet: decrementWalletBalance,
-  settleWalletHold,
-  refundWalletHold,
-  findHold: findWalletHold,
-  holdToJson: walletHoldToJson,
-} = require("../../../../services/WalletHold");
-const {
   finalizeRecoveryAfterPaid,
   notifyPhpRecoveryPaid,
 } = require("../../../../services/Recovery");
@@ -754,103 +747,105 @@ const Controller = class extends Controllers {
    * - اگر reference_id بفرستند درخواست idempotent می‌شود؛ یعنی retry سمت PHP
    *   دوباره پول کم نمی‌کند و همان تراکنش قبلی برگردانده می‌شود.
    */
-  /**
-   * کم کردن موجودی ولت کاربر توسط سرویس پارتنر (پنل PHP).
-   *
-   * body: { user_id, amount, hold_minutes?, reason?, description?, reference_id? }
-   *
-   * - `reason` پیش‌فرض "competition" است و در لاگ تراکنش ثبت می‌شود تا بعداً
-   *   مشخص باشد این کاهش وجه برای شرکت در مسابقه بوده است.
-   * - اگر `hold_minutes` بدهند، مبلغ همان لحظه کم می‌شود ولی به صورت «رزرو»
-   *   ثبت می‌شود: تا قبل از انقضا باید با `/settleWalletHold` تایید شود، وگرنه
-   *   کرون پول را به ولت کاربر برمی‌گرداند.
-   * - `reference_id` درخواست را idempotent می‌کند؛ retry سمت PHP دوباره پول
-   *   کم نمی‌کند و همان نتیجه‌ی قبلی برمی‌گردد.
-   */
   async decrementWallet(req, res) {
-    const result = await decrementWalletBalance({
-      userId: Number(req.body?.user_id),
-      amount: Number(req.body?.amount),
-      reason: String(req.body?.reason || "competition"),
-      description: req.body?.description,
-      referenceId: req.body?.reference_id ?? null,
-      holdMinutes:
-        req.body?.hold_minutes === undefined || req.body?.hold_minutes === null
-          ? null
-          : Number(req.body.hold_minutes),
-      partner: req.partner?.name || null,
+    const userId = Number(req.body?.user_id);
+    const amount = Number(req.body?.amount);
+    const referenceId = req.body?.reference_id
+      ? String(req.body.reference_id)
+      : null;
+    const reason = String(req.body?.reason || "competition");
+
+    if (!Number.isInteger(userId) || userId <= 0)
+      return this.response({
+        res,
+        status: 400,
+        message: "user_id نامعتبر است",
+      });
+
+    if (!Number.isFinite(amount) || amount <= 0)
+      return this.response({ res, status: 400, message: "amount نامعتبر است" });
+
+    // متن لاگ تراکنش: چرا این مبلغ کم شده است
+    const reasonLabels = {
+      competition: "کاهش موجودی بابت شرکت در مسابقه",
+      challenge: "کاهش موجودی بابت چالش",
+    };
+    const description =
+      req.body?.description ||
+      reasonLabels[reason] ||
+      `کاهش موجودی توسط سرویس پارتنر (${reason})`;
+
+    // تکرار درخواست با همان reference_id نباید دوباره پول کم کند
+    if (referenceId) {
+      const alreadyTx = await WalletTransaction.findOne({
+        where: { reference_id: referenceId },
+      });
+
+      if (alreadyTx)
+        return this.response({
+          res,
+          status: 200,
+          message: "این تراکنش قبلاً ثبت شده است",
+          data: {
+            transaction_id: alreadyTx.id,
+            balance: Number(alreadyTx.balance_after),
+            duplicate: true,
+          },
+        });
+    }
+
+    const result = await sequelize.transaction(async (t) => {
+      // قفل ردیف ولت تا دو درخواست همزمان موجودی را منفی نکنند
+      const wallet = await Wallet.findOne({
+        where: { user_id: userId },
+        transaction: t,
+        lock: t.LOCK.UPDATE,
+      });
+
+      if (!wallet)
+        throw Object.assign(new Error("ولت کاربر پیدا نشد"), { status: 404 });
+
+      const balanceBefore = Number(wallet.balance || 0);
+
+      if (balanceBefore < amount)
+        throw Object.assign(new Error("موجودی ولت کافی نیست"), {
+          status: 400,
+        });
+
+      const balanceAfter = balanceBefore - amount;
+
+      await wallet.update({ balance: balanceAfter }, { transaction: t });
+
+      const tx = await WalletTransaction.create(
+        {
+          type: "adjustment",
+          status: "completed",
+          amount,
+          balance_before: balanceBefore,
+          balance_after: balanceAfter,
+          wallet_id: wallet.id,
+          actor_type: "system",
+          reference_id: referenceId,
+          description,
+          meta: {
+            via: "partner_api",
+            partner: req.partner?.name || null,
+            reason,
+            direction: "decrement",
+            user_id: userId,
+          },
+        },
+        { transaction: t },
+      );
+
+      return { transaction_id: tx.id, balance: balanceAfter };
     });
 
     this.response({
       res,
       status: 200,
-      message: result.hold_id
-        ? "مبلغ کم و تا پایان مهلت رزرو شد"
-        : "کیف پول با موفقیت کم شد",
+      message: "کیف پول با موفقیت کم شد",
       data: result,
-    });
-  }
-
-  /**
-   * تایید نهایی رزرو؛ بعد از این دیگر پول به ولت برنمی‌گردد.
-   *
-   * body: { hold_id } یا { reference_id }
-   */
-  async settleWalletHold(req, res) {
-    const result = await settleWalletHold({
-      holdId: req.body?.hold_id ? Number(req.body.hold_id) : null,
-      referenceId: req.body?.reference_id ?? null,
-    });
-
-    this.response({
-      res,
-      status: 200,
-      message: "رزرو تایید نهایی شد",
-      data: result,
-    });
-  }
-
-  /**
-   * برگشت دستی وجه رزرو قبل از پایان مهلت (لغو شرکت در مسابقه).
-   *
-   * body: { hold_id } یا { reference_id }
-   */
-  async refundWalletHold(req, res) {
-    const result = await refundWalletHold({
-      holdId: req.body?.hold_id ? Number(req.body.hold_id) : null,
-      referenceId: req.body?.reference_id ?? null,
-      cause: "manual",
-    });
-
-    this.response({
-      res,
-      status: 200,
-      message: "وجه رزرو به ولت کاربر برگشت",
-      data: result,
-    });
-  }
-
-  /**
-   * وضعیت یک رزرو؛ برای استعلام سمت پنل PHP.
-   *
-   * params: holdId یا query: reference_id
-   */
-  async getWalletHold(req, res) {
-    const holdId = req.params?.holdId || req.query?.hold_id;
-
-    const hold = await findWalletHold({
-      holdId: holdId ? Number(holdId) : null,
-      referenceId: req.query?.reference_id ?? null,
-    });
-
-    if (!hold)
-      return this.response({ res, status: 404, message: "رزرو پیدا نشد" });
-
-    this.response({
-      res,
-      status: 200,
-      message: "وضعیت رزرو",
-      data: walletHoldToJson(hold),
     });
   }
 };

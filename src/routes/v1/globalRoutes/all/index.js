@@ -21,23 +21,5 @@ router
     authPartner,
     asyncHandler(Controller.decrementWallet),
   )
-  // تایید نهایی رزرو؛ بعد از این پول برنمی‌گردد
-  .post(
-    "/settleWalletHold",
-    authPartner,
-    asyncHandler(Controller.settleWalletHold),
-  )
-  // برگشت دستی وجه رزرو قبل از پایان مهلت
-  .post(
-    "/refundWalletHold",
-    authPartner,
-    asyncHandler(Controller.refundWalletHold),
-  )
-  // استعلام وضعیت رزرو
-  .get(
-    "/walletHold/:holdId?",
-    authPartner,
-    asyncHandler(Controller.getWalletHold),
-  );
 
 module.exports = router;
