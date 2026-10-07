@@ -224,6 +224,7 @@ const verifyWithGateway = async ({
       amount: null,
       cardNumber: null,
       status: "FAILED",
+      error: JSON.stringify(err.response?.data || err.message || err, null, 2),
     };
   }
 };

@@ -2,12 +2,39 @@ const Order = require("../../models/Order");
 const Setting = require("../../models/Setting");
 const AccountInstance = require("../../models/Challenge/AccountInstance");
 const splitInstallmentAmount = require("../PaymentPlan/SplitInstallmentAmount");
-const { INSURANCE_DISCOUNT_PERCENT } = require("./constants");
+const {
+  INSURANCE_DISCOUNT_PERCENT,
+  INSURANCE_PHASE,
+  INSTANT_REAL_CHALLENGE_TYPE_IDS,
+} = require("./constants");
 
 const round2 = (n) => Math.round(Number(n) * 100) / 100;
 
 function getDiscountPercent(phaseIndex) {
   return Number(INSURANCE_DISCOUNT_PERCENT[Number(phaseIndex)] ?? 0);
+}
+
+/**
+ * فازی که برای «قیمت‌گذاری و متن لاگ» باید ملاک باشد.
+ *
+ * برای چالش‌های ریل‌از‌ابتدا (الیت) همیشه فاز ریل برمی‌گردد، چون
+ * current_phase_index آن‌ها واقعاً ۱ است ولی حساب از روز اول ریل بوده.
+ *
+ * ⚠️ این مقدار را برای کوئری زدن روی ستون‌های phase_index دیتابیس
+ * (AccountInstance / ChallengePhase) استفاده نکنید — آنجا باید همان
+ * phase_index واقعی چالش برود.
+ */
+function resolveEffectivePhaseIndex(userChallenge, phaseIndex) {
+  const typeId = Number(
+    userChallenge?.challenge_type_id ??
+      userChallenge?.ChallengePlan?.challenge_type_id,
+  );
+
+  if (INSTANT_REAL_CHALLENGE_TYPE_IDS.includes(typeId)) {
+    return INSURANCE_PHASE.REAL;
+  }
+
+  return Number(phaseIndex);
 }
 
 /**
@@ -184,6 +211,7 @@ function describeAccount(account) {
 function buildInsuranceOrigin({
   userChallenge,
   phaseIndex,
+  effectivePhaseIndex,
   pricing,
   failedAccount,
 }) {
@@ -191,6 +219,8 @@ function buildInsuranceOrigin({
     created_by_insurance: true,
     insurance_source_challenge_id: userChallenge.id,
     insurance_failed_phase_index: Number(phaseIndex),
+    // فازی که تخفیف از آن حساب شده — برای الیت با فاز بالا تفاوت دارد
+    insurance_discount_phase_index: Number(effectivePhaseIndex ?? phaseIndex),
     insurance_failed_account_id: failedAccount?.id ?? null,
     insurance_failed_account_login:
       failedAccount?.mt_login || failedAccount?.platform_login || null,
@@ -222,6 +252,7 @@ function buildReloadSnapshot({ userChallenge, origin }) {
 module.exports = {
   round2,
   getDiscountPercent,
+  resolveEffectivePhaseIndex,
   getDollarPrice,
   getBasePriceUsd,
   getPaidBaseUsd,

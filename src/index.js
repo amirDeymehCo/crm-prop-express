@@ -112,6 +112,7 @@ const allowedOrigins = [
   "http://localhost:3001",
   "https://localhost:3000",
   "https://localhost:3001",
+  "https://localhost:3002",
   "https://myprop.trade",
   "https://crm.myprop.trade",
 ];
@@ -396,6 +397,8 @@ async function initDatabase() {
       require("./crons/UpdateDollarPrice");
       // یادآور پیامکی پایان مهلت بازیابی حساب (هر ۵ دقیقه)
       require("./crons/RecoveryReminders");
+      // برگشت وجه رزروهای منقضی‌شده‌ی ولت (هر دقیقه)
+      require("./crons/WalletHoldExpiry");
       logger.info("Cron jobs loaded");
     }
 

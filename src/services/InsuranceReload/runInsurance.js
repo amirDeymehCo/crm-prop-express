@@ -16,6 +16,7 @@ const {
 
 const {
   getDollarPrice,
+  resolveEffectivePhaseIndex,
   getBasePriceUsd,
   getPaidBaseUsd,
   buildReloadPricing,
@@ -197,7 +198,10 @@ async function createFirstOrder({
  *
  * وقتی کاربرِ بیمه‌دار در هر مرحله‌ای رد می‌شود، یک چالشِ جایگزینِ کاملاً جدید
  * از فاز ۱ ساخته می‌شود: بدون بیمه و با تخفیف پلکانی بر اساس فازی که در آن رد شده
- * (فاز۱ ۴۰٪، فاز۲ ۳۰٪، ریل ۲۰٪).
+ * (فاز۱ ۵۰٪، فاز۲ ۴۰٪، ریل ۳۰٪).
+ *
+ * چالش‌های ریل‌از‌ابتدا (الیت) همیشه روی فاز ۱ می‌مانند، پس با
+ * INSTANT_REAL_CHALLENGE_TYPE_IDS به فاز ریل نگاشت می‌شوند تا ۳۰٪ بگیرند.
  *
  * سفارش قسط اولِ چالش جدید در وضعیت pending ساخته می‌شود تا کاربر
  * از همان مسیر پرداخت همیشگی (payPendingChallenge) پرداخت کند.
@@ -252,6 +256,13 @@ const InsuranceReload = async ({
       return { applied: false, reason: "unknown_phase" };
     }
 
+    // چالش الیت از روز اول ریل است ولی phase_index اش ۱ می‌ماند؛
+    // تخفیف و متن لاگ باید «مرحله ریل» حساب شود، نه مرحله اول.
+    const effectivePhaseIndex = resolveEffectivePhaseIndex(
+      userChallenge,
+      phaseIndex,
+    );
+
     const plan = await ChallengePlan.findByPk(userChallenge.challenge_plan_id, {
       transaction: t,
     });
@@ -292,7 +303,7 @@ const InsuranceReload = async ({
     const pricing = buildReloadPricing({
       basePriceUsd,
       paidBaseUsd,
-      phaseIndex,
+      phaseIndex: effectivePhaseIndex,
       paymentPlan,
       dollarPrice,
     });
@@ -307,6 +318,7 @@ const InsuranceReload = async ({
     const origin = buildInsuranceOrigin({
       userChallenge,
       phaseIndex,
+      effectivePhaseIndex,
       pricing,
       failedAccount,
     });
@@ -358,10 +370,10 @@ const InsuranceReload = async ({
     // سمت چالشِ رد‌شده: بیمه اینجا مصرف شد
     await logInsuranceEvent({
       userChallengeId: userChallenge.id,
-      phaseIndex,
+      phaseIndex: effectivePhaseIndex,
       adminId,
       title:
-        `استفاده از بیمه در ${PHASE_TITLE[phaseIndex]} — حساب ${accountLabel} رد شد. ` +
+        `استفاده از بیمه در ${PHASE_TITLE[effectivePhaseIndex]} — حساب ${accountLabel} رد شد. ` +
         `چالش جایگزین #${newChallenge.id} (سفارش #${order.id}) با ${pricing.percent}٪ تخفیف ` +
         `معادل ${pricing.discountUsd} دلار روی ${pricing.paidBaseUsd} دلارِ پرداختی، به مبلغ ${pricing.payableUsd} دلار ساخته شد`,
       transaction: t,
@@ -370,11 +382,11 @@ const InsuranceReload = async ({
     // سمت چالشِ جدید: این چالش از کجا آمده
     await logInsuranceEvent({
       userChallengeId: newChallenge.id,
-      phaseIndex,
+      phaseIndex: effectivePhaseIndex,
       adminId,
       title:
         `این چالش با بیمه‌ی چالش #${userChallenge.id} (حساب ${accountLabel}) ساخته شد — ` +
-        `رد‌شده در ${PHASE_TITLE[phaseIndex]}، ${pricing.percent}٪ تخفیف معادل ${pricing.discountUsd} دلار. ` +
+        `رد‌شده در ${PHASE_TITLE[effectivePhaseIndex]}، ${pricing.percent}٪ تخفیف معادل ${pricing.discountUsd} دلار. ` +
         `مبلغ قابل پرداخت ${pricing.payableUsd} دلار` +
         (paymentPlan === "installment"
           ? ` در دو قسط ${pricing.first.totalUsd} و ${pricing.second.totalUsd} دلاری`
@@ -388,6 +400,7 @@ const InsuranceReload = async ({
       applied: true,
       source_user_challenge_id: userChallenge.id,
       failed_phase_index: phaseIndex,
+      discount_phase_index: effectivePhaseIndex,
       failed_account_id: failedAccount?.id ?? null,
       failed_account_login:
         failedAccount?.mt_login || failedAccount?.platform_login || null,
