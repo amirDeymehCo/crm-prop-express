@@ -57,6 +57,12 @@ const User = sequelize.define(
       type: DataTypes.BOOLEAN,
       defaultValue: false,
     },
+    // آخرین شبایی که کاربر برای برداشت ریالی استفاده کرده — فقط برای
+    // prefill کردن فرم؛ ملاکِ هر درخواست، شبای ذخیره‌شده روی خودِ درخواست است
+    sheba: {
+      type: DataTypes.STRING(26),
+      allowNull: true,
+    },
     refresh_token: {
       type: DataTypes.TEXT,
       allowNull: true,

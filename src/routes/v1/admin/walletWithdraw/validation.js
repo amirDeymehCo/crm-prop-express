@@ -44,6 +44,31 @@ module.exports = new (class {
         .withMessage("مقدار اولویت نامعتبر هست"),
     ];
   }
+  updateReqeust() {
+    return [
+      body("id").notEmpty().withMessage("شناسه درخواست برداشت را وارد کنید"),
+      body("status")
+        .isIn([
+          "waiting",
+          "verify",
+          "canceled",
+          "reuqest_waiting",
+          "request_prograssing",
+          "request_pending_paid",
+          "request_paid",
+          "request_canceled",
+        ])
+        .withMessage("وضعیت درخواست برداشت نامعتبر است"),
+      body("admin_note")
+        .optional({ values: "falsy" })
+        .isLength({ max: 1000 })
+        .withMessage("توضیحات ادمین حداکثر ۱۰۰۰ کاراکتر است"),
+      body("payment_reference")
+        .optional({ values: "falsy" })
+        .isLength({ max: 191 })
+        .withMessage("شماره پیگیری واریز حداکثر ۱۹۱ کاراکتر است"),
+    ];
+  }
   sendMessage() {
     return [
       body("message")

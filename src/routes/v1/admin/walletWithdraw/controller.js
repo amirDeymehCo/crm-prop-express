@@ -13,6 +13,7 @@ const Controller = class extends Controllers {
     const whare = {};
     if (req?.query?.user_id) whare.user_id = req?.query?.user_id;
     if (req?.query?.status) whare.status = req?.query?.status;
+    if (req?.query?.method) whare.method = req?.query?.method;
 
     const tickets = await founcList(WidthdrawRequest, req, whare, {
       include: [
@@ -54,17 +55,25 @@ const Controller = class extends Controllers {
     });
   }
   async find(req, res) {
-    const requestWithdraw = await WidthdrawRequest.findOne(
-      { where: { id: req?.params?.id } },
-      {
-        include: [
-          {
-            model: User,
-            attributes: ["id", "firstname", "lastname", "avatar"],
-          },
-        ],
-      },
-    );
+    // ⚠️ include باید داخل همان آبجکت اول باشد؛ قبلاً پارامتر دوم به
+    // findOne پاس می‌شد و Sequelize آن را نادیده می‌گرفت، پس اطلاعات کاربر
+    // هیچ‌وقت برنمی‌گشت.
+    const requestWithdraw = await WidthdrawRequest.findOne({
+      where: { id: req?.params?.id },
+      include: [
+        {
+          model: User,
+          attributes: [
+            "id",
+            "firstname",
+            "lastname",
+            "avatar",
+            "mobile",
+            "sheba",
+          ],
+        },
+      ],
+    });
     if (!requestWithdraw)
       return this.response({
         res,
@@ -123,37 +132,69 @@ const Controller = class extends Controllers {
           "ادمین گرامی، وضعیت درخواست برداشت از ولت قبلا به پرداخت شده تغییر کرده است و امکان ویرایش مجدد نمیباشد",
       });
 
-    if (req?.body?.status === "request_canceled") {
+    const newStatus = req?.body?.status;
+    const adminNote = String(req?.body?.admin_note || "").trim();
+    const paymentReference = String(req?.body?.payment_reference || "").trim();
+
+    // ادمین موقع کنسل کردن باید دلیلش را بنویسد؛ این متن در پنل کاربر
+    // نمایش داده می‌شود.
+    if (newStatus === "request_canceled" && !adminNote) {
+      return this.response({
+        res,
+        status: 400,
+        message: "ادمین گرامی، برای کنسل کردن درخواست باید توضیحات وارد کنید",
+      });
+    }
+
+    // برای برداشت ریالی، ثبت شماره پیگیری واریز بانکی الزامی است
+    if (
+      newStatus === "request_paid" &&
+      requestWithdraw?.method === "irr" &&
+      !paymentReference &&
+      !requestWithdraw?.payment_reference
+    ) {
+      return this.response({
+        res,
+        status: 400,
+        message: "ادمین گرامی، شماره پیگیری واریز را وارد کنید",
+      });
+    }
+
+    if (newStatus === "request_canceled") {
       const wallet = await Wallet.findOne({
         where: { user_id: requestWithdraw?.user_id },
       });
 
+      const balanceBefore = Number(wallet?.balance);
+      const balanceAfter = balanceBefore + Number(requestWithdraw?.amount);
+
       await WalletTransaction.create({
         type: "deposit",
         amount: Number(requestWithdraw?.amount),
-        balance_before: wallet?.balance,
-        balance_after:
-          Number(wallet?.balance) + Number(requestWithdraw?.amount),
+        balance_before: balanceBefore,
+        balance_after: balanceAfter,
         status: "completed",
-        actor_type: "system",
+        actor_type: "admin",
+        admin_id: req?.admin?.id || null,
         wallet_id: wallet?.id,
-        description: `بلوکه شدن مبلغ ${Number(requestWithdraw?.amount)?.toLocaleString()} جهت برداشت از ولت`,
+        reference_id: String(requestWithdraw?.id),
+        description: `آزاد شدن مبلغ ${Number(requestWithdraw?.amount)?.toLocaleString()} دلار به دلیل کنسل شدن درخواست برداشت`,
       });
-      await wallet.update({
-        balance: Number(wallet?.balance) + Number(requestWithdraw?.amount),
-      });
+      await wallet.update({ balance: balanceAfter });
     }
 
     await requestWithdraw.update({
-      status: req?.body?.status,
-      is_canceled_reqeust: req?.body?.status === "request_canceled" ? "1" : "0",
+      status: newStatus,
+      is_canceled_reqeust: newStatus === "request_canceled" ? "1" : "0",
       description: req?.body?.description || requestWithdraw?.description,
+      admin_note: adminNote || requestWithdraw?.admin_note,
+      payment_reference: paymentReference || requestWithdraw?.payment_reference,
     });
 
     ///
     await RequestWithdrawLogs.create({
       old_status: oldStatus,
-      new_status: req?.body?.status,
+      new_status: newStatus,
       admin_id: req?.admin?.id,
       log_id: requestWithdraw?.id,
     });

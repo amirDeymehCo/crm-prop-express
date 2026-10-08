@@ -33,8 +33,6 @@ router
   .post(
     "/create-otp-widthdraw",
     userStrictLimiter,
-    validator.widthdrawRequest(),
-    Controller.validationBody,
     asyncHandler(Controller.createOtpWidhdraw),
   )
   .post(
@@ -44,10 +42,8 @@ router
     Controller.validationBody,
     asyncHandler(Controller.widthdrawRequest),
   )
-  .get(
-    "/widthdraw-list",
-    asyncHandler(Controller.withdrawList),
-  )
+  .get("/widthdraw-list", asyncHandler(Controller.withdrawList))
+  .get("/withdraw-info", asyncHandler(Controller.withdrawInfo))
   .get("/transactionsList", asyncHandler(Controller.transactionsList))
   .get("/states", asyncHandler(Controller.states));
 

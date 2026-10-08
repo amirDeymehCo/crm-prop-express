@@ -13,6 +13,7 @@ const WidthdrawRequest = require("../../../../models/WidthdrawRequest");
 const WalletTransaction = require("../../../../models/WalletTransaction");
 const Order = require("../../../../models/Order");
 const Otp = require("../../../../models/Otp");
+const User = require("../../../../models/User");
 const Setting = require("../../../../models/Setting");
 const founcList = require("../../../../utils/List");
 const sequelize = require("../../../../../db");
@@ -22,6 +23,27 @@ const {
 } = require("../../../../services/KavenegarService");
 const { Op } = require("sequelize");
 const bcrypt = require("bcrypt");
+const { normalizeSheba, isValidSheba } = require("../../../../utils/sheba");
+
+// نرخ تومانی هر دلار برای برداشت ریالی.
+// عمداً از نرخ واریز (dollar_price + bonus_dollar + 2500) جدا است؛ اگر
+// withdraw_dollar_price ست نشده باشد، نرخ پایه‌ی dollar_price ملاک است.
+const getWithdrawRate = async () => {
+  const setting = await Setting.findOne({ where: { id: 1 } });
+
+  const withdrawPrice = Number(setting?.withdraw_dollar_price || 0);
+  const basePrice = Number(setting?.dollar_price || 0);
+
+  return {
+    // تومان به ازای هر دلار
+    rate: withdrawPrice > 0 ? withdrawPrice : basePrice,
+    min_withdraw_usd_irr: Number(setting?.min_withdraw_usd_irr || 0),
+  };
+};
+
+// مبلغ دلاری → ریال. نرخ تومانی است، پس ×۱۰ می‌شود (مثل مسیر واریز).
+const usdToIrr = (amountUsd, tomanRate) =>
+  Math.round(Number(amountUsd) * Number(tomanRate)) * 10;
 
 const Controller = class extends Controllers {
   async depositIRR(req, res) {
@@ -230,14 +252,61 @@ const Controller = class extends Controllers {
     });
   }
   async withdrawList(req, res) {
-    const list = await founcList(WidthdrawRequest, req, {
-      user_id: req?.user?.id,
-    });
+    const where = { user_id: req?.user?.id };
+
+    if (req?.query?.method) where.method = req.query.method;
+
+    const list = await founcList(WidthdrawRequest, req, where);
 
     this.response({ res, data: list });
   }
+  /**
+   * اطلاعاتی که فرانت برای رندر فرم برداشت لازم دارد:
+   * موجودی ولت، نرخ برداشت ریالی، حداقل مبلغ و شبای ذخیره‌شده‌ی کاربر.
+   */
+  async withdrawInfo(req, res) {
+    const wallet = await Wallet.findOne({ where: { user_id: req?.user?.id } });
+    const { rate, min_withdraw_usd_irr } = await getWithdrawRate();
+
+    const pending = await WidthdrawRequest.findOne({
+      where: {
+        user_id: req?.user?.id,
+        status: {
+          [Op.in]: [
+            "waiting",
+            "verify",
+            "reuqest_waiting",
+            "request_prograssing",
+            "request_pending_paid",
+          ],
+        },
+      },
+      order: [["createdAt", "DESC"]],
+    });
+
+    this.response({
+      res,
+      message: "اطلاعات برداشت",
+      data: {
+        balance_usd: Number(wallet?.balance || 0),
+        // نرخ تومانی هر دلار
+        withdraw_rate_toman: rate,
+        // معادل ریالی هر دلار (برای محاسبه‌ی لحظه‌ای در فرانت)
+        withdraw_rate_irr: rate * 10,
+        min_withdraw_usd_irr,
+        irr_enabled: rate > 0,
+        sheba: req?.user?.sheba || null,
+        has_pending_request: Boolean(pending),
+        pending_request: pending
+          ? { id: pending.id, method: pending.method, status: pending.status }
+          : null,
+      },
+    });
+  }
   async widthdrawRequest(req, res) {
     const { wallet_address, amount_usd } = req?.body;
+
+    const method = req?.body?.method === "irr" ? "irr" : "crypto";
 
     const mobile = String(req?.user?.mobile || "").trim();
     const code = String(req?.body?.code || "").trim();
@@ -304,9 +373,18 @@ const Controller = class extends Controllers {
     otp.status = "verify";
     await otp.save();
 
+    // درخواست باز (در هر وضعیتی که هنوز تسویه نشده) اجازه‌ی درخواست جدید نمی‌دهد
     const widthStatusWiaings = await WidthdrawRequest.findOne({
       where: {
-        status: "waiting",
+        status: {
+          [Op.in]: [
+            "waiting",
+            "verify",
+            "reuqest_waiting",
+            "request_prograssing",
+            "request_pending_paid",
+          ],
+        },
         user_id: req?.user?.id,
       },
     });
@@ -319,13 +397,15 @@ const Controller = class extends Controllers {
       });
     }
 
+    const amountUsd = parseFloat(amount_usd);
+
     const wallet = await Wallet.findOne({
       where: {
         user_id: req?.user?.id,
       },
     });
 
-    if (!wallet || parseFloat(wallet?.balance) < parseFloat(amount_usd)) {
+    if (!wallet || parseFloat(wallet?.balance) < amountUsd) {
       return this.response({
         res,
         status: 400,
@@ -333,32 +413,95 @@ const Controller = class extends Controllers {
       });
     }
 
-    await WidthdrawRequest.create({
-      wallet_address,
-      amount: parseFloat(amount_usd),
+    const newRequest = {
+      method,
+      amount: amountUsd,
       status: "waiting",
       user_id: req?.user?.id,
-    });
+    };
 
-    await wallet.update({
-      balance: parseFloat(wallet.balance) - parseFloat(amount_usd),
-    });
+    let sheba = null;
+
+    if (method === "irr") {
+      sheba = normalizeSheba(req?.body?.sheba);
+
+      if (!isValidSheba(sheba)) {
+        return this.response({
+          res,
+          status: 400,
+          message: "شماره شبا معتبر نیست",
+        });
+      }
+
+      const { rate, min_withdraw_usd_irr } = await getWithdrawRate();
+
+      if (!(rate > 0)) {
+        return this.response({
+          res,
+          status: 400,
+          message:
+            "برداشت ریالی در حال حاضر فعال نیست، لطفا با پشتیبانی تماس بگیرید",
+        });
+      }
+
+      if (min_withdraw_usd_irr > 0 && amountUsd < min_withdraw_usd_irr) {
+        return this.response({
+          res,
+          status: 400,
+          message: `حداقل مبلغ برداشت ریالی ${min_withdraw_usd_irr} دلار است`,
+        });
+      }
+
+      newRequest.sheba = sheba;
+      newRequest.account_holder =
+        String(req?.body?.account_holder || "").trim() ||
+        `${req?.user?.firstname || ""} ${req?.user?.lastname || ""}`.trim();
+      newRequest.rate_irr_per_usd = rate;
+      newRequest.amount_irr = usdToIrr(amountUsd, rate);
+    } else {
+      newRequest.wallet_address = wallet_address;
+    }
+
+    const createdRequest = await WidthdrawRequest.create(newRequest);
+
+    // شبا را روی پروفایل کاربر نگه می‌داریم تا دفعه‌ی بعد فرم prefill شود
+    if (method === "irr" && sheba && req?.user?.sheba !== sheba) {
+      await User.update({ sheba }, { where: { id: req?.user?.id } });
+    }
+
+    const balanceBefore = parseFloat(wallet.balance);
+    const balanceAfter = balanceBefore - amountUsd;
+
+    await wallet.update({ balance: balanceAfter });
 
     await WalletTransaction.create({
       type: "withdraw",
-      amount: Number(req?.body?.amount),
-      balance_before: wallet?.balance,
-      balance_after: Number(wallet?.balance) + Number(req?.body?.amount),
+      amount: amountUsd,
+      balance_before: balanceBefore,
+      balance_after: balanceAfter,
       status: "completed",
       actor_type: "system",
       wallet_id: wallet?.id,
-      description: `بلوکه شدن مبلغ ${Number(req?.body?.amount)?.toLocaleString()} جهت برداشت از ولت`,
+      reference_id: String(createdRequest.id),
+      description:
+        method === "irr"
+          ? `بلوکه شدن مبلغ ${amountUsd.toLocaleString()} دلار جهت برداشت ریالی به شبا`
+          : `بلوکه شدن مبلغ ${amountUsd.toLocaleString()} دلار جهت برداشت از ولت`,
     });
 
     return this.response({
       res,
       status: 200,
       message: "کاربر مای پراپ درخواست برداشت شما ثبت شد!",
+      data: {
+        id: createdRequest.id,
+        method: createdRequest.method,
+        amount_usd: Number(createdRequest.amount),
+        amount_irr: createdRequest.amount_irr
+          ? Number(createdRequest.amount_irr)
+          : null,
+        status: createdRequest.status,
+      },
     });
   }
   async transactionsList(req, res) {

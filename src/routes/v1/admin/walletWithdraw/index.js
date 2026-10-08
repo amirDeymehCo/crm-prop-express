@@ -8,6 +8,11 @@ const validator = require("./validation");
 router
   .get("/", asyncHandler(Controller.list))
   .get("/:id", asyncHandler(Controller.find))
-  .post("/update-reqeust", asyncHandler(Controller.updateReqeust));
+  .post(
+    "/update-reqeust",
+    validator.updateReqeust(),
+    Controller.validationBody,
+    asyncHandler(Controller.updateReqeust),
+  );
 
 module.exports = router;
