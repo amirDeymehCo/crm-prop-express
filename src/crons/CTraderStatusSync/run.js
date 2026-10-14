@@ -29,7 +29,8 @@ const arg = (name) => {
     if (raw) {
       const rights = await fetchLoginRights(raw);
       console.log(rights);
-      console.log("closedOnPlatform =", isClosedOnPlatform(rights));
+      if (!rights.notFound)
+        console.log("closedOnPlatform =", isClosedOnPlatform(rights));
       return;
     }
 

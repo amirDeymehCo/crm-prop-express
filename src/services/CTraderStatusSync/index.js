@@ -45,6 +45,11 @@ async function fetchLoginRights(login) {
     validateStatus: () => true,
   });
 
+  // لاگینی که اصلاً در cTrader نیست (معمولاً حساب MT قدیمی با platform اشتباه)
+  if (String(response.data?.error || "").includes("traderId")) {
+    return { notFound: true };
+  }
+
   if (response.status < 200 || response.status >= 300 || !response.data?.ok) {
     throw new Error(
       `HTTP ${response.status}: ${JSON.stringify(response.data)?.slice(0, 300)}`,
@@ -168,11 +173,13 @@ async function runCTraderStatusSync({
     accountsFailed: 0,
     challengesClosed: 0,
     needsReview: 0,
+    notFound: 0,
     errors: 0,
     stoppedByDeadline: false,
     closed: [],
     review: [],
     failedLogins: [],
+    notFoundLogins: [],
   };
 
   let lastId = 0;
@@ -237,6 +244,12 @@ async function runCTraderStatusSync({
           } catch (err) {
             stats.errors++;
             stats.failedLogins.push({ login: account.login, error: err.message });
+            return;
+          }
+
+          if (rights.notFound) {
+            stats.notFound++;
+            stats.notFoundLogins.push(account.login);
             return;
           }
 

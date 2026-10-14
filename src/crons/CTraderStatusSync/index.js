@@ -41,7 +41,7 @@ async function runNightlySync() {
         `dryRun=${stats.dryRun} checked=${stats.checked} active=${stats.stillActive} ` +
         `closedOnPlatform=${stats.closedOnPlatform} accountsFailed=${stats.accountsFailed} ` +
         `challengesClosed=${stats.challengesClosed} needsReview=${stats.needsReview} ` +
-        `errors=${stats.errors} stoppedByDeadline=${stats.stoppedByDeadline}`,
+        `notFound=${stats.notFound} errors=${stats.errors} stoppedByDeadline=${stats.stoppedByDeadline}`,
     );
     if (stats.closed.length)
       console.log("[ctrader-sync] closed:", JSON.stringify(stats.closed));
