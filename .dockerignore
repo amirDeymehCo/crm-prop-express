@@ -9,3 +9,7 @@ docs
 Dockerfile
 docker-compose.yml
 Jenkinsfile
+build.log
+uploads
+public/avatars
+public/certificates
