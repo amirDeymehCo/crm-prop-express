@@ -394,6 +394,7 @@ const Controller = class extends Controllers {
         "remaining_amount_usd",
         "price_usd",
         "discount_usd",
+        "final_price_usd",
         "total_price_usd",
         "floating_risk_enabled",
         "has_insurance",
