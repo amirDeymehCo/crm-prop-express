@@ -391,6 +391,7 @@ const Controller = class extends Controllers {
         "id",
         "status",
         "current_phase_index",
+        "remaining_amount_usd",
         "price_usd",
         "discount_usd",
         "total_price_usd",
