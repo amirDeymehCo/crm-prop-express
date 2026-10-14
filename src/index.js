@@ -397,6 +397,8 @@ async function initDatabase() {
       require("./crons/UpdateDollarPrice");
       // یادآور پیامکی پایان مهلت بازیابی حساب (هر ۵ دقیقه)
       require("./crons/RecoveryReminders");
+      // استعلام شبانه‌ی وضعیت حساب‌های cTrader (ساعت ۰۰:۰۰ تهران)
+      require("./crons/CTraderStatusSync");
       logger.info("Cron jobs loaded");
     }
 
