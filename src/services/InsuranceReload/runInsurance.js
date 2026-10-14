@@ -15,6 +15,7 @@ const {
 } = require("./constants");
 
 const {
+  round2,
   getDollarPrice,
   resolveEffectivePhaseIndex,
   getBasePriceUsd,
@@ -64,6 +65,18 @@ async function createReplacementChallenge({
   const remainingUsd =
     paymentPlan === "installment" ? Number(pricing.second.totalUsd) : 0;
 
+  // price_usd / discount_usd / final_price_usd مثل CreateCh فقط سهمِ سفارش اول
+  // (قسط اول) را نگه می‌دارند؛ کل مبلغ در total_price_usd است و کل تخفیف بیمه
+  // در rules_snapshot.meta.insurance_discount_usd.
+  const isInstallment = paymentPlan === "installment";
+  const firstPriceUsd = isInstallment
+    ? round2(pricing.baseUsd / 2)
+    : pricing.baseUsd;
+  const firstFinalUsd = Number(pricing.first.totalUsd);
+  const firstDiscountUsd = isInstallment
+    ? round2(firstPriceUsd - firstFinalUsd)
+    : pricing.discountUsd;
+
   return UserChallenge.create(
     {
       user_id: sourceChallenge.user_id,
@@ -84,9 +97,9 @@ async function createReplacementChallenge({
       insurance_fee_usd: null,
       insurance_status: INSURANCE_STATUS.NONE,
 
-      price_usd: pricing.baseUsd,
-      discount_usd: pricing.discountUsd,
-      final_price_usd: pricing.payableUsd,
+      price_usd: firstPriceUsd,
+      discount_usd: firstDiscountUsd,
+      final_price_usd: firstFinalUsd,
 
       floating_risk_fee_usd: Number(sourceChallenge.floating_risk_fee_usd || 0),
       floating_risk_enabled: Boolean(sourceChallenge.floating_risk_enabled),
