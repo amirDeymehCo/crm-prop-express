@@ -5,6 +5,7 @@ const sequelize = require("../../../db");
 const AccountInstance = require("../../models/Challenge/AccountInstance");
 const UserChallenge = require("../../models/Challenge/UserChallenge");
 const HistoryChallenge = require("../../models/Challenge/HistoryChallenge");
+const { syncLog } = require("./log");
 
 /**
  * همگام‌سازی وضعیت حساب‌های cTrader.
@@ -92,7 +93,11 @@ async function closeAccount({ account, rights }) {
     // در فاصله‌ی استعلام کس دیگری (ادمین) تغییرش داده
     if (!acc || acc.status !== "active") {
       await t.rollback();
-      return { closedChallenge: false, skipped: true };
+      return {
+        closedChallenge: false,
+        skipped: true,
+        reason: `account status is ${acc?.status ?? "missing"}`,
+      };
     }
 
     const now = new Date();
@@ -113,12 +118,20 @@ async function closeAccount({ account, rights }) {
 
     // چالش را فقط وقتی می‌بندیم که این حساب، حسابِ فاز فعلی‌اش باشد؛
     // حساب فاز قبلی که فراموش شده active بماند نباید چالش فاز بعد را ببندد.
+    const challengeStatusBefore = userCh?.status ?? null;
     let closedChallenge = false;
-    if (
-      userCh &&
-      OPEN_CHALLENGE_STATUSES.includes(userCh.status) &&
-      Number(userCh.current_phase_index) === Number(acc.phase_index)
+    let reason = null;
+    if (!userCh) {
+      reason = "user_challenge not found";
+    } else if (!OPEN_CHALLENGE_STATUSES.includes(userCh.status)) {
+      reason = `challenge status is ${userCh.status}`;
+    } else if (
+      Number(userCh.current_phase_index) !== Number(acc.phase_index)
     ) {
+      reason = `account phase ${acc.phase_index} != challenge phase ${userCh.current_phase_index}`;
+    }
+
+    if (!reason) {
       await userCh.update(
         { status: "closed", ended_at: now },
         { transaction: t },
@@ -139,7 +152,12 @@ async function closeAccount({ account, rights }) {
     }
 
     await t.commit();
-    return { closedChallenge, skipped: false };
+    return {
+      closedChallenge,
+      skipped: false,
+      reason,
+      challengeStatusBefore,
+    };
   } catch (err) {
     await t.rollback();
     throw err;
@@ -181,6 +199,14 @@ async function runCTraderStatusSync({
     failedLogins: [],
     notFoundLogins: [],
   };
+
+  syncLog("run_start", {
+    dryRun,
+    batchSize,
+    maxAccounts: Number.isFinite(maxAccounts) ? maxAccounts : "all",
+    logins,
+    url: RIGHTS_URL,
+  });
 
   let lastId = 0;
 
@@ -244,6 +270,7 @@ async function runCTraderStatusSync({
           } catch (err) {
             stats.errors++;
             stats.failedLogins.push({ login: account.login, error: err.message });
+            syncLog("api_error", { login: account.login, error: err.message });
             return;
           }
 
@@ -273,22 +300,34 @@ async function runCTraderStatusSync({
           if (!looksFailed(account, rights)) {
             stats.needsReview++;
             stats.review.push(info);
+            syncLog("needs_review", info);
             return;
           }
 
           stats.closed.push(info);
-          if (dryRun) return;
+          if (dryRun) {
+            syncLog("closed_on_platform", { ...info, action: "dry_run" });
+            return;
+          }
 
           try {
             const res = await closeAccount({ account, rights });
             if (!res.skipped) stats.accountsFailed++;
             if (res.closedChallenge) stats.challengesClosed++;
+            syncLog("closed_on_platform", {
+              ...info,
+              action: res.skipped ? "skipped" : "account_failed",
+              challenge_closed: res.closedChallenge,
+              challenge_status_before: res.challengeStatusBefore,
+              reason: res.reason,
+            });
           } catch (err) {
             stats.errors++;
             stats.failedLogins.push({
               login: account.login,
               error: `db: ${err.message}`,
             });
+            syncLog("db_error", { ...info, error: err.message });
           }
         }),
       );
@@ -297,6 +336,9 @@ async function runCTraderStatusSync({
     if (rows.length < batchSize) break;
     await sleep(pauseMs);
   }
+
+  const { closed, review, failedLogins, notFoundLogins, ...summary } = stats;
+  syncLog("run_end", { ...summary, notFoundLogins });
 
   return stats;
 }

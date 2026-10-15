@@ -11,5 +11,12 @@ docker-compose.yml
 Jenkinsfile
 build.log
 uploads
-public/avatars
-public/certificates
+
+# User uploads (avatar-*, filesTicket-*, ...) land directly in public/ via
+# multer, and generated certificates in public/certificates. The container
+# reads them from the host through the `.:/app` bind mount, so keep them out
+# of the build context — only the certificate templates belong in the image.
+public/*
+!public/certificate_phase_1.jpg
+!public/certificate_phase_2.jpg
+!public/certificate-withdrawal1.jpg

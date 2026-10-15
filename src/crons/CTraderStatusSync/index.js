@@ -1,6 +1,7 @@
 const cron = require("node-cron");
 
 const { runCTraderStatusSync } = require("../../services/CTraderStatusSync");
+const { syncLog } = require("../../services/CTraderStatusSync/log");
 
 /**
  * همگام‌سازی شبانه‌ی وضعیت حساب‌های cTrader.
@@ -52,12 +53,18 @@ async function runNightlySync() {
 
     return stats;
   } catch (err) {
-    console.error("[ctrader-sync] cron error:", err?.message);
+    syncLog("run_crashed", { error: err?.message, stack: err?.stack });
     return null;
   } finally {
     running = false;
   }
 }
+
+// موقع بالا آمدن سرور ثبت می‌شود تا معلوم باشد کرون لود شده و در چه حالتی است
+syncLog("cron_loaded", {
+  schedule: "0 0 * * * Asia/Tehran",
+  apply: process.env.CTRADER_SYNC_APPLY === "true",
+});
 
 cron.schedule("0 0 * * *", () => runNightlySync(), {
   timezone: "Asia/Tehran",
